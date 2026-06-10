@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.bg.global.ioslauncher"
+    namespace = "com.vhmsoft.launcherios26"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -11,7 +11,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.bg.global.ioslauncher"
+        applicationId = "com.vhmsoft.launcherios26"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

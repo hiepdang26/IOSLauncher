@@ -4,7 +4,7 @@
     <data>
         <variable
             name="state"
-            type="com.bg.global.ioslauncher.ui.launcher.LauncherUiState" />
+            type="com.vhmsoft.launcherios26.ui.launcher.LauncherUiState" />
     </data>
 
         <FrameLayout
@@ -32,16 +32,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:clipChildren="true"
-                android:clipToPadding="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:overScrollMode="never" />
 
             <FrameLayout
                 android:id="@+id/bottomControlSlot"
                 android:layout_width="match_parent"
-                android:layout_height="34dp"
+                android:layout_height="54dp"
                 android:layout_marginTop="8dp"
-                android:layout_marginBottom="24dp">
+                android:layout_marginBottom="14dp"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:id="@+id/searchPill"
@@ -73,11 +75,14 @@
 
                 <LinearLayout
                     android:id="@+id/pageIndicator"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
+                    android:layout_width="120dp"
+                    android:layout_height="48dp"
                     android:layout_gravity="center"
+                    android:background="@drawable/bg_ios_page_indicator"
                     android:gravity="center"
                     android:orientation="horizontal"
+                    android:paddingStart="18dp"
+                    android:paddingEnd="18dp"
                     android:visibility="gone" />
             </FrameLayout>
 
@@ -219,6 +224,57 @@
                 android:shadowDy="1"
                 android:shadowRadius="3" />
         </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/folderOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#22000000"
+            android:clickable="true"
+            android:elevation="34dp"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/folderTitle"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_gravity="top"
+                android:layout_marginTop="156dp"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="1"
+                android:textColor="#D8FFFFFF"
+                android:textSize="32sp"
+                android:shadowColor="#66000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="4" />
+
+            <FrameLayout
+                android:id="@+id/folderContentPanel"
+                android:layout_width="310dp"
+                android:layout_height="360dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_launcher_folder_panel"
+                android:clickable="true"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:focusable="true"
+                android:paddingStart="16dp"
+                android:paddingTop="22dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="16dp">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/folderRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never" />
+            </FrameLayout>
+        </FrameLayout>
 
         <FrameLayout
             android:id="@+id/searchOverlay"

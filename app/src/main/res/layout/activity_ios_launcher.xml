@@ -8,14 +8,14 @@
 
         <variable
             name="state"
-            type="com.bg.global.ioslauncher.ui.launcher.LauncherUiState" />
+            type="com.vhmsoft.launcherios26.ui.launcher.LauncherUiState" />
 
         <variable
             name="presenter"
-            type="com.bg.global.ioslauncher.ui.launcher.IOSLauncherContract.Presenter" />
+            type="com.vhmsoft.launcherios26.ui.launcher.IOSLauncherContract.Presenter" />
     </data>
 
-    <com.luutinhit.launcher6.LauncherRootView
+    <com.vhmsoft.launcherios26.launcher6.LauncherRootView
         android:id="@+id/launcher"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -391,6 +391,7 @@
                         <include
                             android:id="@+id/appLibraryRow"
                             layout="@layout/view_launcher_setting_row"
+                            app:clickListener="@{(view) -> presenter.onAppLibraryClicked()}"
                             app:iconColor="@{@color/icon_library}"
                             app:iconDrawable="@{@drawable/ic_library_24}"
                             app:showDivider="@{false}"
@@ -428,5 +429,5 @@
             android:layout_height="match_parent"
             android:visibility="@{state.launcherMode.get() ? View.VISIBLE : View.GONE}"
             app:state="@{state}" />
-    </com.luutinhit.launcher6.LauncherRootView>
+    </com.vhmsoft.launcherios26.launcher6.LauncherRootView>
 </layout>
