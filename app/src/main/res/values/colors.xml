@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="launcher_background">#F6F8FB</color>
+    <color name="launcher_text_primary">#111827</color>
+    <color name="launcher_text_secondary">#5B6472</color>
+    <color name="settings_background">#F2F2F7</color>
+    <color name="settings_card">#FFFFFFFF</color>
+    <color name="settings_divider">#E5E5EA</color>
+    <color name="settings_chevron">#9B9BA0</color>
+    <color name="settings_header_text">#5E6675</color>
+    <color name="settings_fab">#FF3B4F</color>
+    <color name="social_like">#4267C8</color>
+    <color name="social_mail">#FF3B30</color>
+    <color name="social_share">#F5C400</color>
+    <color name="icon_lock">#FF5A3D</color>
+    <color name="icon_control">#69C96D</color>
+    <color name="icon_assistive">#111111</color>
+    <color name="icon_layout">#FF5A5F</color>
+    <color name="icon_weather">#FFC400</color>
+    <color name="icon_liquid">#00A5C8</color>
+    <color name="icon_blur">#2D8CFF</color>
+    <color name="icon_motion">#6352C6</color>
+    <color name="icon_wallpaper">#39A7E8</color>
+    <color name="icon_change">#FF3167</color>
+    <color name="icon_rename">#6FCB6B</color>
+    <color name="icon_library">#C7C51F</color>
+    <color name="ios_workspace_text">#FFFFFFFF</color>
+    <color name="ios_workspace_secondary_text">#DDE7F5</color>
+</resources>
