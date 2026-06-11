@@ -1,13 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layout xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <data>
-        <variable
-            name="item"
-            type="com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel" />
-    </data>
-
-    <LinearLayout
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:id="@+id/iconItemRoot"
         android:layout_width="match_parent"
         android:layout_height="104dp"
@@ -36,7 +28,6 @@
                 android:id="@+id/appIcon"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:contentDescription="@{item.label}"
                 android:scaleType="fitCenter"
                 android:visibility="visible" />
 
@@ -165,7 +156,6 @@
             android:ellipsize="end"
             android:gravity="top|center_horizontal"
             android:maxLines="2"
-            android:text="@{item.label}"
             android:textColor="@color/ios_workspace_text"
             android:textSize="12sp"
             android:shadowColor="#A0000000"
@@ -173,4 +163,3 @@
             android:shadowDy="1"
             android:shadowRadius="3" />
     </LinearLayout>
-</layout>

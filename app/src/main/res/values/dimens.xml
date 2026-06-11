@@ -2,4 +2,5 @@
 <resources>
     <dimen name="app_option_popup_width">262dp</dimen>
     <dimen name="app_option_popup_elevation">12dp</dimen>
+    <dimen name="settings_drawer_width">296dp</dimen>
 </resources>

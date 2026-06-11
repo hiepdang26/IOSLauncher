@@ -27,7 +27,6 @@ class LauncherAppOptionsController(
         dismiss()
 
         val optionBinding = PopupLauncherAppOptionsBinding.inflate(LayoutInflater.from(activity))
-        optionBinding.item = item
         val activePopup = PopupWindow(
             optionBinding.root,
             activity.resources.getDimensionPixelSize(R.dimen.app_option_popup_width),
@@ -61,7 +60,6 @@ class LauncherAppOptionsController(
             activePopup.dismiss()
             onDeleteClicked(item)
         }
-        optionBinding.executePendingBindings()
 
         popup = activePopup
         optionBinding.root.measure(

@@ -42,9 +42,11 @@ class AppLibraryAdapter(
         private val binding: ItemAppLibrarySettingBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: LauncherIconUiModel) {
-            binding.item = item
+            binding.appIcon.setImageDrawable(item.icon)
+            binding.appIcon.contentDescription = item.label
+            binding.appLabel.text = item.label
+            binding.categoryLabel.text = item.category.displayName
             binding.root.setOnClickListener { onAppClicked(item) }
-            binding.executePendingBindings()
         }
     }
 }

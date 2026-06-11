@@ -17,12 +17,20 @@ interface IOSLauncherContract {
         fun openApp(app: LauncherApp)
         fun openAppInfo(app: LauncherApp)
         fun openAppLibrarySettings()
+        fun showLockScreenDownloadPrompt()
+        fun showControlCenterDownloadPrompt()
+        fun showAssistiveTouchDownloadPrompt()
+        fun showSettingsDrawer()
     }
 
     interface Presenter {
         fun loadLauncherData()
         fun refreshApps()
         fun clearIconCache()
+        fun onSettingsMenuClicked()
+        fun onLockScreenClicked()
+        fun onControlCenterClicked()
+        fun onAssistiveTouchClicked()
         fun onSetDefaultLauncherClicked()
         fun onAppLibraryClicked()
         fun onAppClicked(item: LauncherIconUiModel)

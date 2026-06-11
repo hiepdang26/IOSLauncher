@@ -33,6 +33,22 @@ class IOSLauncherPresenter(
         launcherRepository.clearIconCache()
     }
 
+    override fun onSettingsMenuClicked() {
+        view?.showSettingsDrawer()
+    }
+
+    override fun onLockScreenClicked() {
+        view?.showLockScreenDownloadPrompt()
+    }
+
+    override fun onControlCenterClicked() {
+        view?.showControlCenterDownloadPrompt()
+    }
+
+    override fun onAssistiveTouchClicked() {
+        view?.showAssistiveTouchDownloadPrompt()
+    }
+
     override fun onSetDefaultLauncherClicked() {
         view?.openDefaultLauncherSelection()
     }

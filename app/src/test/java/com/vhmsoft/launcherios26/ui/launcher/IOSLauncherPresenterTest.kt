@@ -21,8 +21,29 @@ class IOSLauncherPresenterTest {
         assertTrue(view.openedAppLibrary)
     }
 
+    @Test
+    fun settingsFeatureClicks_requestMatchingPrompts() {
+        val view = FakeView()
+        val presenter = IOSLauncherPresenter(FakeRepository)
+
+        presenter.attachView(view)
+        presenter.onLockScreenClicked()
+        presenter.onControlCenterClicked()
+        presenter.onAssistiveTouchClicked()
+        presenter.onSettingsMenuClicked()
+
+        assertTrue(view.showedLockScreenDownload)
+        assertTrue(view.showedControlCenterDownload)
+        assertTrue(view.showedAssistiveTouchDownload)
+        assertTrue(view.showedSettingsDrawer)
+    }
+
     private class FakeView : IOSLauncherContract.View {
         var openedAppLibrary = false
+        var showedLockScreenDownload = false
+        var showedControlCenterDownload = false
+        var showedAssistiveTouchDownload = false
+        var showedSettingsDrawer = false
 
         override fun showLoading(isLoading: Boolean) = Unit
         override fun showLauncherApps(apps: List<LauncherIconUiModel>, folders: List<LauncherFolder>) = Unit
@@ -34,6 +55,18 @@ class IOSLauncherPresenterTest {
         override fun openAppInfo(app: LauncherApp) = Unit
         override fun openAppLibrarySettings() {
             openedAppLibrary = true
+        }
+        override fun showLockScreenDownloadPrompt() {
+            showedLockScreenDownload = true
+        }
+        override fun showControlCenterDownloadPrompt() {
+            showedControlCenterDownload = true
+        }
+        override fun showAssistiveTouchDownloadPrompt() {
+            showedAssistiveTouchDownload = true
+        }
+        override fun showSettingsDrawer() {
+            showedSettingsDrawer = true
         }
     }
 

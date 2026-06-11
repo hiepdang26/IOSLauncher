@@ -337,7 +337,6 @@ class LauncherIconAdapter(
         private var wiggleAnimator: ObjectAnimator? = null
 
         fun bind(item: LauncherHomeItemUiModel) {
-            binding.item = item
             applyFixedCellSize()
             stopWiggle()
             binding.root.alpha = 1f
@@ -350,7 +349,6 @@ class LauncherIconAdapter(
             binding.root.setOnLongClickListener(null)
             if (item is LauncherHomeItemUiModel.Placeholder) {
                 bindPlaceholder()
-                binding.executePendingBindings()
                 return
             }
             binding.iconPlate.setOnClickListener {
@@ -400,7 +398,6 @@ class LauncherIconAdapter(
             applyEditAnimation()
             applyFolderAbsorbAnimation(item)
             applyActiveDragVisibility(item)
-            binding.executePendingBindings()
         }
 
         private fun bindPlaceholder() {
@@ -421,6 +418,8 @@ class LauncherIconAdapter(
         private fun bindIconArtwork(item: LauncherHomeItemUiModel) {
             binding.iconPlate.visibility = View.VISIBLE
             binding.appLabel.visibility = View.VISIBLE
+            binding.appLabel.text = item.label
+            binding.appIcon.contentDescription = item.label
             when (item) {
                 is LauncherHomeItemUiModel.App -> {
                     val pendingFolderTarget = isPendingDropTarget(item)

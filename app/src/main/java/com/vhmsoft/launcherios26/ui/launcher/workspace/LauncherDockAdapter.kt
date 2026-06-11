@@ -51,8 +51,9 @@ class LauncherDockAdapter(
         private val binding: ItemLauncherDockIconBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: LauncherIconUiModel) {
-            binding.item = item
             binding.root.setOnClickListener(null)
+            binding.appIcon.setImageDrawable(item.icon)
+            binding.appIcon.contentDescription = item.label
             binding.iconPlate.setOnClickListener {
                 if (!editing) {
                     onIconClicked(item)
@@ -61,7 +62,6 @@ class LauncherDockAdapter(
             binding.removeBadge.visibility = if (editing) View.VISIBLE else View.GONE
             binding.removeBadge.setOnClickListener { onRemoveClicked(item) }
             applyEditAnimation()
-            binding.executePendingBindings()
         }
 
         private fun applyEditAnimation() {

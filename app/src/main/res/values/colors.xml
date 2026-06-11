@@ -10,6 +10,8 @@
     <color name="settings_divider">#E5E5EA</color>
     <color name="settings_chevron">#9B9BA0</color>
     <color name="settings_header_text">#5E6675</color>
+    <color name="settings_drawer_icon">#00A8B8</color>
+    <color name="settings_drawer_highlight">#DDDDDF</color>
     <color name="settings_fab">#FF3B4F</color>
     <color name="social_like">#4267C8</color>
     <color name="social_mail">#FF3B30</color>
@@ -26,6 +28,11 @@
     <color name="icon_change">#FF3167</color>
     <color name="icon_rename">#6FCB6B</color>
     <color name="icon_library">#C7C51F</color>
+    <color name="icon_hidden">#FFC400</color>
+    <color name="icon_notification">#F04C3F</color>
+    <color name="icon_make_default">#F72B78</color>
+    <color name="icon_rate">#FFC400</color>
+    <color name="icon_download">#6658E8</color>
     <color name="ios_workspace_text">#FFFFFFFF</color>
     <color name="ios_workspace_secondary_text">#DDE7F5</color>
 </resources>

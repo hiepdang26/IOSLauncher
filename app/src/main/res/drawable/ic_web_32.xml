@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M5,8h22v16H5z"
+        android:strokeColor="@color/settings_drawer_icon"
+        android:strokeWidth="2.5" />
+    <path
+        android:fillColor="@color/settings_drawer_icon"
+        android:pathData="M7,10h18v4H7zM8,17h8v4H8zM18,17h6v4h-6z" />
+</vector>

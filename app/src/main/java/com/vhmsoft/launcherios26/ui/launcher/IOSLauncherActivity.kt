@@ -1,10 +1,14 @@
 package com.vhmsoft.launcherios26.ui.launcher
 
+import android.app.SearchManager
 import android.app.role.RoleManager
+import android.app.Dialog
 import android.content.ComponentName
+import android.content.res.ColorStateList
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
@@ -31,6 +35,8 @@ import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
 import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
+import com.vhmsoft.launcherios26.databinding.DialogFeatureDownloadBinding
+import com.vhmsoft.launcherios26.databinding.ViewLauncherSettingRowBinding
 import com.vhmsoft.launcherios26.di.RepositoryProvider
 import com.vhmsoft.launcherios26.ui.applibrary.AppLibraryActivity
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherAppOptionsController
@@ -142,8 +148,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         binding = ActivityIosLauncherBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.lifecycleOwner = this
-        binding.state = state
         forceSettingsPanel = shouldOpenSettingsPanel(intent)
         systemUiController = LauncherSystemUiController(this, binding)
         keyboardController = LauncherKeyboardController(this)
@@ -190,10 +194,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         presenter = IOSLauncherPresenter(
             RepositoryProvider.provideLauncherRepository(applicationContext)
         )
-        binding.presenter = presenter
-        binding.makeDefaultLauncherRow.root.setOnClickListener {
-            presenter.onSetDefaultLauncherClicked()
-        }
+        setupSettingsRows()
+        setupSettingsDrawer()
+        updateLauncherContentDescription()
         presenter.attachView(this)
         updateLauncherMode()
         applyLauncherSystemUi()
@@ -245,10 +248,135 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         return super.dispatchTouchEvent(ev)
     }
 
+    private fun setupSettingsRows() {
+        binding.settingsMenuButton.setOnClickListener {
+            presenter.onSettingsMenuClicked()
+        }
+        binding.settingsFab.setOnClickListener {
+            presenter.onSetDefaultLauncherClicked()
+        }
+
+        bindSettingsRow(
+            row = binding.lockScreenRow,
+            titleRes = R.string.settings_lock_screen,
+            iconRes = R.drawable.ic_lock_24,
+            iconColorRes = R.color.icon_lock,
+            showDivider = true,
+            onClick = { presenter.onLockScreenClicked() }
+        )
+        bindSettingsRow(
+            row = binding.controlCenterRow,
+            titleRes = R.string.settings_control_center,
+            iconRes = R.drawable.ic_toggles_24,
+            iconColorRes = R.color.icon_control,
+            showDivider = true,
+            onClick = { presenter.onControlCenterClicked() }
+        )
+        bindSettingsRow(
+            row = binding.assistiveTouchRow,
+            titleRes = R.string.settings_assistive_touch,
+            iconRes = R.drawable.ic_assistive_24,
+            iconColorRes = R.color.icon_assistive,
+            showDivider = false,
+            onClick = { presenter.onAssistiveTouchClicked() }
+        )
+        bindSettingsRow(binding.layoutRow, R.string.settings_layout, R.drawable.ic_grid_24, R.color.icon_layout)
+        bindSettingsRow(binding.weatherRow, R.string.settings_weather, R.drawable.ic_weather_24, R.color.icon_weather)
+        bindSettingsRow(binding.liquidGlassRow, R.string.settings_liquid_glass, R.drawable.ic_drop_24, R.color.icon_liquid)
+        bindSettingsRow(binding.blurEffectRow, R.string.settings_blur_effect, R.drawable.ic_dots_24, R.color.icon_blur)
+        bindSettingsRow(
+            binding.motionWallpaperRow,
+            R.string.settings_motion_wallpaper,
+            R.drawable.ic_moon_24,
+            R.color.icon_motion
+        )
+        bindSettingsRow(binding.wallpaperRow, R.string.settings_wallpaper, R.drawable.ic_wallpaper_24, R.color.icon_wallpaper)
+        bindSettingsRow(binding.changeIconRow, R.string.settings_change_icon, R.drawable.ic_icon_change_24, R.color.icon_change)
+        bindSettingsRow(binding.renameRow, R.string.settings_rename, R.drawable.ic_text_ab_24, R.color.icon_rename)
+        bindSettingsRow(
+            row = binding.appLibraryRow,
+            titleRes = R.string.settings_app_library,
+            iconRes = R.drawable.ic_library_24,
+            iconColorRes = R.color.icon_library,
+            showDivider = true,
+            onClick = { presenter.onAppLibraryClicked() }
+        )
+        bindSettingsRow(binding.hiddenAppsRow, R.string.settings_hidden_apps, R.drawable.ic_eye_off_20, R.color.icon_hidden)
+        bindSettingsRow(
+            binding.notificationsRow,
+            R.string.settings_notifications,
+            R.drawable.ic_notification_badge_24,
+            R.color.icon_notification
+        )
+        bindSettingsRow(
+            row = binding.makeDefaultLauncherRow,
+            titleRes = R.string.settings_make_default_launcher,
+            iconRes = R.drawable.ic_circle_outline_24,
+            iconColorRes = R.color.icon_make_default,
+            showDivider = false,
+            onClick = { presenter.onSetDefaultLauncherClicked() }
+        )
+        bindSettingsRow(binding.rateRow, R.string.settings_rate_5_star, R.drawable.ic_star_24, R.color.icon_rate)
+        bindSettingsRow(
+            row = binding.moreAppsRow,
+            titleRes = R.string.settings_more_apps,
+            iconRes = R.drawable.ic_download_24,
+            iconColorRes = R.color.icon_download,
+            showDivider = false
+        )
+    }
+
+    private fun bindSettingsRow(
+        row: ViewLauncherSettingRowBinding,
+        titleRes: Int,
+        iconRes: Int,
+        iconColorRes: Int,
+        showDivider: Boolean = true,
+        onClick: (() -> Unit)? = null
+    ) {
+        row.rowTitle.setText(titleRes)
+        row.rowIcon.setImageResource(iconRes)
+        row.iconContainer.backgroundTintList = ColorStateList.valueOf(getColor(iconColorRes))
+        row.rowDivider.visibility = if (showDivider) View.VISIBLE else View.GONE
+        row.root.setOnClickListener(if (onClick == null) null else View.OnClickListener { onClick() })
+        row.root.isClickable = onClick != null
+        row.root.isFocusable = onClick != null
+    }
+
+    private fun setupSettingsDrawer() {
+        binding.settingsDrawerDim.setOnClickListener {
+            hideSettingsDrawer()
+        }
+        binding.settingsDrawerPanel.setOnClickListener {
+            // Consume drawer panel taps so only the dimmed area closes it.
+        }
+        binding.drawerReloadRow.setOnClickListener {
+            hideSettingsDrawer()
+            presenter.refreshApps()
+            showError(getString(R.string.drawer_reload_done))
+        }
+        binding.drawerPrivacyRow.setOnClickListener {
+            showDrawerComingSoon(R.string.drawer_privacy_policy)
+        }
+        binding.drawerGuideRow.setOnClickListener {
+            showDrawerComingSoon(R.string.drawer_user_guide)
+        }
+        binding.drawerWebsiteRow.setOnClickListener {
+            showDrawerComingSoon(R.string.drawer_website)
+        }
+        binding.drawerAboutRow.setOnClickListener {
+            showDrawerComingSoon(R.string.drawer_about_us)
+        }
+    }
+
     private fun installBackHandling() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    binding.settingsDrawerOverlay.visibility == View.VISIBLE -> {
+                        hideSettingsDrawer()
+                    }
+
                     binding.workspace.widgetSheetOverlay.visibility == View.VISIBLE -> {
                         hideWidgetSheet()
                     }
@@ -303,12 +431,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     override fun showLoading(isLoading: Boolean) {
-        state.loading.set(isLoading)
+        state.loading = isLoading
     }
 
     override fun showLauncherApps(apps: List<LauncherIconUiModel>, folders: List<LauncherFolder>) {
         homeItems = LauncherHomeLayoutBuilder.build(apps, folders)
-        state.appCount.set(apps.size)
+        state.appCount = apps.size
+        updateLauncherContentDescription()
         workspacePageAdapter.submitItems(homeItems)
         workspacePageAdapter.submitLibraryGroups(AppLibraryGroupBuilder.buildGroups(apps))
         dockAdapter.submitApps(apps.take(DOCK_APP_COUNT))
@@ -1051,6 +1180,169 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
+    override fun showLockScreenDownloadPrompt() {
+        showLockScreenDownloadDialog()
+    }
+
+    override fun showControlCenterDownloadPrompt() {
+        showControlCenterDownloadDialog()
+    }
+
+    override fun showAssistiveTouchDownloadPrompt() {
+        showAssistiveTouchDownloadDialog()
+    }
+
+    override fun showSettingsDrawer() {
+        val overlay = binding.settingsDrawerOverlay
+        val dimView = binding.settingsDrawerDim
+        val panel = binding.settingsDrawerPanel
+        val drawerWidth = settingsDrawerWidth()
+
+        panel.animate().cancel()
+        dimView.animate().cancel()
+        overlay.bringToFront()
+        panel.translationX = -drawerWidth
+        dimView.alpha = 0f
+        overlay.visibility = View.VISIBLE
+
+        dimView.animate()
+            .alpha(1f)
+            .setDuration(DRAWER_DIM_ANIMATION_MS)
+            .start()
+        panel.animate()
+            .translationX(0f)
+            .setDuration(DRAWER_OPEN_ANIMATION_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideSettingsDrawer() {
+        val overlay = binding.settingsDrawerOverlay
+        if (overlay.visibility != View.VISIBLE) {
+            return
+        }
+
+        val dimView = binding.settingsDrawerDim
+        val panel = binding.settingsDrawerPanel
+        panel.animate().cancel()
+        dimView.animate().cancel()
+        dimView.animate()
+            .alpha(0f)
+            .setDuration(DRAWER_DIM_ANIMATION_MS)
+            .start()
+        panel.animate()
+            .translationX(-settingsDrawerWidth())
+            .setDuration(DRAWER_CLOSE_ANIMATION_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                overlay.visibility = View.GONE
+                panel.translationX = 0f
+                dimView.alpha = 1f
+            }
+            .start()
+    }
+
+    private fun showDrawerComingSoon(titleRes: Int) {
+        hideSettingsDrawer()
+        showError(getString(R.string.app_option_coming_soon, getString(titleRes)))
+    }
+
+    private fun settingsDrawerWidth(): Float {
+        val measuredWidth = binding.settingsDrawerPanel.width
+        return if (measuredWidth > 0) {
+            measuredWidth.toFloat()
+        } else {
+            resources.getDimensionPixelSize(R.dimen.settings_drawer_width).toFloat()
+        }
+    }
+
+    private fun showLockScreenDownloadDialog() {
+        showFeatureDownloadDialog(
+            messageRes = R.string.lock_screen_download_message,
+            packageName = LOCK_SCREEN_PACKAGE_NAME,
+            previewDrawableRes = R.drawable.bg_lock_screen_download_preview
+        )
+    }
+
+    private fun showControlCenterDownloadDialog() {
+        showFeatureDownloadDialog(
+            messageRes = R.string.control_center_download_message,
+            packageName = CONTROL_CENTER_PACKAGE_NAME,
+            previewDrawableRes = R.drawable.bg_control_center_download_preview
+        )
+    }
+
+    private fun showAssistiveTouchDownloadDialog() {
+        showFeatureDownloadDialog(
+            messageRes = R.string.assistive_touch_download_message,
+            packageName = ASSISTIVE_TOUCH_PACKAGE_NAME,
+            previewDrawableRes = R.drawable.bg_assistive_touch_download_preview
+        )
+    }
+
+    private fun showFeatureDownloadDialog(
+        messageRes: Int,
+        packageName: String,
+        previewDrawableRes: Int
+    ) {
+        val dialog = Dialog(this)
+        val dialogBinding = DialogFeatureDownloadBinding.inflate(layoutInflater)
+        dialogBinding.downloadMessage.setText(messageRes)
+        dialogBinding.downloadPreview.setImageResource(previewDrawableRes)
+        dialogBinding.cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        dialogBinding.okButton.setOnClickListener {
+            dialog.dismiss()
+            openExternalPackage(packageName)
+        }
+
+        dialog.setContentView(dialogBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setDimAmount(0.56f)
+                setLayout((resources.displayMetrics.widthPixels * 0.86f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+        }
+        dialog.show()
+    }
+
+    private fun openExternalPackage(packageName: String) {
+        val marketIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("market://details?id=${Uri.encode(packageName)}")
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        runCatching {
+            startActivity(Intent.createChooser(marketIntent, null))
+        }.onFailure {
+            openExternalPackageSearch(packageName)
+        }
+    }
+
+    private fun openExternalPackageSearch(packageName: String) {
+        val searchIntent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+            putExtra(SearchManager.QUERY, packageName)
+        }
+        runCatching {
+            startActivity(searchIntent)
+        }.onFailure {
+            val webIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://www.google.com/search?q=${Uri.encode(packageName)}")
+            )
+            runCatching {
+                startActivity(webIntent)
+            }.onFailure {
+                showError(getString(R.string.launcher_open_app_failed, packageName))
+            }
+        }
+    }
+
     override fun openDefaultLauncherSelection() {
         if (isCurrentDefaultLauncher()) {
             forceSettingsPanel = false
@@ -1084,7 +1376,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     override fun openAppLibrarySettings() {
-        appLibraryLauncher.launch(Intent(this, AppLibraryActivity::class.java))
+        runCatching {
+            appLibraryLauncher.launch(Intent(this, AppLibraryActivity::class.java))
+        }.onFailure {
+            showError(getString(R.string.launcher_open_app_failed, getString(R.string.settings_app_library)))
+        }
     }
 
     override fun openApp(app: LauncherApp) {
@@ -1321,7 +1617,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun canStartEmptyLongPressEdit(): Boolean {
-        return state.launcherMode.get() &&
+        return state.launcherMode &&
             !editingHome &&
             binding.workspace.searchOverlay.visibility != View.VISIBLE &&
             binding.workspace.librarySearchOverlay.visibility != View.VISIBLE &&
@@ -1375,7 +1671,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun handlePullDownSearchGesture(event: MotionEvent): Boolean {
-        if (!state.launcherMode.get()) return false
+        if (!state.launcherMode) return false
         if (editingHome) return false
         if (binding.workspace.widgetSheetOverlay.visibility == View.VISIBLE) return false
         if (binding.workspace.editWidgetPrompt.visibility == View.VISIBLE) return false
@@ -1629,7 +1925,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun updateLauncherMode(forceAnimate: Boolean = false) {
         val showLauncherWorkspace = isCurrentDefaultLauncher() && !forceSettingsPanel
-        state.launcherMode.set(showLauncherWorkspace)
+        state.launcherMode = showLauncherWorkspace
+        binding.settingsPanel.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
+        binding.settingsFab.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
+        binding.workspace.root.visibility = if (showLauncherWorkspace) View.VISIBLE else View.GONE
         binding.launcher.setBackgroundResource(
             if (showLauncherWorkspace) R.drawable.bg_ios_wallpaper else R.color.settings_background
         )
@@ -1645,6 +1944,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             }
         }
         lastLauncherMode = showLauncherWorkspace
+    }
+
+    private fun updateLauncherContentDescription() {
+        binding.launcher.contentDescription = getString(
+            R.string.launcher_installed_apps_count_a11y,
+            state.appCount
+        )
     }
 
     private fun shouldOpenSettingsPanel(intent: Intent?): Boolean {
@@ -1734,5 +2040,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val NO_PREVIEW_INDEX = -1
         const val EMPTY_LONG_PRESS_MS = 520L
         const val EMPTY_LONG_PRESS_SLOP_DP = 10
+        const val DRAWER_OPEN_ANIMATION_MS = 220L
+        const val DRAWER_CLOSE_ANIMATION_MS = 180L
+        const val DRAWER_DIM_ANIMATION_MS = 160L
+        const val LOCK_SCREEN_PACKAGE_NAME = "com.luutinhit.lockscreennotificationsios"
+        const val CONTROL_CENTER_PACKAGE_NAME = "com.luutinhit.controlcenterios"
+        const val ASSISTIVE_TOUCH_PACKAGE_NAME = "com.luutinhit.assistivetouchios"
     }
 }
