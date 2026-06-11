@@ -135,6 +135,7 @@
 
         <TextView
             android:id="@+id/categoryLabel"
+            style="@style/IOSLauncherTextAppLabel"
             android:layout_width="match_parent"
             android:layout_height="24dp"
             android:ellipsize="end"

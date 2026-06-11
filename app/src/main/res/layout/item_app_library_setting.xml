@@ -32,6 +32,7 @@
         </FrameLayout>
 
         <TextView
+            style="@style/IOSLauncherTextListLabel"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginStart="12dp"
@@ -44,6 +45,7 @@
             android:textSize="14sp" />
 
         <TextView
+            style="@style/IOSLauncherTextListLabel"
             android:layout_width="112dp"
             android:layout_height="match_parent"
             android:ellipsize="end"
