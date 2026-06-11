@@ -9,7 +9,6 @@ import com.vhmsoft.launcherios26.common.coroutines.DefaultDispatcherProvider
 import com.vhmsoft.launcherios26.common.coroutines.DispatcherProvider
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 class PackageManagerRemoteDataSource(
     private val packageManager: PackageManager,
@@ -50,9 +49,7 @@ class PackageManagerRemoteDataSource(
             .distinctBy { it.iconKey }
             .sortedWith(
                 compareBy<LauncherApp> { app -> app.packageName != appPackageName }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { app ->
-                        app.label.lowercase(Locale.getDefault())
-                    }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { app -> app.label }
             )
             .toList()
     }

@@ -42,8 +42,9 @@ class LauncherRepositoryImpl(
     }
 
     override fun getAppCategory(app: LauncherApp): LauncherAppCategory {
-        val savedCategory = LauncherAppCategory.fromCode(localDataSource.getAppCategory(app.iconKey))
-        return if (savedCategory != LauncherAppCategory.OTHER || localDataSource.getAppCategory(app.iconKey) != null) {
+        val savedCategoryCode = localDataSource.getAppCategory(app.iconKey)
+        val savedCategory = LauncherAppCategory.fromCode(savedCategoryCode)
+        return if (savedCategoryCode != null) {
             savedCategory
         } else {
             LauncherAppCategory.inferFrom(app)

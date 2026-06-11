@@ -3,6 +3,7 @@ package com.vhmsoft.launcherios26.ui.applibrary
 import com.vhmsoft.launcherios26.base.CoroutinePresenter
 import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import com.vhmsoft.launcherios26.data.repository.LauncherRepository
+import com.vhmsoft.launcherios26.ui.launcher.getLauncherIconItems
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
 import kotlinx.coroutines.launch
 
@@ -13,16 +14,7 @@ class AppLibraryPresenter(
 
     override fun loadApps() {
         presenterScope.launch {
-            runCatching { launcherRepository.getInstalledApps() }
-                .mapCatching { apps ->
-                    apps.map { app ->
-                        LauncherIconUiModel(
-                            app = app,
-                            icon = launcherRepository.getAppIcon(app),
-                            category = launcherRepository.getAppCategory(app)
-                        )
-                    }
-                }
+            runCatching { launcherRepository.getLauncherIconItems() }
                 .onSuccess { items ->
                     currentApps = items
                     view?.showApps(items)

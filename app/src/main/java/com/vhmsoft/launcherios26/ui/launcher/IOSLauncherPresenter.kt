@@ -14,16 +14,7 @@ class IOSLauncherPresenter(
     override fun loadLauncherData() {
         view?.showLoading(true)
         presenterScope.launch {
-            runCatching { launcherRepository.getInstalledApps() }
-                .mapCatching { apps ->
-                    apps.map { app ->
-                        LauncherIconUiModel(
-                            app = app,
-                            icon = launcherRepository.getAppIcon(app),
-                            category = launcherRepository.getAppCategory(app)
-                        )
-                    }
-                }
+            runCatching { launcherRepository.getLauncherIconItems() }
                 .onSuccess { iconItems ->
                     view?.showLauncherApps(iconItems, launcherRepository.getLauncherFolders())
                 }

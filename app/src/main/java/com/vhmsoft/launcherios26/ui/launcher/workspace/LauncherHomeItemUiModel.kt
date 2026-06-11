@@ -20,10 +20,26 @@ sealed class LauncherHomeItemUiModel {
         override val stableId: Long = id.hashCode().toLong()
     }
 
+    data class Placeholder(
+        private val placeholderId: Long = nextPlaceholderId()
+    ) : LauncherHomeItemUiModel() {
+        override val label: String = ""
+        override val stableId: Long = Long.MIN_VALUE + placeholderId
+    }
+
     fun containedApps(): List<LauncherIconUiModel> {
         return when (this) {
             is App -> listOf(iconItem)
             is Folder -> apps
+            is Placeholder -> emptyList()
+        }
+    }
+
+    private companion object {
+        private var nextPlaceholderId = 1L
+
+        fun nextPlaceholderId(): Long {
+            return nextPlaceholderId++
         }
     }
 }

@@ -42,7 +42,7 @@ object LauncherHomeLayoutBuilder {
     }
 
     fun extractFolders(items: List<LauncherHomeItemUiModel>): List<LauncherFolder> {
-        return items.mapNotNull { item ->
+        return normalize(items).mapNotNull { item ->
             val folder = item as? LauncherHomeItemUiModel.Folder ?: return@mapNotNull null
             if (folder.apps.size < MIN_FOLDER_SIZE) return@mapNotNull null
 
@@ -55,7 +55,21 @@ object LauncherHomeLayoutBuilder {
     }
 
     fun flattenApps(items: List<LauncherHomeItemUiModel>): List<LauncherIconUiModel> {
-        return items.flatMap { item -> item.containedApps() }
+        return normalize(items).flatMap { item -> item.containedApps() }
+    }
+
+    fun normalize(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
+        return items.flatMap { item ->
+            when (item) {
+                is LauncherHomeItemUiModel.App -> listOf(item)
+                is LauncherHomeItemUiModel.Placeholder -> listOf(item)
+                is LauncherHomeItemUiModel.Folder -> when (item.apps.size) {
+                    0 -> emptyList()
+                    1 -> listOf(LauncherHomeItemUiModel.App(item.apps.first()))
+                    else -> listOf(item)
+                }
+            }
+        }
     }
 
     const val DEFAULT_FOLDER_TITLE = "Thư mục"

@@ -276,6 +276,24 @@
             </FrameLayout>
         </FrameLayout>
 
+        <View
+            android:id="@+id/folderDragLeftEdgeGlow"
+            android:layout_width="10dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:background="#88FFFFFF"
+            android:elevation="68dp"
+            android:visibility="gone" />
+
+        <View
+            android:id="@+id/folderDragRightEdgeGlow"
+            android:layout_width="10dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="#88FFFFFF"
+            android:elevation="68dp"
+            android:visibility="gone" />
+
         <FrameLayout
             android:id="@+id/searchOverlay"
             android:layout_width="match_parent"
