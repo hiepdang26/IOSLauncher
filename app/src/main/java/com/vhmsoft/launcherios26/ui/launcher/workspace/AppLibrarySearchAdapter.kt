@@ -1,5 +1,6 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.TextView
@@ -13,6 +14,7 @@ class AppLibrarySearchAdapter(
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     private val rows = mutableListOf<Row>()
     private val sectionPositions = linkedMapOf<String, Int>()
+    private var darkMode = false
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return if (viewType == VIEW_TYPE_SECTION) {
@@ -66,6 +68,12 @@ class AppLibrarySearchAdapter(
 
     fun positionForSection(section: String): Int? = sectionPositions[section]
 
+    fun setDarkMode(enabled: Boolean) {
+        if (darkMode == enabled) return
+        darkMode = enabled
+        notifyDataSetChanged()
+    }
+
     private fun sectionFor(label: String): String {
         val normalized = Normalizer.normalize(label.trim(), Normalizer.Form.NFD)
             .replace("\\p{Mn}+".toRegex(), "")
@@ -82,6 +90,8 @@ class AppLibrarySearchAdapter(
     ) : RecyclerView.ViewHolder(titleView) {
         fun bind(title: String) {
             titleView.text = title
+            titleView.setTextColor(Color.WHITE)
+            titleView.setShadowLayer(2f, 0f, 1f, 0x80000000.toInt())
         }
     }
 
@@ -89,9 +99,11 @@ class AppLibrarySearchAdapter(
         private val binding: ItemAppLibrarySearchAppBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: LauncherIconUiModel) {
-            binding.appIcon.setImageDrawable(item.icon)
+            binding.appIcon.setImageDrawable(item.displayIcon)
             binding.appIcon.contentDescription = item.label
             binding.appLabel.text = item.label
+            binding.appLabel.setTextColor(Color.WHITE)
+            binding.appLabel.setShadowLayer(2f, 0f, 1f, 0x80000000.toInt())
             binding.root.setOnClickListener { onAppClicked(item) }
         }
     }

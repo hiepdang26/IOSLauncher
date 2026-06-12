@@ -8,7 +8,6 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.PointF
-import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -22,10 +21,17 @@ import kotlin.math.min
 import kotlin.math.sin
 
 object IosLauncherIconTheme {
+    var darkMode: Boolean = false
+        private set
+
+    fun setDarkMode(enabled: Boolean) {
+        darkMode = enabled
+    }
+
     fun createIcon(app: LauncherApp, fallbackIcon: Drawable): Drawable {
         return roleFor(app)?.let { role ->
             IosSystemIconDrawable(role)
-        } ?: IosMaskedIconDrawable(app.iconKey, fallbackIcon)
+        } ?: IosMaskedIconDrawable(fallbackIcon)
     }
 
     private fun roleFor(app: LauncherApp): IconRole? {
@@ -144,29 +150,37 @@ private class IosSystemIconDrawable(
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
+    override fun getConstantState(): Drawable.ConstantState {
+        return object : Drawable.ConstantState() {
+            override fun newDrawable(): Drawable = IosSystemIconDrawable(role)
+
+            override fun getChangingConfigurations(): Int = 0
+        }
+    }
+
     private fun drawBackground(canvas: Canvas, area: RectF, role: IconRole) {
         paint.alpha = alphaValue
         paint.style = Paint.Style.FILL
         paint.shader = when (role) {
             IconRole.MAIL -> gradient(area, 0xFF32A8FF.toInt(), 0xFF0B70FF.toInt())
-            IconRole.CAMERA -> gradient(area, 0xFFF6F6F6.toInt(), 0xFF9CA5AE.toInt())
-            IconRole.MAPS -> gradient(area, 0xFFF5F7F8.toInt(), 0xFFDDEAF4.toInt())
+            IconRole.CAMERA -> if (darkMode()) gradient(area, 0xFF505057.toInt(), 0xFF111114.toInt()) else gradient(area, 0xFFF6F6F6.toInt(), 0xFF9CA5AE.toInt())
+            IconRole.MAPS -> if (darkMode()) gradient(area, 0xFF20242A.toInt(), 0xFF0A1018.toInt()) else gradient(area, 0xFFF5F7F8.toInt(), 0xFFDDEAF4.toInt())
             IconRole.WEATHER -> gradient(area, 0xFF43B3FF.toInt(), 0xFF1683FF.toInt())
             IconRole.NEWS -> gradient(area, 0xFFFF6D73.toInt(), 0xFFFF2F57.toInt())
-            IconRole.HOME -> gradient(area, 0xFFFFFFFF.toInt(), 0xFFF2F4F7.toInt())
+            IconRole.HOME -> if (darkMode()) gradient(area, 0xFF1C1C1E.toInt(), 0xFF050507.toInt()) else gradient(area, 0xFFFFFFFF.toInt(), 0xFFF2F4F7.toInt())
             IconRole.STOCKS -> gradient(area, 0xFF111318.toInt(), 0xFF020306.toInt())
             IconRole.VIDEOS -> gradient(area, 0xFF69D5FF.toInt(), 0xFF23A3E8.toInt())
             IconRole.STORE -> gradient(area, 0xFF56C8FF.toInt(), 0xFF0C82FF.toInt())
             IconRole.BOOKS -> gradient(area, 0xFFFFB13B.toInt(), 0xFFFF8A00.toInt())
             IconRole.WALLET -> gradient(area, 0xFF26282D.toInt(), 0xFF050506.toInt())
-            IconRole.SETTINGS -> gradient(area, 0xFFE8EDF2.toInt(), 0xFFAAB4BF.toInt())
+            IconRole.SETTINGS -> if (darkMode()) gradient(area, 0xFF1F1F22.toInt(), 0xFF050507.toInt()) else gradient(area, 0xFFE8EDF2.toInt(), 0xFFAAB4BF.toInt())
             IconRole.PHONE -> gradient(area, 0xFF51F36A.toInt(), 0xFF13BF36.toInt())
-            IconRole.BROWSER -> gradient(area, 0xFFFFFFFF.toInt(), 0xFFEAF5FF.toInt())
+            IconRole.BROWSER -> if (darkMode()) gradient(area, 0xFF17181B.toInt(), 0xFF000000.toInt()) else gradient(area, 0xFFFFFFFF.toInt(), 0xFFEAF5FF.toInt())
             IconRole.MESSAGES -> gradient(area, 0xFF54F56D.toInt(), 0xFF0EC83C.toInt())
-            IconRole.MUSIC -> gradient(area, 0xFFFFFFFF.toInt(), 0xFFFFF3F8.toInt())
-            IconRole.CONTACTS -> gradient(area, 0xFFF1F5F8.toInt(), 0xFFC7D3DF.toInt())
-            IconRole.FILES -> gradient(area, 0xFFFFC737.toInt(), 0xFFFF9F18.toInt())
-            else -> gradient(area, 0xFFFFFFFF.toInt(), 0xFFF1F3F6.toInt())
+            IconRole.MUSIC -> if (darkMode()) gradient(area, 0xFF1C1C1E.toInt(), 0xFF050507.toInt()) else gradient(area, 0xFFFFFFFF.toInt(), 0xFFFFF3F8.toInt())
+            IconRole.CONTACTS -> if (darkMode()) gradient(area, 0xFF1E2228.toInt(), 0xFF090B0F.toInt()) else gradient(area, 0xFFF1F5F8.toInt(), 0xFFC7D3DF.toInt())
+            IconRole.FILES -> if (darkMode()) gradient(area, 0xFF202124.toInt(), 0xFF050506.toInt()) else gradient(area, 0xFFFFC737.toInt(), 0xFFFF9F18.toInt())
+            else -> if (darkMode()) gradient(area, 0xFF0F0F12.toInt(), 0xFF000000.toInt()) else gradient(area, 0xFFFFFFFF.toInt(), 0xFFF1F3F6.toInt())
         }
         canvas.drawRect(area, paint)
         paint.shader = null
@@ -216,11 +230,19 @@ private class IosSystemIconDrawable(
     }
 
     private fun drawCalendar(canvas: Canvas, area: RectF) {
-        drawSolidRound(canvas, area, Color.WHITE)
+        drawSolidRound(canvas, area, if (darkMode()) Color.BLACK else Color.WHITE)
         val r = area.width()
         drawCenteredText(canvas, "Friday", area.centerX(), area.top + r * 0.22f, r * 0.13f, 0xFFFF4D57.toInt(), Typeface.BOLD)
         val day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH).toString()
-        drawCenteredText(canvas, day, area.centerX(), area.top + r * 0.63f, r * 0.45f, 0xFF1B1B1F.toInt(), Typeface.NORMAL)
+        drawCenteredText(
+            canvas,
+            day,
+            area.centerX(),
+            area.top + r * 0.63f,
+            r * 0.45f,
+            if (darkMode()) Color.WHITE else 0xFF1B1B1F.toInt(),
+            Typeface.NORMAL
+        )
     }
 
     private fun drawPhotos(canvas: Canvas, area: RectF) {
@@ -285,10 +307,10 @@ private class IosSystemIconDrawable(
     }
 
     private fun drawClock(canvas: Canvas, area: RectF) {
-        drawSolidRound(canvas, area, Color.WHITE)
+        drawSolidRound(canvas, area, if (darkMode()) Color.BLACK else Color.WHITE)
         val r = area.width()
         strokePaint.alpha = alphaValue
-        strokePaint.color = 0xFF111111.toInt()
+        strokePaint.color = if (darkMode()) Color.WHITE else 0xFF111111.toInt()
         strokePaint.strokeWidth = r * 0.018f
         canvas.drawCircle(area.centerX(), area.centerY(), r * 0.34f, strokePaint)
         for (tick in 0 until 12) {
@@ -345,14 +367,14 @@ private class IosSystemIconDrawable(
     }
 
     private fun drawNotes(canvas: Canvas, area: RectF) {
-        drawSolidRound(canvas, area, Color.WHITE)
+        drawSolidRound(canvas, area, if (darkMode()) Color.BLACK else Color.WHITE)
         val r = area.width()
         paint.alpha = alphaValue
         paint.color = 0xFFFFCC00.toInt()
         rect.set(area.left, area.top, area.right, area.top + r * 0.23f)
         canvas.drawRect(rect, paint)
         strokePaint.alpha = (alphaValue * 0.62f).toInt()
-        strokePaint.color = 0xFFC9CDD2.toInt()
+        strokePaint.color = if (darkMode()) 0xFF333333.toInt() else 0xFFC9CDD2.toInt()
         strokePaint.strokeWidth = r * 0.017f
         repeat(4) { index ->
             val y = area.top + r * (0.38f + index * 0.13f)
@@ -376,7 +398,7 @@ private class IosSystemIconDrawable(
     }
 
     private fun drawReminders(canvas: Canvas, area: RectF) {
-        drawSolidRound(canvas, area, Color.WHITE)
+        drawSolidRound(canvas, area, if (darkMode()) Color.BLACK else Color.WHITE)
         val r = area.width()
         val colors = intArrayOf(0xFFFF9500.toInt(), 0xFF34C759.toInt(), 0xFF007AFF.toInt(), 0xFFFF2D55.toInt())
         repeat(4) { index ->
@@ -385,7 +407,7 @@ private class IosSystemIconDrawable(
             paint.color = colors[index]
             canvas.drawCircle(area.left + r * 0.24f, y, r * 0.035f, paint)
             strokePaint.alpha = (alphaValue * 0.55f).toInt()
-            strokePaint.color = 0xFFC7CDD3.toInt()
+            strokePaint.color = if (darkMode()) 0xFF3A3A3C.toInt() else 0xFFC7CDD3.toInt()
             strokePaint.strokeWidth = r * 0.02f
             canvas.drawLine(area.left + r * 0.34f, y, area.right - r * 0.18f, y, strokePaint)
         }
@@ -426,7 +448,7 @@ private class IosSystemIconDrawable(
     }
 
     private fun drawHealth(canvas: Canvas, area: RectF) {
-        drawSolidRound(canvas, area, Color.WHITE)
+        drawSolidRound(canvas, area, if (darkMode()) Color.BLACK else Color.WHITE)
         val r = area.width()
         paint.alpha = alphaValue
         paint.color = 0xFFFF2D55.toInt()
@@ -489,7 +511,7 @@ private class IosSystemIconDrawable(
         paint.alpha = alphaValue
         paint.color = 0xFF2EA7FF.toInt()
         canvas.drawCircle(area.centerX(), area.centerY(), r * 0.32f, paint)
-        paint.color = Color.WHITE
+        paint.color = if (darkMode()) 0xFF101114.toInt() else Color.WHITE
         canvas.drawCircle(area.centerX(), area.centerY(), r * 0.27f, paint)
         paint.color = 0xFFFF3B30.toInt()
         drawNeedle(canvas, area, -1f)
@@ -528,11 +550,11 @@ private class IosSystemIconDrawable(
     private fun drawContacts(canvas: Canvas, area: RectF) {
         val r = area.width()
         paint.alpha = alphaValue
-        paint.color = 0xFF8E8E93.toInt()
+        paint.color = if (darkMode()) 0xFFC7C7CC.toInt() else 0xFF8E8E93.toInt()
         canvas.drawCircle(area.centerX(), area.top + r * 0.36f, r * 0.13f, paint)
         rect.set(area.left + r * 0.27f, area.top + r * 0.54f, area.right - r * 0.27f, area.bottom - r * 0.2f)
         canvas.drawOval(rect, paint)
-        paint.color = 0xFF34C759.toInt()
+        paint.color = if (darkMode()) 0xFF2E8B57.toInt() else 0xFF34C759.toInt()
         rect.set(area.right - r * 0.16f, area.top + r * 0.16f, area.right, area.bottom - r * 0.16f)
         canvas.drawRect(rect, paint)
     }
@@ -540,7 +562,7 @@ private class IosSystemIconDrawable(
     private fun drawFiles(canvas: Canvas, area: RectF) {
         val r = area.width()
         paint.alpha = alphaValue
-        paint.color = Color.WHITE
+        paint.color = if (darkMode()) 0xFF2C2C2E.toInt() else Color.WHITE
         rect.set(area.left + r * 0.18f, area.top + r * 0.28f, area.right - r * 0.18f, area.bottom - r * 0.22f)
         canvas.drawRoundRect(rect, r * 0.055f, r * 0.055f, paint)
         paint.color = 0xFFFFC737.toInt()
@@ -624,13 +646,15 @@ private class IosSystemIconDrawable(
     private fun gradient(area: RectF, startColor: Int, endColor: Int): LinearGradient {
         return LinearGradient(area.left, area.top, area.right, area.bottom, startColor, endColor, Shader.TileMode.CLAMP)
     }
+
+    private fun darkMode(): Boolean {
+        return IosLauncherIconTheme.darkMode
+    }
 }
 
 private class IosMaskedIconDrawable(
-    private val key: String,
     private val source: Drawable
 ) : Drawable() {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val clipPath = Path()
     private var alphaValue = 255
 
@@ -648,10 +672,6 @@ private class IosMaskedIconDrawable(
         clipPath.reset()
         clipPath.addRoundRect(area, radius, radius, Path.Direction.CW)
         canvas.clipPath(clipPath)
-        paint.shader = fallbackGradient(area)
-        paint.alpha = alphaValue
-        canvas.drawRect(area, paint)
-        paint.shader = null
         source.alpha = alphaValue
         source.setBounds(area.left.toInt(), area.top.toInt(), area.right.toInt(), area.bottom.toInt())
         source.draw(canvas)
@@ -671,22 +691,16 @@ private class IosMaskedIconDrawable(
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 
-    private fun fallbackGradient(area: RectF): RadialGradient {
-        val seed = key.hashCode()
-        val start = Color.HSVToColor(
-            floatArrayOf(
-                ((seed and 0xFF) * 360f / 255f),
-                0.3f,
-                0.95f
-            )
-        )
-        val end = Color.HSVToColor(
-            floatArrayOf(
-                (((seed shr 8) and 0xFF) * 360f / 255f),
-                0.38f,
-                0.72f
-            )
-        )
-        return RadialGradient(area.centerX(), area.top, area.width() * 0.9f, start, end, Shader.TileMode.CLAMP)
+    override fun getConstantState(): Drawable.ConstantState {
+        val sourceState = source.constantState
+        val sourceFallback = source
+        return object : Drawable.ConstantState() {
+            override fun newDrawable(): Drawable {
+                val clonedSource = sourceState?.newDrawable()?.mutate() ?: sourceFallback.mutate()
+                return IosMaskedIconDrawable(clonedSource)
+            }
+
+            override fun getChangingConfigurations(): Int = 0
+        }
     }
 }

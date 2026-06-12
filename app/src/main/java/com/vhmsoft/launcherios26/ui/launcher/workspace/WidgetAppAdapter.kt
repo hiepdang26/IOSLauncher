@@ -42,7 +42,7 @@ class WidgetAppAdapter(
         private val binding: ItemWidgetAppBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: LauncherIconUiModel) {
-            binding.appIcon.setImageDrawable(item.icon)
+            binding.appIcon.setImageDrawable(item.displayIcon)
             binding.appIcon.contentDescription = item.label
             binding.appLabel.text = item.label
             binding.root.setOnClickListener { onAppClicked(item) }

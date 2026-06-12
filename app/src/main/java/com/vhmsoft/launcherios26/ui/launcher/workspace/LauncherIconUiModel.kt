@@ -11,4 +11,10 @@ data class LauncherIconUiModel(
 ) {
     val label: String = app.label
     val stableId: Long = app.iconKey.hashCode().toLong()
+
+    val displayIcon: Drawable
+        get() = icon.constantState
+            ?.newDrawable()
+            ?.mutate()
+            ?: icon.mutate()
 }

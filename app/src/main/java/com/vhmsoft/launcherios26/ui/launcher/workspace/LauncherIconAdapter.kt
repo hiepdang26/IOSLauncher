@@ -1,6 +1,7 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
 import android.animation.ObjectAnimator
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -25,10 +26,12 @@ class LauncherIconAdapter(
 ) : RecyclerView.Adapter<LauncherIconAdapter.IconViewHolder>() {
     private val items = mutableListOf<LauncherHomeItemUiModel>()
     private var itemHeightPx: Int = 0
+    private var iconSizeDp: Int = DEFAULT_ICON_SIZE_DP
     private var editing = false
     private var pendingDropTarget: PendingDropTarget? = null
     private var recentlyUpdatedFolderStableId: Long? = null
     private var activeDragStableId: Long? = null
+    private var darkMode = false
     private var activeTouchRawX = 0f
     private var activeTouchRawY = 0f
     private var hasActiveTouch = false
@@ -71,6 +74,13 @@ class LauncherIconAdapter(
         notifyDataSetChanged()
     }
 
+    fun setIconSizeDp(sizeDp: Int) {
+        val boundedSize = sizeDp.coerceIn(MIN_ICON_SIZE_DP, MAX_ICON_SIZE_DP)
+        if (iconSizeDp == boundedSize) return
+        iconSizeDp = boundedSize
+        notifyDataSetChanged()
+    }
+
     fun setEditing(enabled: Boolean) {
         if (editing == enabled) return
         editing = enabled
@@ -82,6 +92,12 @@ class LauncherIconAdapter(
     }
 
     fun isEditing(): Boolean = editing
+
+    fun setDarkMode(enabled: Boolean) {
+        if (darkMode == enabled) return
+        darkMode = enabled
+        notifyDataSetChanged()
+    }
 
     fun stableIdAt(position: Int): Long? {
         return items.getOrNull(position)?.stableId
@@ -423,17 +439,15 @@ class LauncherIconAdapter(
             when (item) {
                 is LauncherHomeItemUiModel.App -> {
                     val pendingFolderTarget = isPendingDropTarget(item)
-                    binding.iconPlate.setBackgroundResource(
-                        if (pendingFolderTarget) R.drawable.bg_launcher_folder_preview else 0
-                    )
-                    binding.appIcon.setImageDrawable(item.iconItem.icon)
+                    binding.iconPlate.background = if (pendingFolderTarget) folderPreviewBackground() else null
+                    binding.appIcon.setImageDrawable(item.iconItem.displayIcon)
                     binding.appIcon.visibility = View.VISIBLE
                     binding.folderPreview.visibility = View.GONE
                     clearFolderPreviewIcons()
                 }
 
                 is LauncherHomeItemUiModel.Folder -> {
-                    binding.iconPlate.setBackgroundResource(R.drawable.bg_launcher_folder_preview)
+                    binding.iconPlate.background = folderPreviewBackground()
                     binding.appIcon.visibility = View.GONE
                     binding.appIcon.setImageDrawable(null)
                     binding.folderPreview.visibility = View.VISIBLE
@@ -525,7 +539,7 @@ class LauncherIconAdapter(
             folderPreviewIcons().forEachIndexed { index, imageView ->
                 val app = apps.getOrNull(index)
                 imageView.visibility = if (app == null) View.INVISIBLE else View.VISIBLE
-                imageView.setImageDrawable(app?.icon)
+                imageView.setImageDrawable(app?.displayIcon)
             }
         }
 
@@ -533,6 +547,14 @@ class LauncherIconAdapter(
             folderPreviewIcons().forEach { imageView ->
                 imageView.visibility = View.INVISIBLE
                 imageView.setImageDrawable(null)
+            }
+        }
+
+        private fun folderPreviewBackground(): GradientDrawable {
+            return GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(16).toFloat()
+                setColor(if (darkMode) 0x5A42484B else 0x705F6663)
             }
         }
 
@@ -557,7 +579,7 @@ class LauncherIconAdapter(
                 height = itemHeightPx
             }
 
-            val iconSize = min(dp(66), max(dp(54), itemHeightPx - dp(40)))
+            val iconSize = min(dp(iconSizeDp), max(dp(MIN_ICON_SIZE_DP), itemHeightPx - dp(36)))
             binding.iconPlate.layoutParams = binding.iconPlate.layoutParams.apply {
                 width = iconSize
                 height = iconSize
@@ -628,6 +650,12 @@ class LauncherIconAdapter(
         val draggedStableId: Long,
         val targetStableId: Long
     )
+
+    private companion object {
+        const val MIN_ICON_SIZE_DP = 52
+        const val DEFAULT_ICON_SIZE_DP = 64
+        const val MAX_ICON_SIZE_DP = 78
+    }
 
     private fun notifyDragVisibilityChanged(stableId: Long?) {
         if (stableId == null) return

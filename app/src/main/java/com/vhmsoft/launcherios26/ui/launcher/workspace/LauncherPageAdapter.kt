@@ -1,5 +1,8 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -31,10 +34,15 @@ class LauncherPageAdapter(
     private val onLibrarySearchClicked: () -> Unit = {},
     private val onLibraryGroupClicked: (AppLibraryGroupUiModel) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+    private val sourceItems = mutableListOf<LauncherHomeItemUiModel>()
     private val pages = mutableListOf<List<LauncherHomeItemUiModel>>()
     private val libraryGroups = mutableListOf<AppLibraryGroupUiModel>()
     private val attachedHomePageHolders = mutableMapOf<Int, PageViewHolder>()
+    private var attachedLibraryPageHolder: AppLibraryViewHolder? = null
     private var editing = false
+    private var darkMode = false
+    private var pageRows = DEFAULT_PAGE_ROWS
+    private var iconSizeDp = DEFAULT_ICON_SIZE_DP
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return when (viewType) {
@@ -68,6 +76,8 @@ class LauncherPageAdapter(
     override fun onViewDetachedFromWindow(holder: RecyclerView.ViewHolder) {
         if (holder is PageViewHolder) {
             attachedHomePageHolders.remove(holder.boundPagePosition(), holder)
+        } else if (holder is AppLibraryViewHolder && attachedLibraryPageHolder === holder) {
+            attachedLibraryPageHolder = null
         }
         super.onViewDetachedFromWindow(holder)
     }
@@ -75,6 +85,8 @@ class LauncherPageAdapter(
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         if (holder is PageViewHolder) {
             attachedHomePageHolders.remove(holder.boundPagePosition(), holder)
+        } else if (holder is AppLibraryViewHolder && attachedLibraryPageHolder === holder) {
+            attachedLibraryPageHolder = null
         }
         super.onViewRecycled(holder)
     }
@@ -86,17 +98,16 @@ class LauncherPageAdapter(
     }
 
     fun submitItems(items: List<LauncherHomeItemUiModel>) {
-        pages.clear()
-        pages.addAll(items.chunked(PAGE_SIZE))
-        attachedHomePageHolders.clear()
-        notifyDataSetChanged()
+        sourceItems.clear()
+        sourceItems.addAll(items)
+        rebuildHomePages()
     }
 
     fun submitDragPreviewItems(
         items: List<LauncherHomeItemUiModel>,
         focusPage: Int
     ) {
-        val newPages = items.chunked(PAGE_SIZE)
+        val newPages = items.chunked(pageSize())
         if (newPages.size != pages.size) {
             submitItems(items)
             return
@@ -110,6 +121,33 @@ class LauncherPageAdapter(
         } else if (focusPage in pages.indices) {
             notifyItemChanged(focusPage)
         }
+    }
+
+    fun setHomeGridRows(rows: Int) {
+        val boundedRows = rows.coerceIn(MIN_PAGE_ROWS, MAX_PAGE_ROWS)
+        if (pageRows == boundedRows) return
+        pageRows = boundedRows
+        rebuildHomePages()
+    }
+
+    fun setIconSizeDp(sizeDp: Int) {
+        val boundedSize = sizeDp.coerceIn(MIN_ICON_SIZE_DP, MAX_ICON_SIZE_DP)
+        if (iconSizeDp == boundedSize) return
+        iconSizeDp = boundedSize
+        attachedHomePageHolders.values.forEach { holder -> holder.setIconSizeDp(boundedSize) }
+    }
+
+    fun homePageCount(): Int = pages.size
+
+    private fun rebuildHomePages() {
+        pages.clear()
+        pages.addAll(sourceItems.chunked(pageSize()))
+        attachedHomePageHolders.clear()
+        notifyDataSetChanged()
+    }
+
+    private fun pageSize(): Int {
+        return PAGE_COLUMNS * pageRows
     }
 
     fun submitApps(apps: List<LauncherIconUiModel>) {
@@ -126,6 +164,14 @@ class LauncherPageAdapter(
         if (editing == enabled) return
         editing = enabled
         notifyDataSetChanged()
+    }
+
+    fun setDarkMode(enabled: Boolean) {
+        if (darkMode == enabled) return
+        darkMode = enabled
+        attachedHomePageHolders.values.forEach { holder -> holder.setDarkMode(enabled) }
+        attachedLibraryPageHolder?.setDarkMode(enabled)
+        notifyItemChanged(pages.size)
     }
 
     inner class PageViewHolder(
@@ -174,7 +220,7 @@ class LauncherPageAdapter(
                 isNestedScrollingEnabled = false
                 overScrollMode = View.OVER_SCROLL_NEVER
                 post {
-                    pageAdapter.setItemHeight(height / PAGE_ROWS)
+                    pageAdapter.setItemHeight(height / pageRows)
                 }
             }
         }
@@ -188,10 +234,20 @@ class LauncherPageAdapter(
 
         fun bindPageItems(items: List<LauncherHomeItemUiModel>) {
             pageAdapter.setEditing(editing)
+            pageAdapter.setDarkMode(darkMode)
+            pageAdapter.setIconSizeDp(iconSizeDp)
             pageAdapter.submitItems(items)
             binding.pageRecyclerView.post {
-                pageAdapter.setItemHeight(binding.pageRecyclerView.height / PAGE_ROWS)
+                pageAdapter.setItemHeight(binding.pageRecyclerView.height / pageRows)
             }
+        }
+
+        fun setDarkMode(enabled: Boolean) {
+            pageAdapter.setDarkMode(enabled)
+        }
+
+        fun setIconSizeDp(sizeDp: Int) {
+            pageAdapter.setIconSizeDp(sizeDp)
         }
 
         fun boundPagePosition(): Int = boundPagePosition
@@ -221,7 +277,44 @@ class LauncherPageAdapter(
         }
 
         fun bind(groups: List<AppLibraryGroupUiModel>) {
+            attachedLibraryPageHolder = this
+            applyAppearance()
+            groupAdapter.setDarkMode(darkMode)
             groupAdapter.submitGroups(groups)
+        }
+
+        fun setDarkMode(enabled: Boolean) {
+            groupAdapter.setDarkMode(enabled)
+            applyAppearance()
+        }
+
+        private fun applyAppearance() {
+            val pillColor = if (darkMode) 0x66324B5C else 0x733B5B6A
+            val textColor = Color.WHITE
+            binding.librarySearchPill.background = roundedBackground(
+                binding.root,
+                pillColor,
+                22
+            )
+            binding.librarySearchPillIcon.imageTintList = ColorStateList.valueOf(textColor)
+            binding.librarySearchPillText.setTextColor(textColor)
+        }
+    }
+
+    private fun roundedBackground(
+        anchor: View,
+        color: Int,
+        radiusDp: Int,
+        strokeColor: Int? = null
+    ): GradientDrawable {
+        val density = anchor.resources.displayMetrics.density
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = radiusDp * density
+            setColor(color)
+            strokeColor?.let {
+                setStroke((1f * density).toInt().coerceAtLeast(1), it)
+            }
         }
     }
 
@@ -231,8 +324,12 @@ class LauncherPageAdapter(
         const val LIBRARY_PAGE_COUNT = 1
         const val LIBRARY_COLUMNS = 2
         const val PAGE_COLUMNS = 4
-        const val PAGE_ROWS = 6
-        const val PAGE_SIZE = PAGE_COLUMNS * PAGE_ROWS
+        const val MIN_PAGE_ROWS = 5
+        const val DEFAULT_PAGE_ROWS = 6
+        const val MAX_PAGE_ROWS = 6
+        const val MIN_ICON_SIZE_DP = 52
+        const val DEFAULT_ICON_SIZE_DP = 64
+        const val MAX_ICON_SIZE_DP = 78
         const val ICON_REORDER_MOVE_DURATION_MS = 170L
     }
 }

@@ -1,6 +1,8 @@
 package com.vhmsoft.launcherios26.ui.launcher.controller
 
 import android.graphics.Color
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.TypedValue
@@ -36,6 +38,7 @@ class LauncherSearchController(
     )
     private val librarySearchAdapter = AppLibrarySearchAdapter(onLibrarySearchAppClicked)
     private var allApps: List<LauncherIconUiModel> = emptyList()
+    private var darkMode = false
 
     fun install() {
         binding.workspace.searchPill.setOnClickListener {
@@ -81,6 +84,13 @@ class LauncherSearchController(
             itemAnimator = null
             setHasFixedSize(true)
         }
+    }
+
+    fun setDarkMode(enabled: Boolean) {
+        darkMode = enabled
+        searchAdapter.setDarkMode(enabled)
+        librarySearchAdapter.setDarkMode(enabled)
+        applySearchAppearance()
     }
 
     fun submitApps(apps: List<LauncherIconUiModel>) {
@@ -331,6 +341,44 @@ class LauncherSearchController(
 
     private fun dp(value: Int): Int {
         return (value * activity.resources.displayMetrics.density).toInt()
+    }
+
+    private fun applySearchAppearance() {
+        val overlayColor = if (darkMode) 0x2E000000 else 0x14FFFFFF
+        val fieldColor = if (darkMode) 0x66324B5C else 0x733B5B6A
+        val resultsColor = if (darkMode) 0x5A42484B else 0x705F6663
+        val textColor = Color.WHITE
+        val hintColor = 0xC8FFFFFF.toInt()
+        val tint = ColorStateList.valueOf(textColor)
+
+        binding.workspace.searchOverlay.setBackgroundColor(overlayColor)
+        binding.workspace.searchField.background = roundedBackground(fieldColor, 20)
+        binding.workspace.searchResultsRecyclerView.background = roundedBackground(resultsColor, 16)
+        binding.workspace.searchFieldIcon.imageTintList = tint
+        binding.workspace.searchMicIcon.imageTintList = tint
+        binding.workspace.searchEditText.setTextColor(textColor)
+        binding.workspace.searchEditText.setHintTextColor(hintColor)
+        binding.workspace.cancelSearchButton.setTextColor(textColor)
+        binding.workspace.searchSuggestionsLabel.setTextColor(0xD8FFFFFF.toInt())
+
+        binding.workspace.librarySearchField.background = roundedBackground(fieldColor, 22)
+        binding.workspace.librarySearchFieldIcon.imageTintList = tint
+        binding.workspace.librarySearchEditText.setTextColor(textColor)
+        binding.workspace.librarySearchEditText.setHintTextColor(hintColor)
+        binding.workspace.cancelLibrarySearchButton.setTextColor(textColor)
+    }
+
+    private fun roundedBackground(
+        color: Int,
+        radiusDp: Int,
+        strokeColor: Int? = null
+    ): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(radiusDp).toFloat()
+            setColor(color)
+            strokeColor?.let { setStroke(dp(1), it) }
+        }
     }
 
     private companion object {

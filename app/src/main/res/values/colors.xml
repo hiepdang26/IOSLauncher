@@ -13,9 +13,14 @@
     <color name="settings_drawer_icon">#00A8B8</color>
     <color name="settings_drawer_highlight">#DDDDDF</color>
     <color name="settings_fab">#FF3B4F</color>
+    <color name="layout_ios_blue">#007AFF</color>
+    <color name="layout_switch_orange">#FF5A3D</color>
+    <color name="layout_switch_green">#34C759</color>
     <color name="social_like">#4267C8</color>
     <color name="social_mail">#FF3B30</color>
     <color name="social_share">#F5C400</color>
+    <color name="rating_star_empty">#F1F1F1</color>
+    <color name="rating_star_selected">#FFC400</color>
     <color name="icon_lock">#FF5A3D</color>
     <color name="icon_control">#69C96D</color>
     <color name="icon_assistive">#111111</color>
@@ -35,4 +40,9 @@
     <color name="icon_download">#6658E8</color>
     <color name="ios_workspace_text">#FFFFFFFF</color>
     <color name="ios_workspace_secondary_text">#DDE7F5</color>
+    <color name="dark_settings_background">#000000</color>
+    <color name="dark_settings_card">#262626</color>
+    <color name="dark_settings_divider">#3A3A3C</color>
+    <color name="dark_settings_text_primary">#FFFFFFFF</color>
+    <color name="dark_settings_text_secondary">#E8E8EA</color>
 </resources>

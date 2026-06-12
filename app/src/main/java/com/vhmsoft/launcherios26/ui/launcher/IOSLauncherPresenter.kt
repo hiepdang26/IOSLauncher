@@ -57,6 +57,26 @@ class IOSLauncherPresenter(
         view?.openAppLibrarySettings()
     }
 
+    override fun onShareClicked() {
+        view?.shareLauncherApp()
+    }
+
+    override fun onMailClicked() {
+        view?.shareLauncherAppByMail()
+    }
+
+    override fun onRateClicked() {
+        view?.showRatingPrompt()
+    }
+
+    override fun onLayoutSettingsClicked() {
+        view?.showLayoutSettingsPage()
+    }
+
+    override fun onLayoutDarkModeChanged(enabled: Boolean) {
+        view?.applyLayoutDarkMode(enabled)
+    }
+
     override fun onAppClicked(item: LauncherIconUiModel) {
         view?.showAppOptions(item)
     }

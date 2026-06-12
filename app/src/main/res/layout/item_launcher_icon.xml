@@ -134,8 +134,8 @@
                 android:clickable="true"
                 android:elevation="8dp"
                 android:focusable="true"
-                android:translationX="-8dp"
-                android:translationY="-8dp"
+                android:translationX="0dp"
+                android:translationY="0dp"
                 android:visibility="gone">
 
                 <ImageView

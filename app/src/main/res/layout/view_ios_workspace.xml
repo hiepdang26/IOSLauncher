@@ -24,8 +24,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:clipChildren="false"
-                android:clipToPadding="false"
+                android:clipChildren="true"
+                android:clipToPadding="true"
                 android:overScrollMode="never" />
 
             <FrameLayout
@@ -51,12 +51,14 @@
                     android:paddingEnd="12dp">
 
                     <ImageView
+                        android:id="@+id/searchPillIcon"
                         android:layout_width="15dp"
                         android:layout_height="15dp"
                         android:contentDescription="@null"
                         android:src="@drawable/ic_search_18" />
 
                     <TextView
+                        android:id="@+id/searchPillText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="4dp"
@@ -67,14 +69,14 @@
 
                 <LinearLayout
                     android:id="@+id/pageIndicator"
-                    android:layout_width="120dp"
-                    android:layout_height="48dp"
+                    android:layout_width="82dp"
+                    android:layout_height="32dp"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_ios_page_indicator"
                     android:gravity="center"
                     android:orientation="horizontal"
-                    android:paddingStart="18dp"
-                    android:paddingEnd="18dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
                     android:visibility="gone" />
             </FrameLayout>
 
@@ -83,6 +85,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="92dp"
                 android:background="@drawable/bg_ios_dock"
+                android:clipChildren="false"
                 android:clipToPadding="false"
                 android:overScrollMode="never"
                 android:paddingStart="14dp"
@@ -311,6 +314,7 @@
                     android:orientation="horizontal">
 
                     <LinearLayout
+                        android:id="@+id/searchField"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -321,6 +325,7 @@
                         android:paddingEnd="10dp">
 
                         <ImageView
+                            android:id="@+id/searchFieldIcon"
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:contentDescription="@null"
@@ -343,6 +348,7 @@
                             android:textSize="17sp" />
 
                         <ImageView
+                            android:id="@+id/searchMicIcon"
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:contentDescription="@null"
@@ -363,6 +369,7 @@
                 </LinearLayout>
 
                 <TextView
+                    android:id="@+id/searchSuggestionsLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
@@ -424,6 +431,7 @@
                         android:paddingEnd="10dp">
 
                         <ImageView
+                            android:id="@+id/librarySearchFieldIcon"
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:contentDescription="@null"

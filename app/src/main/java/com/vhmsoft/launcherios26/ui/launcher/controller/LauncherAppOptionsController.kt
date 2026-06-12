@@ -88,7 +88,7 @@ class LauncherAppOptionsController(
     private fun showSelectedIconPreview(item: LauncherIconUiModel, anchor: View) {
         if (anchor === binding.workspace.root) return
 
-        binding.workspace.selectedIconImage.setImageDrawable(item.icon)
+        binding.workspace.selectedIconImage.setImageDrawable(item.displayIcon)
         binding.workspace.selectedIconLabel.text = item.label
 
         val anchorLocation = IntArray(2)
