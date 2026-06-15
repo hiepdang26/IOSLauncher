@@ -6,6 +6,7 @@ import com.vhmsoft.launcherios26.data.repository.LauncherRepository
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCode
 import kotlinx.coroutines.launch
 
 class IOSLauncherPresenter(
@@ -16,7 +17,12 @@ class IOSLauncherPresenter(
         presenterScope.launch {
             runCatching { launcherRepository.getLauncherIconItems() }
                 .onSuccess { iconItems ->
-                    view?.showLauncherApps(iconItems, launcherRepository.getLauncherFolders())
+                    view?.showLauncherApps(
+                        apps = iconItems,
+                        folders = launcherRepository.getLauncherFolders(),
+                        dockFolders = launcherRepository.getDockFolders(),
+                        dockOrder = launcherRepository.getDockOrder()
+                    )
                 }
                 .onFailure { error ->
                     view?.showError(error.message ?: "Cannot load launcher apps")
@@ -38,15 +44,15 @@ class IOSLauncherPresenter(
     }
 
     override fun onLockScreenClicked() {
-        view?.showLockScreenDownloadPrompt()
+        view?.showExternalFeatureDownloadPrompt(LauncherExternalFeatureCode.LOCK_SCREEN)
     }
 
     override fun onControlCenterClicked() {
-        view?.showControlCenterDownloadPrompt()
+        view?.showExternalFeatureDownloadPrompt(LauncherExternalFeatureCode.CONTROL_CENTER)
     }
 
     override fun onAssistiveTouchClicked() {
-        view?.showAssistiveTouchDownloadPrompt()
+        view?.showExternalFeatureDownloadPrompt(LauncherExternalFeatureCode.ASSISTIVE_TOUCH)
     }
 
     override fun onSetDefaultLauncherClicked() {
@@ -109,6 +115,13 @@ class IOSLauncherPresenter(
         launcherRepository.saveLauncherFolders(LauncherHomeLayoutBuilder.extractFolders(items))
         launcherRepository.saveAppOrder(
             LauncherHomeLayoutBuilder.flattenApps(items).map { iconItem -> iconItem.app }
+        )
+    }
+
+    override fun onDockItemsChanged(items: List<LauncherHomeItemUiModel>) {
+        launcherRepository.saveDockFolders(LauncherHomeLayoutBuilder.extractFolders(items))
+        launcherRepository.saveDockOrder(
+            LauncherHomeLayoutBuilder.flattenApps(items).map { iconItem -> iconItem.app.iconKey }
         )
     }
 }

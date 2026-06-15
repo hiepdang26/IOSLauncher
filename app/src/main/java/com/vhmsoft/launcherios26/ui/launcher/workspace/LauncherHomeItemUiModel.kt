@@ -25,6 +25,12 @@ sealed class LauncherHomeItemUiModel {
     ) : LauncherHomeItemUiModel() {
         override val label: String = ""
         override val stableId: Long = Long.MIN_VALUE + placeholderId
+
+        companion object {
+            fun forGridIndex(index: Int): Placeholder {
+                return Placeholder(GRID_PLACEHOLDER_ID_BASE + index.coerceAtLeast(0))
+            }
+        }
     }
 
     fun containedApps(): List<LauncherIconUiModel> {
@@ -36,6 +42,7 @@ sealed class LauncherHomeItemUiModel {
     }
 
     private companion object {
+        private const val GRID_PLACEHOLDER_ID_BASE = 1_000_000L
         private var nextPlaceholderId = 1L
 
         fun nextPlaceholderId(): Long {

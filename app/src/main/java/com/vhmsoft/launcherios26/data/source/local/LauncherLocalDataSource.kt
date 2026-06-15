@@ -9,8 +9,12 @@ interface LauncherLocalDataSource {
     fun clearIconCache()
     fun getAppOrder(): List<String>
     fun saveAppOrder(iconKeys: List<String>)
+    fun getDockOrder(): List<String>
+    fun saveDockOrder(iconKeys: List<String>)
     fun getLauncherFolders(): List<LauncherFolder>
     fun saveLauncherFolders(folders: List<LauncherFolder>)
+    fun getDockFolders(): List<LauncherFolder>
+    fun saveDockFolders(folders: List<LauncherFolder>)
     fun getAppCategory(iconKey: String): String?
     fun getAppCategories(): Map<String, String>
     fun saveAppCategory(iconKey: String, categoryCode: String)

@@ -6,12 +6,13 @@ import android.view.animation.DecelerateInterpolator
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.R
+import kotlin.math.pow
 
 class LauncherDockDragCallback(
     private val adapter: LauncherDockAdapter,
     private val isDragCenterInDock: (Float, Float) -> Boolean,
     private val onDragEnded: (
-        LauncherIconUiModel,
+        LauncherHomeItemUiModel,
         RecyclerView.ViewHolder,
         Float,
         Float
@@ -42,6 +43,7 @@ class LauncherDockDragCallback(
         target: RecyclerView.ViewHolder
     ): Boolean {
         if (!isDragCenterInDock(lastDragCenterX, lastDragCenterY)) return false
+        if (adapter.hasPendingDropTarget()) return false
         return adapter.moveItem(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
     }
 
@@ -80,12 +82,40 @@ class LauncherDockDragCallback(
     ) {
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && isCurrentlyActive) {
             updateDragCenter(dX, dY)
+            val targetStableId = if (isDragCenterInDock(lastDragCenterX, lastDragCenterY)) {
+                findDockDropTargetStableId(recyclerView, viewHolder)
+            } else {
+                null
+            }
+            if (targetStableId == null) {
+                adapter.clearPendingDropTarget()
+            } else {
+                adapter.rememberDropTargetByTargetStableId(draggedStableId, targetStableId)
+            }
         }
         super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
     }
 
     override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
         val draggedItem = adapter.itemByStableId(draggedStableId)
+        val folderTargetStableId = if (isDragCenterInDock(lastDragCenterX, lastDragCenterY)) {
+            findDockDropTargetStableId(recyclerView, viewHolder)
+        } else {
+            null
+        }
+        if (folderTargetStableId != null) {
+            adapter.rememberDropTargetByTargetStableId(draggedStableId, folderTargetStableId)
+        }
+        if (adapter.hasPendingDropTarget()) {
+            super.clearView(recyclerView, viewHolder)
+            resetDraggedView(viewHolder)
+            adapter.commitPendingDropTarget()
+            adapter.notifyOrderChanged()
+            draggedStableId = null
+            adapter.clearActiveTouch()
+            return
+        }
+
         val handledOutside = draggedItem?.let { item ->
             onDragEnded(item, viewHolder, lastDragCenterX, lastDragCenterY)
         } == true
@@ -98,6 +128,54 @@ class LauncherDockDragCallback(
         if (!handledOutside) {
             adapter.notifyOrderChanged()
         }
+    }
+
+    private fun findDockDropTargetStableId(
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder
+    ): Long? {
+        val draggedView = viewHolder.itemView
+        val recyclerLocation = IntArray(2)
+        recyclerView.getLocationOnScreen(recyclerLocation)
+        val draggedCenterX = lastDragCenterX - recyclerLocation[0]
+        val draggedCenterY = lastDragCenterY - recyclerLocation[1]
+        val hitSlop = dp(recyclerView, FOLDER_DROP_HIT_SLOP_DP)
+
+        var bestStableId: Long? = null
+        var bestDistance = Float.MAX_VALUE
+        for (index in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(index)
+            if (child === draggedView) continue
+
+            val holder = recyclerView.getChildViewHolder(child)
+            val position = holder.bindingAdapterPosition
+            if (position == RecyclerView.NO_POSITION) continue
+            val stableId = adapter.stableIdAt(position) ?: continue
+            if (stableId == draggedStableId) continue
+
+            val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
+            val left = child.left + iconPlate.left - hitSlop
+            val top = child.top + iconPlate.top - hitSlop
+            val right = child.left + iconPlate.right + hitSlop
+            val bottom = child.top + iconPlate.bottom + hitSlop
+            if (draggedCenterX < left ||
+                draggedCenterX > right ||
+                draggedCenterY < top ||
+                draggedCenterY > bottom
+            ) {
+                continue
+            }
+
+            val targetCenterX = child.left + iconPlate.left + iconPlate.width / 2f
+            val targetCenterY = child.top + iconPlate.top + iconPlate.height / 2f
+            val distance = (draggedCenterX - targetCenterX).pow(2) +
+                (draggedCenterY - targetCenterY).pow(2)
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestStableId = stableId
+            }
+        }
+        return bestStableId
     }
 
     private fun rememberDragStartCenter(viewHolder: RecyclerView.ViewHolder) {
@@ -153,5 +231,6 @@ class LauncherDockDragCallback(
         const val DRAG_ALPHA = 0.96f
         const val DRAG_LIFT_DURATION_MS = 120L
         const val DRAG_ELEVATION_DP = 18
+        const val FOLDER_DROP_HIT_SLOP_DP = 24
     }
 }

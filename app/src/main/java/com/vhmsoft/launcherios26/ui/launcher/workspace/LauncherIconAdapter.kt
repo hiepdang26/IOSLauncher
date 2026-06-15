@@ -58,10 +58,27 @@ class LauncherIconAdapter(
     override fun getItemId(position: Int): Long = items[position].stableId
 
     fun submitItems(homeItems: List<LauncherHomeItemUiModel>) {
+        val oldItems = items.toList()
         items.clear()
         items.addAll(LauncherHomeLayoutBuilder.normalize(homeItems))
+        val diff = LauncherIconListDiff.between(oldItems, items)
         pendingDropTarget = null
-        notifyDataSetChanged()
+        recentlyUpdatedFolderStableId = null
+        val previousActiveDragStableId = activeDragStableId
+        activeDragStableId = null
+        clearActiveTouch()
+        if (diff.requiresFullRefresh) {
+            notifyDataSetChanged()
+            return
+        }
+
+        val activeDragIndex = oldItems.indexOfFirst { item ->
+            item.stableId == previousActiveDragStableId
+        }
+        (diff.changedIndices + activeDragIndex)
+            .filter { index -> index in items.indices }
+            .distinct()
+            .forEach { index -> notifyItemChanged(index) }
     }
 
     fun submitApps(apps: List<LauncherIconUiModel>) {
@@ -75,7 +92,7 @@ class LauncherIconAdapter(
     }
 
     fun setIconSizeDp(sizeDp: Int) {
-        val boundedSize = sizeDp.coerceIn(MIN_ICON_SIZE_DP, MAX_ICON_SIZE_DP)
+        val boundedSize = sizeDp.coerceIn(MIN_COMPACT_ICON_SIZE_DP, MAX_ICON_SIZE_DP)
         if (iconSizeDp == boundedSize) return
         iconSizeDp = boundedSize
         notifyDataSetChanged()
@@ -87,6 +104,8 @@ class LauncherIconAdapter(
         if (!editing) {
             pendingDropTarget = null
             recentlyUpdatedFolderStableId = null
+            activeDragStableId = null
+            clearActiveTouch()
         }
         notifyDataSetChanged()
     }
@@ -158,7 +177,7 @@ class LauncherIconAdapter(
         if (draggedIndex == -1 || targetIndex == -1 || draggedIndex == targetIndex) return false
 
         val dragged = items[draggedIndex]
-        if (dragged !is LauncherHomeItemUiModel.App) return false
+        if (dragged is LauncherHomeItemUiModel.Placeholder) return false
         val target = items[targetIndex]
         if (target is LauncherHomeItemUiModel.Placeholder) return false
 
@@ -363,16 +382,20 @@ class LauncherIconAdapter(
             binding.root.rotation = 0f
             binding.root.setOnClickListener(null)
             binding.root.setOnLongClickListener(null)
+            binding.root.setOnTouchListener(null)
+            binding.iconPlate.setOnClickListener(null)
+            binding.iconPlate.setOnLongClickListener(null)
+            binding.iconPlate.setOnTouchListener(null)
             if (item is LauncherHomeItemUiModel.Placeholder) {
                 bindPlaceholder()
                 return
             }
-            binding.iconPlate.setOnClickListener {
+            val clickListener = View.OnClickListener {
                 if (editing) {
                     if (item is LauncherHomeItemUiModel.Folder) {
                         onFolderClicked(item)
                     }
-                    return@setOnClickListener
+                    return@OnClickListener
                 }
 
                 when (item) {
@@ -381,12 +404,12 @@ class LauncherIconAdapter(
                     is LauncherHomeItemUiModel.Placeholder -> Unit
                 }
             }
-            binding.iconPlate.setOnLongClickListener {
+            val longClickListener = View.OnLongClickListener {
                 if (editing) {
                     onDragRequested(this)
-                    true
+                    return@OnLongClickListener true
                 } else {
-                    when (item) {
+                    return@OnLongClickListener when (item) {
                         is LauncherHomeItemUiModel.App -> onIconLongClicked(item.iconItem, binding.iconPlate)
                         is LauncherHomeItemUiModel.Folder -> {
                             onFolderClicked(item)
@@ -397,10 +420,16 @@ class LauncherIconAdapter(
                     }
                 }
             }
-            binding.iconPlate.setOnTouchListener { _, event ->
+            val touchListener = View.OnTouchListener { _, event ->
                 updateActiveTouch(event.rawX, event.rawY)
                 false
             }
+            binding.root.setOnClickListener(clickListener)
+            binding.root.setOnLongClickListener(longClickListener)
+            binding.root.setOnTouchListener(touchListener)
+            binding.iconPlate.setOnClickListener(clickListener)
+            binding.iconPlate.setOnLongClickListener(longClickListener)
+            binding.iconPlate.setOnTouchListener(touchListener)
             binding.removeBadge.visibility = if (editing) View.VISIBLE else View.GONE
             binding.removeBadge.setOnClickListener {
                 when (item) {
@@ -579,14 +608,20 @@ class LauncherIconAdapter(
                 height = itemHeightPx
             }
 
-            val iconSize = min(dp(iconSizeDp), max(dp(MIN_ICON_SIZE_DP), itemHeightPx - dp(36)))
+            val verticalGap = dp(CELL_VERTICAL_GAP_DP)
+            val minimumLabelHeight = dp(MIN_LABEL_HEIGHT_DP)
+            val twoLineLabelHeight = dp(TWO_LINE_LABEL_HEIGHT_DP)
+            val maxIconForCell = (itemHeightPx - minimumLabelHeight - verticalGap).coerceAtLeast(dp(MIN_TINY_ICON_SIZE_DP))
+            val compactMinIcon = min(dp(MIN_COMPACT_ICON_SIZE_DP), maxIconForCell)
+            val iconSize = min(dp(iconSizeDp), maxIconForCell).coerceAtLeast(compactMinIcon)
             binding.iconPlate.layoutParams = binding.iconPlate.layoutParams.apply {
                 width = iconSize
                 height = iconSize
             }
 
+            binding.appLabel.maxLines = if (itemHeightPx - iconSize - verticalGap >= twoLineLabelHeight) 2 else 1
             binding.appLabel.layoutParams = binding.appLabel.layoutParams.apply {
-                height = max(dp(30), itemHeightPx - iconSize - dp(7))
+                height = max(minimumLabelHeight, itemHeightPx - iconSize - verticalGap)
             }
         }
 
@@ -652,9 +687,13 @@ class LauncherIconAdapter(
     )
 
     private companion object {
-        const val MIN_ICON_SIZE_DP = 52
+        const val MIN_COMPACT_ICON_SIZE_DP = 44
+        const val MIN_TINY_ICON_SIZE_DP = 32
         const val DEFAULT_ICON_SIZE_DP = 64
         const val MAX_ICON_SIZE_DP = 78
+        const val CELL_VERTICAL_GAP_DP = 7
+        const val MIN_LABEL_HEIGHT_DP = 22
+        const val TWO_LINE_LABEL_HEIGHT_DP = 30
     }
 
     private fun notifyDragVisibilityChanged(stableId: Long?) {

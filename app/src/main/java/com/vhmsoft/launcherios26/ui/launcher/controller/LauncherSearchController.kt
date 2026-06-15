@@ -27,6 +27,7 @@ class LauncherSearchController(
     private val dismissAppOptions: () -> Unit,
     private val clearPageIndicatorCallbacks: () -> Unit,
     private val hideCategoryDetail: () -> Unit,
+    private val showSearchTrigger: (Boolean) -> Unit,
     private val applySystemUi: () -> Unit,
     private val onSearchAppClicked: (LauncherIconUiModel) -> Unit,
     private val onSearchAppLongClicked: (LauncherIconUiModel, View) -> Boolean,
@@ -125,7 +126,7 @@ class LauncherSearchController(
         keyboardController.hideKeyboard(binding.workspace.searchEditText)
 
         if (binding.workspace.searchOverlay.visibility != View.VISIBLE) {
-            binding.workspace.searchPill.visibility = View.VISIBLE
+            showSearchTrigger(false)
             return
         }
 
@@ -134,11 +135,7 @@ class LauncherSearchController(
             .setDuration(140L)
             .withEndAction {
                 binding.workspace.searchOverlay.visibility = View.GONE
-                binding.workspace.searchPill.apply {
-                    alpha = 0f
-                    visibility = View.VISIBLE
-                    animate().alpha(1f).setDuration(140L).start()
-                }
+                showSearchTrigger(true)
                 if (binding.workspace.contextOverlay.visibility != View.VISIBLE) {
                     visualEffectsController.clearHomeBlur()
                 }

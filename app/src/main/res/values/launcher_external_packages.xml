@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="external_package_lock_screen" translatable="false">com.luutinhit.lockscreennotificationsios</string>
+    <string name="external_package_control_center" translatable="false">com.luutinhit.controlcenterios</string>
+    <string name="external_package_assistive_touch" translatable="false">com.luutinhit.assistivetouchios</string>
+</resources>

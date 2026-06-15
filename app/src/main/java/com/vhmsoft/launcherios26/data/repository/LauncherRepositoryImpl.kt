@@ -33,12 +33,28 @@ class LauncherRepositoryImpl(
         localDataSource.saveAppOrder(apps.map { it.iconKey })
     }
 
+    override fun getDockOrder(): List<String> {
+        return localDataSource.getDockOrder()
+    }
+
+    override fun saveDockOrder(iconKeys: List<String>) {
+        localDataSource.saveDockOrder(iconKeys)
+    }
+
     override fun getLauncherFolders(): List<LauncherFolder> {
         return localDataSource.getLauncherFolders()
     }
 
     override fun saveLauncherFolders(folders: List<LauncherFolder>) {
         localDataSource.saveLauncherFolders(folders)
+    }
+
+    override fun getDockFolders(): List<LauncherFolder> {
+        return localDataSource.getDockFolders()
+    }
+
+    override fun saveDockFolders(folders: List<LauncherFolder>) {
+        localDataSource.saveDockFolders(folders)
     }
 
     override fun getAppCategory(app: LauncherApp): LauncherAppCategory {

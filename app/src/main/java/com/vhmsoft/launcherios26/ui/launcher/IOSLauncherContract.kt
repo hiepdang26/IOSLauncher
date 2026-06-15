@@ -5,11 +5,17 @@ import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCode
 
 interface IOSLauncherContract {
     interface View : BaseView {
         fun showLoading(isLoading: Boolean)
-        fun showLauncherApps(apps: List<LauncherIconUiModel>, folders: List<LauncherFolder>)
+        fun showLauncherApps(
+            apps: List<LauncherIconUiModel>,
+            folders: List<LauncherFolder>,
+            dockFolders: List<LauncherFolder>,
+            dockOrder: List<String>
+        )
         fun showError(message: String)
         fun openDefaultLauncherSelection()
         fun showAlreadyDefaultLauncher()
@@ -22,9 +28,7 @@ interface IOSLauncherContract {
         fun showRatingPrompt()
         fun showLayoutSettingsPage()
         fun applyLayoutDarkMode(enabled: Boolean)
-        fun showLockScreenDownloadPrompt()
-        fun showControlCenterDownloadPrompt()
-        fun showAssistiveTouchDownloadPrompt()
+        fun showExternalFeatureDownloadPrompt(featureCode: LauncherExternalFeatureCode)
         fun showSettingsDrawer()
     }
 
@@ -51,5 +55,6 @@ interface IOSLauncherContract {
         fun onAppInfoOptionClicked(app: LauncherApp)
         fun onAppsReordered(apps: List<LauncherIconUiModel>)
         fun onHomeItemsChanged(items: List<LauncherHomeItemUiModel>)
+        fun onDockItemsChanged(items: List<LauncherHomeItemUiModel>)
     }
 }

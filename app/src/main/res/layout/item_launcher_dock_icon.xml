@@ -27,6 +27,100 @@
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter" />
 
+            <GridLayout
+                android:id="@+id/folderPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alignmentMode="alignMargins"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:columnCount="3"
+                android:padding="6dp"
+                android:rowCount="3"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/folderIcon1"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon2"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon3"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon4"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon5"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon6"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon7"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon8"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+
+                <ImageView
+                    android:id="@+id/folderIcon9"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_columnWeight="1"
+                    android:layout_rowWeight="1"
+                    android:contentDescription="@null"
+                    android:scaleType="fitCenter" />
+            </GridLayout>
+
             <FrameLayout
                 android:id="@+id/removeBadge"
                 android:layout_width="24dp"

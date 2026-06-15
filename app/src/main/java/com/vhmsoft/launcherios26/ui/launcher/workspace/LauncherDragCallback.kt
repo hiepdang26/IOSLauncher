@@ -140,15 +140,19 @@ class LauncherDragCallback(
         if (actionState != ItemTouchHelper.ACTION_STATE_DRAG || !isCurrentlyActive) return
         updateDragCenter(dX, dY)
         val draggedItem = adapter.itemByStableId(draggedStableId)
+        val (callbackCenterX, callbackCenterY) = dragCallbackCenter()
         if (externalDragActive) {
+            onDragMoved(draggedItem, viewHolder, callbackCenterX, callbackCenterY)
             viewHolder.itemView.alpha = 0f
             viewHolder.itemView.translationX = 0f
             viewHolder.itemView.translationY = 0f
             return
         }
-        if (onDragMoved(draggedItem, viewHolder, lastDragCenterX, lastDragCenterY)) {
+        if (onDragMoved(draggedItem, viewHolder, callbackCenterX, callbackCenterY)) {
             externalDragActive = true
-            adapter.clearPendingDropTarget()
+            if (canMutateDragItems(recyclerView)) {
+                adapter.clearPendingDropTarget()
+            }
             viewHolder.itemView.animate().cancel()
             viewHolder.itemView.alpha = 0f
             viewHolder.itemView.translationX = 0f
@@ -158,15 +162,13 @@ class LauncherDragCallback(
 
         if (reorderOnMove && !allowFolderDrop) {
             super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
-            val outside = isDroppedOutside(recyclerView, viewHolder, lastDragCenterX, lastDragCenterY)
+            val outside = isDroppedOutside(recyclerView, viewHolder, callbackCenterX, callbackCenterY)
             if (outside) {
                 viewHolder.itemView.alpha = 0f
-                if (!draggingOutside) {
-                    onDragOutsideChanged(draggedItem, viewHolder, true, lastDragCenterX, lastDragCenterY)
-                }
+                onDragOutsideChanged(draggedItem, viewHolder, true, callbackCenterX, callbackCenterY)
             } else if (draggingOutside) {
                 viewHolder.itemView.alpha = 0.96f
-                onDragOutsideChanged(draggedItem, viewHolder, false, lastDragCenterX, lastDragCenterY)
+                onDragOutsideChanged(draggedItem, viewHolder, false, callbackCenterX, callbackCenterY)
             }
             draggingOutside = outside
             return
@@ -174,6 +176,10 @@ class LauncherDragCallback(
         if (!allowFolderDrop) return
 
         hideHomeDraggedViewHolder(viewHolder)
+        if (!canMutateDragItems(recyclerView)) {
+            resetHoverState()
+            return
+        }
         val hoverTarget = findHomeHoverTarget(recyclerView, viewHolder, dX, dY)
         if (!isHomeHoverReady(hoverTarget)) return
         when (hoverTarget?.action) {
@@ -216,6 +222,15 @@ class LauncherDragCallback(
                 }
             }
         }
+    }
+
+    private fun canMutateDragItems(recyclerView: RecyclerView): Boolean {
+        return LauncherDragMutationGuard.canMutate(
+            isComputingLayout = recyclerView.isComputingLayout,
+            itemAnimatorRunning = recyclerView.itemAnimator?.isRunning == true,
+            hasPendingAdapterUpdates = recyclerView.hasPendingAdapterUpdates(),
+            isScrollIdle = recyclerView.scrollState == RecyclerView.SCROLL_STATE_IDLE
+        )
     }
 
     private fun beginHomeDragPreview(viewHolder: RecyclerView.ViewHolder) {
@@ -294,9 +309,14 @@ class LauncherDragCallback(
 
     override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
         val draggedItem = adapter.itemByStableId(draggedStableId)
-        if (onDragEnded(draggedItem, viewHolder, lastDragCenterX, lastDragCenterY)) {
+        val (callbackCenterX, callbackCenterY) = dragCallbackCenter()
+        if (onDragEnded(draggedItem, viewHolder, callbackCenterX, callbackCenterY)) {
             super.clearView(recyclerView, viewHolder)
-            resetDraggedView(viewHolder)
+            if (externalDragActive || draggingOutside) {
+                hideHomeDraggedViewHolder(viewHolder)
+            } else {
+                resetDraggedView(viewHolder)
+            }
             draggedStableId = null
             draggingOutside = false
             externalDragActive = false
@@ -304,10 +324,11 @@ class LauncherDragCallback(
             resetHoverState()
             clearHomeDragPreview()
             adapter.clearPendingDropTarget()
+            adapter.clearActiveTouch()
             return
         }
 
-        if (isDroppedOutside(recyclerView, viewHolder, lastDragCenterX, lastDragCenterY)) {
+        if (isDroppedOutside(recyclerView, viewHolder, callbackCenterX, callbackCenterY)) {
             super.clearView(recyclerView, viewHolder)
             resetDraggedView(viewHolder)
             val removedItem = draggedStableId?.let { stableId ->
@@ -320,9 +341,10 @@ class LauncherDragCallback(
             resetHoverState()
             clearHomeDragPreview()
             if (removedItem != null && onDroppedOutside(removedItem)) {
+                adapter.clearActiveTouch()
                 return
             }
-            onDragOutsideChanged(removedItem, viewHolder, false, lastDragCenterX, lastDragCenterY)
+            onDragOutsideChanged(removedItem, viewHolder, false, callbackCenterX, callbackCenterY)
         }
 
         if (!allowFolderDrop) {
@@ -333,8 +355,8 @@ class LauncherDragCallback(
                     adapter.itemByStableId(draggedStableId),
                     viewHolder,
                     false,
-                    lastDragCenterX,
-                    lastDragCenterY
+                    callbackCenterX,
+                    callbackCenterY
                 )
             }
             draggedStableId = null
@@ -343,6 +365,7 @@ class LauncherDragCallback(
             edgeReordered = false
             resetHoverState()
             clearHomeDragPreview()
+            adapter.clearActiveTouch()
             adapter.notifyOrderChanged()
             return
         }
@@ -380,6 +403,15 @@ class LauncherDragCallback(
         externalDragActive = false
         edgeReordered = false
         resetHoverState()
+    }
+
+    private fun dragCallbackCenter(): Pair<Float, Float> {
+        if (reorderOnMove && !allowFolderDrop) {
+            adapter.activeTouchRaw()?.let { touchRaw ->
+                return touchRaw
+            }
+        }
+        return Pair(lastDragCenterX, lastDragCenterY)
     }
 
     private fun restoreHomeDraggedViewAtFinger(
@@ -488,15 +520,17 @@ class LauncherDragCallback(
     }
 
     private fun updateDragCenter(dX: Float, dY: Float) {
-        val touchRaw = adapter.activeTouchRaw()
-        if (touchRaw != null) {
-            lastDragCenterX = touchRaw.first + touchToCenterOffsetX
-            lastDragCenterY = touchRaw.second + touchToCenterOffsetY
-            return
-        }
-
-        lastDragCenterX = dragStartCenterX + dX
-        lastDragCenterY = dragStartCenterY + dY
+        val center = LauncherDragCenterResolver.resolve(
+            dragStartCenterX = dragStartCenterX,
+            dragStartCenterY = dragStartCenterY,
+            dX = dX,
+            dY = dY,
+            rawTouch = adapter.activeTouchRaw(),
+            touchToCenterOffsetX = touchToCenterOffsetX,
+            touchToCenterOffsetY = touchToCenterOffsetY
+        )
+        lastDragCenterX = center.first
+        lastDragCenterY = center.second
     }
 
     private fun findDropTargetPosition(

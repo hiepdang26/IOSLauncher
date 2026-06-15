@@ -69,6 +69,11 @@ object LauncherHomeLayoutBuilder {
                     else -> listOf(item)
                 }
             }
+        }.mapIndexed { index, item ->
+            when (item) {
+                is LauncherHomeItemUiModel.Placeholder -> LauncherHomeItemUiModel.Placeholder.forGridIndex(index)
+                else -> item
+            }
         }
     }
 

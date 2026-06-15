@@ -15,7 +15,8 @@ class LauncherFolderController(
     private val dismissAppOptions: () -> Unit,
     private val clearPageIndicatorCallbacks: () -> Unit,
     private val isEditingHome: () -> Boolean,
-    private val isCurrentPageLibrary: () -> Boolean
+    private val isCurrentPageLibrary: () -> Boolean,
+    private val showSearchTrigger: (Boolean) -> Unit
 ) {
     private var openFolderId: String? = null
 
@@ -63,13 +64,40 @@ class LauncherFolderController(
         }
     }
 
-    fun hide() {
+    fun hide(animate: Boolean = true) {
         if (binding.workspace.folderOverlay.visibility != View.VISIBLE) {
             openFolderId = null
             return
         }
 
         openFolderId = null
+        if (!animate) {
+            binding.workspace.folderContentPanel.animate().cancel()
+            binding.workspace.folderTitle.animate().cancel()
+            binding.workspace.folderOverlay.animate().cancel()
+            binding.workspace.folderOverlay.visibility = View.GONE
+            binding.workspace.folderOverlay.alpha = 1f
+            binding.workspace.folderContentPanel.apply {
+                alpha = 1f
+                scaleX = 1f
+                scaleY = 1f
+            }
+            binding.workspace.folderTitle.apply {
+                alpha = 1f
+                translationY = 0f
+            }
+            folderContentAdapter.submitApps(emptyList())
+            if (binding.workspace.searchOverlay.visibility != View.VISIBLE &&
+                binding.workspace.contextOverlay.visibility != View.VISIBLE
+            ) {
+                visualEffectsController.clearHomeBlur()
+            }
+            if (!isEditingHome() && !isCurrentPageLibrary()) {
+                showSearchTrigger(true)
+            }
+            return
+        }
+
         binding.workspace.folderContentPanel.animate()
             .scaleX(0.92f)
             .scaleY(0.92f)
@@ -104,11 +132,7 @@ class LauncherFolderController(
                     visualEffectsController.clearHomeBlur()
                 }
                 if (!isEditingHome() && !isCurrentPageLibrary()) {
-                    binding.workspace.searchPill.apply {
-                        alpha = 0f
-                        visibility = View.VISIBLE
-                        animate().alpha(1f).setDuration(140L).start()
-                    }
+                    showSearchTrigger(true)
                 }
             }
             .start()

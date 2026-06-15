@@ -22,6 +22,19 @@ class LauncherPreferences(context: Context) {
             .apply()
     }
 
+    fun getDockOrder(): List<String> {
+        return preferences.getString(KEY_DOCK_ORDER, null)
+            ?.split(ORDER_SEPARATOR)
+            ?.filter { it.isNotBlank() }
+            .orEmpty()
+    }
+
+    fun saveDockOrder(iconKeys: List<String>) {
+        preferences.edit()
+            .putString(KEY_DOCK_ORDER, iconKeys.joinToString(ORDER_SEPARATOR))
+            .apply()
+    }
+
     fun getLauncherFolders(): List<LauncherFolder> {
         return preferences.getString(KEY_LAUNCHER_FOLDERS, null)
             ?.lines()
@@ -32,6 +45,19 @@ class LauncherPreferences(context: Context) {
     fun saveLauncherFolders(folders: List<LauncherFolder>) {
         preferences.edit()
             .putString(KEY_LAUNCHER_FOLDERS, folders.joinToString(FOLDER_SEPARATOR) { encodeFolder(it) })
+            .apply()
+    }
+
+    fun getDockFolders(): List<LauncherFolder> {
+        return preferences.getString(KEY_DOCK_FOLDERS, null)
+            ?.lines()
+            ?.mapNotNull { line -> decodeFolder(line) }
+            .orEmpty()
+    }
+
+    fun saveDockFolders(folders: List<LauncherFolder>) {
+        preferences.edit()
+            .putString(KEY_DOCK_FOLDERS, folders.joinToString(FOLDER_SEPARATOR) { encodeFolder(it) })
             .apply()
     }
 
@@ -88,7 +114,9 @@ class LauncherPreferences(context: Context) {
     private companion object {
         const val PREF_NAME = "ios_launcher_preferences"
         const val KEY_APP_ORDER = "app_order"
+        const val KEY_DOCK_ORDER = "dock_order"
         const val KEY_LAUNCHER_FOLDERS = "launcher_folders"
+        const val KEY_DOCK_FOLDERS = "dock_folders"
         const val KEY_APP_CATEGORY_PREFIX = "app_category_"
         const val ORDER_SEPARATOR = "|"
         const val FOLDER_SEPARATOR = "\n"

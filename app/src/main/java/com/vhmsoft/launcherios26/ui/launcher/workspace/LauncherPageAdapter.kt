@@ -6,7 +6,6 @@ import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -43,6 +42,13 @@ class LauncherPageAdapter(
     private var darkMode = false
     private var pageRows = DEFAULT_PAGE_ROWS
     private var iconSizeDp = DEFAULT_ICON_SIZE_DP
+    private var parentRecyclerView: RecyclerView? = null
+    private val parentAdapterUpdateGate = LauncherDeferredAdapterUpdate(
+        shouldDefer = { shouldDeferParentAdapterUpdate() },
+        post = { update ->
+            parentRecyclerView?.post(update) ?: update()
+        }
+    )
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return when (viewType) {
@@ -75,6 +81,7 @@ class LauncherPageAdapter(
 
     override fun onViewDetachedFromWindow(holder: RecyclerView.ViewHolder) {
         if (holder is PageViewHolder) {
+            holder.cancelPendingPageBind()
             attachedHomePageHolders.remove(holder.boundPagePosition(), holder)
         } else if (holder is AppLibraryViewHolder && attachedLibraryPageHolder === holder) {
             attachedLibraryPageHolder = null
@@ -84,11 +91,25 @@ class LauncherPageAdapter(
 
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         if (holder is PageViewHolder) {
+            holder.cancelPendingPageBind()
             attachedHomePageHolders.remove(holder.boundPagePosition(), holder)
         } else if (holder is AppLibraryViewHolder && attachedLibraryPageHolder === holder) {
             attachedLibraryPageHolder = null
         }
         super.onViewRecycled(holder)
+    }
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        parentRecyclerView = recyclerView
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        if (parentRecyclerView === recyclerView) {
+            parentRecyclerView = null
+        }
+        parentAdapterUpdateGate.cancelPendingUpdate()
+        super.onDetachedFromRecyclerView(recyclerView)
     }
 
     override fun getItemCount(): Int = pages.size + LIBRARY_PAGE_COUNT
@@ -98,23 +119,37 @@ class LauncherPageAdapter(
     }
 
     fun submitItems(items: List<LauncherHomeItemUiModel>) {
+        parentAdapterUpdateGate.cancelPendingUpdate()
         sourceItems.clear()
         sourceItems.addAll(items)
-        rebuildHomePages()
+        rebuildHomePages(refreshAllWhenPageCountUnchanged = false)
     }
 
     fun submitDragPreviewItems(
         items: List<LauncherHomeItemUiModel>,
         focusPage: Int
     ) {
-        val newPages = items.chunked(pageSize())
-        if (newPages.size != pages.size) {
-            submitItems(items)
-            return
+        val previewItems = items.toList()
+        parentAdapterUpdateGate.run {
+            applyDragPreviewItems(previewItems, focusPage)
         }
+    }
+
+    private fun applyDragPreviewItems(
+        items: List<LauncherHomeItemUiModel>,
+        focusPage: Int
+    ) {
+        val newPages = items.chunked(pageSize())
+        val diff = LauncherPageDiff.between(pages, newPages)
 
         pages.clear()
         pages.addAll(newPages)
+        if (diff.pageCountChanged) {
+            attachedHomePageHolders.clear()
+            notifyDataSetChanged()
+            return
+        }
+
         val holder = attachedHomePageHolders[focusPage]
         if (holder != null) {
             holder.bindPageItems(pages[focusPage])
@@ -123,11 +158,18 @@ class LauncherPageAdapter(
         }
     }
 
+    private fun shouldDeferParentAdapterUpdate(): Boolean {
+        val recyclerView = parentRecyclerView ?: return false
+        return recyclerView.isComputingLayout ||
+            recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE
+    }
+
     fun setHomeGridRows(rows: Int) {
         val boundedRows = rows.coerceIn(MIN_PAGE_ROWS, MAX_PAGE_ROWS)
         if (pageRows == boundedRows) return
+        parentAdapterUpdateGate.cancelPendingUpdate()
         pageRows = boundedRows
-        rebuildHomePages()
+        rebuildHomePages(refreshAllWhenPageCountUnchanged = true)
     }
 
     fun setIconSizeDp(sizeDp: Int) {
@@ -139,11 +181,26 @@ class LauncherPageAdapter(
 
     fun homePageCount(): Int = pages.size
 
-    private fun rebuildHomePages() {
+    private fun rebuildHomePages(refreshAllWhenPageCountUnchanged: Boolean) {
+        val newPages = sourceItems.chunked(pageSize())
+        val diff = LauncherPageDiff.between(pages, newPages)
+
         pages.clear()
-        pages.addAll(sourceItems.chunked(pageSize()))
-        attachedHomePageHolders.clear()
-        notifyDataSetChanged()
+        pages.addAll(newPages)
+        if (diff.pageCountChanged || refreshAllWhenPageCountUnchanged) {
+            attachedHomePageHolders.clear()
+            notifyDataSetChanged()
+            return
+        }
+
+        diff.changedIndices.forEach { index ->
+            val holder = attachedHomePageHolders[index]
+            if (holder != null) {
+                holder.bindPageItems(pages[index])
+            } else {
+                notifyItemChanged(index)
+            }
+        }
     }
 
     private fun pageSize(): Int {
@@ -179,6 +236,10 @@ class LauncherPageAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
         private lateinit var itemTouchHelper: ItemTouchHelper
         private var boundPagePosition = RecyclerView.NO_POSITION
+        private val pageBindGate = LauncherDeferredAdapterUpdate(
+            shouldDefer = { shouldDeferPageBind() },
+            post = { update -> binding.pageRecyclerView.post(update) }
+        )
         private val pageAdapter = LauncherIconAdapter(
             onIconClicked = onIconClicked,
             onIconLongClicked = onIconLongClicked,
@@ -207,12 +268,7 @@ class LauncherPageAdapter(
                 adapter = pageAdapter
                 itemTouchHelper.attachToRecyclerView(this)
                 setHasFixedSize(true)
-                itemAnimator = DefaultItemAnimator().apply {
-                    supportsChangeAnimations = false
-                    moveDuration = ICON_REORDER_MOVE_DURATION_MS
-                    addDuration = ICON_REORDER_MOVE_DURATION_MS
-                    removeDuration = ICON_REORDER_MOVE_DURATION_MS
-                }
+                itemAnimator = null
                 setOnTouchListener { _, event ->
                     pageAdapter.updateActiveTouch(event.rawX, event.rawY)
                     false
@@ -233,13 +289,31 @@ class LauncherPageAdapter(
         }
 
         fun bindPageItems(items: List<LauncherHomeItemUiModel>) {
+            val pageItems = items.toList()
+            pageBindGate.run {
+                applyPageItems(pageItems)
+            }
+        }
+
+        private fun applyPageItems(pageItems: List<LauncherHomeItemUiModel>) {
             pageAdapter.setEditing(editing)
             pageAdapter.setDarkMode(darkMode)
             pageAdapter.setIconSizeDp(iconSizeDp)
-            pageAdapter.submitItems(items)
+            pageAdapter.submitItems(pageItems)
             binding.pageRecyclerView.post {
                 pageAdapter.setItemHeight(binding.pageRecyclerView.height / pageRows)
             }
+        }
+
+        private fun shouldDeferPageBind(): Boolean {
+            val recyclerView = binding.pageRecyclerView
+            val parent = parentRecyclerView
+            return LauncherPageBindDeferral.shouldDefer(
+                childComputingLayout = recyclerView.isComputingLayout,
+                childItemAnimatorRunning = recyclerView.itemAnimator?.isRunning == true,
+                parentComputingLayout = parent?.isComputingLayout == true,
+                parentScrollState = parent?.scrollState ?: RecyclerView.SCROLL_STATE_IDLE
+            )
         }
 
         fun setDarkMode(enabled: Boolean) {
@@ -248,6 +322,10 @@ class LauncherPageAdapter(
 
         fun setIconSizeDp(sizeDp: Int) {
             pageAdapter.setIconSizeDp(sizeDp)
+        }
+
+        fun cancelPendingPageBind() {
+            pageBindGate.cancelPendingUpdate()
         }
 
         fun boundPagePosition(): Int = boundPagePosition
@@ -327,9 +405,8 @@ class LauncherPageAdapter(
         const val MIN_PAGE_ROWS = 5
         const val DEFAULT_PAGE_ROWS = 6
         const val MAX_PAGE_ROWS = 6
-        const val MIN_ICON_SIZE_DP = 52
+        const val MIN_ICON_SIZE_DP = 44
         const val DEFAULT_ICON_SIZE_DP = 64
         const val MAX_ICON_SIZE_DP = 78
-        const val ICON_REORDER_MOVE_DURATION_MS = 170L
     }
 }

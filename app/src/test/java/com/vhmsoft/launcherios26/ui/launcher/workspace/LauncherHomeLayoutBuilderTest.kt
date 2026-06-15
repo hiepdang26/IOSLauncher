@@ -52,6 +52,30 @@ class LauncherHomeLayoutBuilderTest {
         )
     }
 
+    @Test
+    fun normalize_rekeysPlaceholdersByCurrentPositionToAvoidDuplicateStableIds() {
+        val normalized = LauncherHomeLayoutBuilder.normalize(
+            listOf(
+                LauncherHomeItemUiModel.App(appItem("Photos")),
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(24),
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(24)
+            )
+        )
+
+        val placeholderIds = normalized
+            .filterIsInstance<LauncherHomeItemUiModel.Placeholder>()
+            .map { placeholder -> placeholder.stableId }
+
+        assertEquals(
+            listOf(
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(1).stableId,
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(2).stableId
+            ),
+            placeholderIds
+        )
+        assertEquals(placeholderIds.size, placeholderIds.toSet().size)
+    }
+
     private fun appItem(label: String): LauncherIconUiModel {
         val app = LauncherApp(
             label = label,

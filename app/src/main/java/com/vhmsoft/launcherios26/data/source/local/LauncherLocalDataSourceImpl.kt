@@ -29,12 +29,28 @@ class LauncherLocalDataSourceImpl(
         preferences.saveAppOrder(iconKeys)
     }
 
+    override fun getDockOrder(): List<String> {
+        return preferences.getDockOrder()
+    }
+
+    override fun saveDockOrder(iconKeys: List<String>) {
+        preferences.saveDockOrder(iconKeys)
+    }
+
     override fun getLauncherFolders(): List<LauncherFolder> {
         return preferences.getLauncherFolders()
     }
 
     override fun saveLauncherFolders(folders: List<LauncherFolder>) {
         preferences.saveLauncherFolders(folders)
+    }
+
+    override fun getDockFolders(): List<LauncherFolder> {
+        return preferences.getDockFolders()
+    }
+
+    override fun saveDockFolders(folders: List<LauncherFolder>) {
+        preferences.saveDockFolders(folders)
     }
 
     override fun getAppCategory(iconKey: String): String? {

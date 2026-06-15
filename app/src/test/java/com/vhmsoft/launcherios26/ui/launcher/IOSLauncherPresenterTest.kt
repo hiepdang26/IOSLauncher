@@ -6,6 +6,8 @@ import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
 import com.vhmsoft.launcherios26.data.repository.LauncherRepository
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCode
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -32,21 +34,29 @@ class IOSLauncherPresenterTest {
         presenter.onAssistiveTouchClicked()
         presenter.onSettingsMenuClicked()
 
-        assertTrue(view.showedLockScreenDownload)
-        assertTrue(view.showedControlCenterDownload)
-        assertTrue(view.showedAssistiveTouchDownload)
+        assertEquals(
+            listOf(
+                LauncherExternalFeatureCode.LOCK_SCREEN,
+                LauncherExternalFeatureCode.CONTROL_CENTER,
+                LauncherExternalFeatureCode.ASSISTIVE_TOUCH
+            ),
+            view.externalFeaturePrompts
+        )
         assertTrue(view.showedSettingsDrawer)
     }
 
     private class FakeView : IOSLauncherContract.View {
         var openedAppLibrary = false
-        var showedLockScreenDownload = false
-        var showedControlCenterDownload = false
-        var showedAssistiveTouchDownload = false
+        val externalFeaturePrompts = mutableListOf<LauncherExternalFeatureCode>()
         var showedSettingsDrawer = false
 
         override fun showLoading(isLoading: Boolean) = Unit
-        override fun showLauncherApps(apps: List<LauncherIconUiModel>, folders: List<LauncherFolder>) = Unit
+        override fun showLauncherApps(
+            apps: List<LauncherIconUiModel>,
+            folders: List<LauncherFolder>,
+            dockFolders: List<LauncherFolder>,
+            dockOrder: List<String>
+        ) = Unit
         override fun showError(message: String) = Unit
         override fun openDefaultLauncherSelection() = Unit
         override fun showAlreadyDefaultLauncher() = Unit
@@ -56,14 +66,13 @@ class IOSLauncherPresenterTest {
         override fun openAppLibrarySettings() {
             openedAppLibrary = true
         }
-        override fun showLockScreenDownloadPrompt() {
-            showedLockScreenDownload = true
-        }
-        override fun showControlCenterDownloadPrompt() {
-            showedControlCenterDownload = true
-        }
-        override fun showAssistiveTouchDownloadPrompt() {
-            showedAssistiveTouchDownload = true
+        override fun shareLauncherApp() = Unit
+        override fun shareLauncherAppByMail() = Unit
+        override fun showRatingPrompt() = Unit
+        override fun showLayoutSettingsPage() = Unit
+        override fun applyLayoutDarkMode(enabled: Boolean) = Unit
+        override fun showExternalFeatureDownloadPrompt(featureCode: LauncherExternalFeatureCode) {
+            externalFeaturePrompts += featureCode
         }
         override fun showSettingsDrawer() {
             showedSettingsDrawer = true
@@ -77,8 +86,12 @@ class IOSLauncherPresenterTest {
         }
         override fun clearIconCache() = Unit
         override fun saveAppOrder(apps: List<LauncherApp>) = Unit
+        override fun getDockOrder(): List<String> = emptyList()
+        override fun saveDockOrder(iconKeys: List<String>) = Unit
         override fun getLauncherFolders(): List<LauncherFolder> = emptyList()
         override fun saveLauncherFolders(folders: List<LauncherFolder>) = Unit
+        override fun getDockFolders(): List<LauncherFolder> = emptyList()
+        override fun saveDockFolders(folders: List<LauncherFolder>) = Unit
         override fun getAppCategory(app: LauncherApp): LauncherAppCategory = LauncherAppCategory.OTHER
         override fun saveAppCategory(app: LauncherApp, category: LauncherAppCategory) = Unit
     }

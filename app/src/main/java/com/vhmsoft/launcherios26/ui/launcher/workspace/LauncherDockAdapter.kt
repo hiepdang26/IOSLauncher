@@ -1,22 +1,31 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
+import android.animation.ObjectAnimator
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
-import android.view.ViewGroup
 import android.view.View
+import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
+import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.databinding.ItemLauncherDockIconBinding
 import java.util.Collections
 
 class LauncherDockAdapter(
     private val onIconClicked: (LauncherIconUiModel) -> Unit,
+    private val onFolderClicked: (LauncherHomeItemUiModel.Folder) -> Unit = {},
     private val onRemoveClicked: (LauncherIconUiModel) -> Unit = {},
     private val onDragRequested: (RecyclerView.ViewHolder) -> Unit = {},
-    private val onOrderChanged: (List<LauncherIconUiModel>) -> Unit = {}
+    private val onOrderChanged: (List<LauncherHomeItemUiModel>) -> Unit = {}
 ) : RecyclerView.Adapter<LauncherDockAdapter.DockViewHolder>() {
-    private val items = mutableListOf<LauncherIconUiModel>()
+    private val items = mutableListOf<LauncherHomeItemUiModel>()
     private var editing = false
     private var iconSizeDp = DEFAULT_ICON_SIZE_DP
+    private var darkMode = false
+    private var pendingDropTarget: PendingDropTarget? = null
+    private var recentlyUpdatedFolderStableId: Long? = null
     private var activeTouchRawX = 0f
     private var activeTouchRawY = 0f
     private var hasActiveTouch = false
@@ -42,15 +51,31 @@ class LauncherDockAdapter(
 
     override fun getItemId(position: Int): Long = items[position].stableId
 
-    fun submitApps(apps: List<LauncherIconUiModel>) {
+    fun submitItems(dockItems: List<LauncherHomeItemUiModel>) {
         items.clear()
-        items.addAll(apps)
+        items.addAll(
+            LauncherHomeLayoutBuilder.normalize(dockItems)
+                .filterNot { item -> item is LauncherHomeItemUiModel.Placeholder }
+                .take(MAX_DOCK_ITEMS)
+        )
+        pendingDropTarget = null
+        recentlyUpdatedFolderStableId = null
+        clearActiveTouch()
         notifyDataSetChanged()
+    }
+
+    fun submitApps(apps: List<LauncherIconUiModel>) {
+        submitItems(apps.map { app -> LauncherHomeItemUiModel.App(app) })
     }
 
     fun setEditing(enabled: Boolean) {
         if (editing == enabled) return
         editing = enabled
+        if (!editing) {
+            pendingDropTarget = null
+            recentlyUpdatedFolderStableId = null
+            clearActiveTouch()
+        }
         notifyDataSetChanged()
     }
 
@@ -61,18 +86,28 @@ class LauncherDockAdapter(
         notifyDataSetChanged()
     }
 
+    fun setDarkMode(enabled: Boolean) {
+        if (darkMode == enabled) return
+        darkMode = enabled
+        notifyDataSetChanged()
+    }
+
     fun isEditing(): Boolean = editing
 
     fun stableIdAt(position: Int): Long? {
         return items.getOrNull(position)?.stableId
     }
 
-    fun itemByStableId(stableId: Long?): LauncherIconUiModel? {
+    fun itemAt(position: Int): LauncherHomeItemUiModel? {
+        return items.getOrNull(position)
+    }
+
+    fun itemByStableId(stableId: Long?): LauncherHomeItemUiModel? {
         if (stableId == null) return null
         return items.firstOrNull { item -> item.stableId == stableId }
     }
 
-    fun itemsSnapshot(): List<LauncherIconUiModel> {
+    fun itemsSnapshot(): List<LauncherHomeItemUiModel> {
         return items.toList()
     }
 
@@ -106,25 +141,151 @@ class LauncherDockAdapter(
                 Collections.swap(items, index, index - 1)
             }
         }
+        pendingDropTarget = null
         notifyItemMoved(fromPosition, toPosition)
         return true
     }
 
+    fun rememberDropTargetByTargetStableId(draggedStableId: Long?, targetStableId: Long?) {
+        val previousTargetStableId = pendingDropTarget?.targetStableId
+        pendingDropTarget = null
+        if (!editing || draggedStableId == null || targetStableId == null) {
+            notifyDropTargetChanged(previousTargetStableId)
+            return
+        }
+
+        val dragged = items.firstOrNull { item -> item.stableId == draggedStableId } as? LauncherHomeItemUiModel.App
+        val target = items.firstOrNull { item -> item.stableId == targetStableId }
+        if (dragged == null ||
+            target == null ||
+            dragged.stableId == target.stableId ||
+            target is LauncherHomeItemUiModel.Placeholder
+        ) {
+            notifyDropTargetChanged(previousTargetStableId)
+            return
+        }
+
+        pendingDropTarget = PendingDropTarget(
+            draggedStableId = dragged.stableId,
+            targetStableId = target.stableId
+        )
+        if (previousTargetStableId != target.stableId) {
+            notifyDropTargetChanged(previousTargetStableId)
+            notifyDropTargetChanged(target.stableId)
+        }
+    }
+
+    fun clearPendingDropTarget() {
+        val previousTargetStableId = pendingDropTarget?.targetStableId
+        pendingDropTarget = null
+        notifyDropTargetChanged(previousTargetStableId)
+    }
+
+    fun hasPendingDropTarget(): Boolean {
+        return pendingDropTarget != null
+    }
+
+    fun commitPendingDropTarget(): Boolean {
+        val target = pendingDropTarget ?: return false
+        pendingDropTarget = null
+
+        val draggedIndex = items.indexOfFirst { item -> item.stableId == target.draggedStableId }
+        val targetIndex = items.indexOfFirst { item -> item.stableId == target.targetStableId }
+        if (draggedIndex == -1 || targetIndex == -1 || draggedIndex == targetIndex) {
+            notifyDropTargetChanged(target.targetStableId)
+            return false
+        }
+
+        val dragged = items[draggedIndex] as? LauncherHomeItemUiModel.App
+        if (dragged == null) {
+            notifyDropTargetChanged(target.targetStableId)
+            return false
+        }
+
+        val targetItem = items[targetIndex]
+        val updatedTarget = when (targetItem) {
+            is LauncherHomeItemUiModel.App -> LauncherHomeItemUiModel.Folder(
+                id = "dock_folder_${System.nanoTime()}",
+                title = LauncherHomeLayoutBuilder.DEFAULT_FOLDER_TITLE,
+                apps = listOf(targetItem.iconItem, dragged.iconItem)
+            )
+
+            is LauncherHomeItemUiModel.Folder -> {
+                if (targetItem.apps.any { item -> item.app.iconKey == dragged.iconItem.app.iconKey }) {
+                    notifyDropTargetChanged(target.targetStableId)
+                    return false
+                }
+                targetItem.copy(apps = targetItem.apps + dragged.iconItem)
+            }
+
+            is LauncherHomeItemUiModel.Placeholder -> {
+                notifyDropTargetChanged(target.targetStableId)
+                return false
+            }
+        }
+
+        val newItems = items.toMutableList()
+        newItems.removeAt(draggedIndex)
+        val adjustedTargetIndex = if (draggedIndex < targetIndex) targetIndex - 1 else targetIndex
+        newItems[adjustedTargetIndex] = updatedTarget
+
+        recentlyUpdatedFolderStableId = updatedTarget.stableId
+        items.clear()
+        items.addAll(
+            LauncherHomeLayoutBuilder.normalize(newItems)
+                .filterNot { item -> item is LauncherHomeItemUiModel.Placeholder }
+                .take(MAX_DOCK_ITEMS)
+        )
+        notifyDataSetChanged()
+        return true
+    }
+
     fun notifyOrderChanged() {
+        val normalizedItems = LauncherHomeLayoutBuilder.normalize(items)
+            .filterNot { item -> item is LauncherHomeItemUiModel.Placeholder }
+            .take(MAX_DOCK_ITEMS)
+        if (normalizedItems != items) {
+            items.clear()
+            items.addAll(normalizedItems)
+            notifyDataSetChanged()
+        }
         onOrderChanged(items.toList())
+    }
+
+    private fun notifyDropTargetChanged(stableId: Long?) {
+        if (stableId == null) return
+        val position = items.indexOfFirst { item -> item.stableId == stableId }
+        if (position != -1) {
+            notifyItemChanged(position)
+        }
     }
 
     inner class DockViewHolder(
         private val binding: ItemLauncherDockIconBinding
     ) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: LauncherIconUiModel) {
+        private var wiggleAnimator: ObjectAnimator? = null
+
+        fun bind(item: LauncherHomeItemUiModel) {
+            stopWiggle()
+            binding.root.alpha = 1f
+            binding.root.scaleX = 1f
+            binding.root.scaleY = 1f
+            binding.root.translationX = 0f
+            binding.root.translationY = 0f
+            binding.root.rotation = 0f
             binding.root.setOnClickListener(null)
-            binding.appIcon.setImageDrawable(item.displayIcon)
-            binding.appIcon.contentDescription = item.label
-            applyIconSize()
             binding.iconPlate.setOnClickListener {
-                if (!editing) {
-                    onIconClicked(item)
+                if (editing) {
+                    if (item is LauncherHomeItemUiModel.Folder) {
+                        onFolderClicked(item)
+                    }
+                    return@setOnClickListener
+                }
+
+                when (item) {
+                    is LauncherHomeItemUiModel.App -> onIconClicked(item.iconItem)
+                    is LauncherHomeItemUiModel.Folder -> onFolderClicked(item)
+                    is LauncherHomeItemUiModel.Placeholder -> Unit
                 }
             }
             binding.iconPlate.setOnLongClickListener {
@@ -137,30 +298,186 @@ class LauncherDockAdapter(
                 false
             }
             binding.removeBadge.visibility = if (editing) View.VISIBLE else View.GONE
-            binding.removeBadge.setOnClickListener { onRemoveClicked(item) }
+            binding.removeBadge.setOnClickListener {
+                when (item) {
+                    is LauncherHomeItemUiModel.App -> onRemoveClicked(item.iconItem)
+                    is LauncherHomeItemUiModel.Folder -> dissolveFolder(item)
+                    is LauncherHomeItemUiModel.Placeholder -> Unit
+                }
+            }
+            bindIconArtwork(item)
+            applyIconSize()
+            applyDropTargetState(item)
             applyEditAnimation()
+            applyFolderAbsorbAnimation(item)
         }
 
-        private fun applyEditAnimation() {
-            binding.root.animate().cancel()
-            if (editing) {
-                val startRotation = if (bindingAdapterPosition % 2 == 0) -1.4f else 1.4f
-                binding.root.rotation = startRotation
-                binding.root.post { animateWiggle(binding.root, startRotation < 0) }
-            } else {
-                binding.root.rotation = 0f
+        private fun bindIconArtwork(item: LauncherHomeItemUiModel) {
+            binding.appIcon.contentDescription = item.label
+            when (item) {
+                is LauncherHomeItemUiModel.App -> {
+                    binding.iconPlate.background = if (isPendingDropTarget(item)) {
+                        folderPreviewBackground()
+                    } else {
+                        null
+                    }
+                    binding.appIcon.setImageDrawable(item.iconItem.displayIcon)
+                    binding.appIcon.visibility = View.VISIBLE
+                    binding.folderPreview.visibility = View.GONE
+                    clearFolderPreviewIcons()
+                }
+
+                is LauncherHomeItemUiModel.Folder -> {
+                    binding.iconPlate.background = folderPreviewBackground()
+                    binding.appIcon.visibility = View.GONE
+                    binding.appIcon.setImageDrawable(null)
+                    binding.folderPreview.visibility = View.VISIBLE
+                    bindFolderPreviewIcons(
+                        if (isPendingDropTarget(item)) {
+                            item.apps + listOfNotNull(pendingDraggedIcon())
+                        } else {
+                            item.apps
+                        }
+                    )
+                }
+
+                is LauncherHomeItemUiModel.Placeholder -> Unit
             }
         }
 
-        private fun animateWiggle(view: View, rotateRight: Boolean) {
-            if (!editing || !view.isAttachedToWindow) return
+        private fun applyDropTargetState(item: LauncherHomeItemUiModel) {
+            val activeTarget = isPendingDropTarget(item)
+            binding.iconPlate.animate().cancel()
+            binding.appIcon.animate().cancel()
+            binding.folderPreview.animate().cancel()
 
-            view.animate()
-                .rotation(if (rotateRight) 1.4f else -1.4f)
-                .setDuration(100L)
-                .setInterpolator(LinearInterpolator())
-                .withEndAction { animateWiggle(view, !rotateRight) }
+            if (activeTarget) {
+                binding.removeBadge.visibility = View.GONE
+                binding.iconPlate.elevation = dp(14).toFloat()
+                binding.iconPlate.animate()
+                    .scaleX(1.12f)
+                    .scaleY(1.12f)
+                    .setDuration(135L)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+                binding.appIcon.animate()
+                    .scaleX(0.82f)
+                    .scaleY(0.82f)
+                    .setDuration(135L)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+                binding.folderPreview.animate()
+                    .scaleX(0.9f)
+                    .scaleY(0.9f)
+                    .setDuration(135L)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            } else {
+                binding.iconPlate.elevation = dp(2).toFloat()
+                binding.iconPlate.scaleX = 1f
+                binding.iconPlate.scaleY = 1f
+                binding.appIcon.scaleX = 1f
+                binding.appIcon.scaleY = 1f
+                binding.folderPreview.scaleX = 1f
+                binding.folderPreview.scaleY = 1f
+            }
+        }
+
+        private fun applyFolderAbsorbAnimation(item: LauncherHomeItemUiModel) {
+            if (item.stableId != recentlyUpdatedFolderStableId) return
+
+            recentlyUpdatedFolderStableId = null
+            binding.iconPlate.animate().cancel()
+            binding.iconPlate.scaleX = 1.18f
+            binding.iconPlate.scaleY = 1.18f
+            binding.iconPlate.alpha = 0.86f
+            binding.iconPlate.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(220L)
+                .setInterpolator(OvershootInterpolator(1.16f))
                 .start()
+        }
+
+        private fun applyEditAnimation() {
+            if (editing) {
+                val startRotation = if (bindingAdapterPosition % 2 == 0) -1.4f else 1.4f
+                startWiggle(startRotation)
+            } else {
+                stopWiggle()
+            }
+        }
+
+        private fun startWiggle(startRotation: Float) {
+            if (wiggleAnimator?.isStarted == true) return
+
+            binding.root.rotation = startRotation
+            wiggleAnimator = ObjectAnimator.ofFloat(
+                binding.root,
+                View.ROTATION,
+                startRotation,
+                -startRotation
+            ).apply {
+                duration = 100L
+                repeatCount = ObjectAnimator.INFINITE
+                repeatMode = ObjectAnimator.REVERSE
+                interpolator = LinearInterpolator()
+                start()
+            }
+        }
+
+        private fun stopWiggle() {
+            wiggleAnimator?.cancel()
+            wiggleAnimator = null
+            binding.root.rotation = 0f
+        }
+
+        private fun isPendingDropTarget(item: LauncherHomeItemUiModel): Boolean {
+            return editing && pendingDropTarget?.targetStableId == item.stableId
+        }
+
+        private fun pendingDraggedIcon(): LauncherIconUiModel? {
+            val draggedStableId = pendingDropTarget?.draggedStableId ?: return null
+            val draggedItem = items.firstOrNull { item -> item.stableId == draggedStableId }
+            return (draggedItem as? LauncherHomeItemUiModel.App)?.iconItem
+        }
+
+        private fun bindFolderPreviewIcons(apps: List<LauncherIconUiModel>) {
+            folderPreviewIcons().forEachIndexed { index, imageView ->
+                val app = apps.getOrNull(index)
+                imageView.visibility = if (app == null) View.INVISIBLE else View.VISIBLE
+                imageView.setImageDrawable(app?.displayIcon)
+            }
+        }
+
+        private fun clearFolderPreviewIcons() {
+            folderPreviewIcons().forEach { imageView ->
+                imageView.visibility = View.INVISIBLE
+                imageView.setImageDrawable(null)
+            }
+        }
+
+        private fun folderPreviewBackground(): GradientDrawable {
+            return GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(16).toFloat()
+                setColor(if (darkMode) 0x5A42484B else 0x705F6663)
+            }
+        }
+
+        private fun folderPreviewIcons(): List<ImageView> {
+            return listOf(
+                binding.folderIcon1,
+                binding.folderIcon2,
+                binding.folderIcon3,
+                binding.folderIcon4,
+                binding.folderIcon5,
+                binding.folderIcon6,
+                binding.folderIcon7,
+                binding.folderIcon8,
+                binding.folderIcon9
+            )
         }
 
         private fun applyIconSize() {
@@ -176,9 +493,25 @@ class LauncherDockAdapter(
         }
     }
 
+    private fun dissolveFolder(folder: LauncherHomeItemUiModel.Folder) {
+        val index = items.indexOfFirst { item -> item.stableId == folder.stableId }
+        if (index == -1) return
+
+        items.removeAt(index)
+        items.addAll(index, folder.apps.map { app -> LauncherHomeItemUiModel.App(app) })
+        notifyDataSetChanged()
+        notifyOrderChanged()
+    }
+
+    private data class PendingDropTarget(
+        val draggedStableId: Long,
+        val targetStableId: Long
+    )
+
     private companion object {
-        const val MIN_ICON_SIZE_DP = 52
+        const val MIN_ICON_SIZE_DP = 44
         const val DEFAULT_ICON_SIZE_DP = 64
         const val MAX_ICON_SIZE_DP = 78
+        const val MAX_DOCK_ITEMS = 4
     }
 }
