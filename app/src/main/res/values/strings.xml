@@ -81,4 +81,13 @@
     <string name="layout_grid_6x4_icon">&#9632;&#9632;&#9632;&#9632;&#10;&#9632;&#9632;&#9632;&#9632;&#10;&#9632;&#9632;&#9632;&#9632;&#10;&#9632;&#9632;&#9632;&#9632;&#10;&#9632;&#9632;&#9632;&#9632;&#10;&#9632;&#9632;&#9632;&#9632;</string>
     <string name="layout_grid_5x4">5x4</string>
     <string name="layout_grid_6x4">6x4</string>
+    <string name="launcher_widget_edit">S&#7917;a</string>
+    <string name="launcher_widget_add">+</string>
+    <string name="launcher_widget_done">Xong</string>
+    <string name="launcher_widget_location_title">C&#7845;p Ph&#233;p V&#7883; Tr&#237;</string>
+    <string name="launcher_widget_location_message">Kh&#244;ng cho ph&#233;p v&#7883; TR&#205;, c&#7845;p ph&#233;p &#273;&#7875; nh&#7853;n &#273;&#432;&#7907;c th&#244;ng tin th&#7901;i ti&#7871;t.</string>
+    <string name="launcher_widget_weather">Th&#7901;i ti&#7871;t</string>
+    <string name="launcher_widget_battery">&#258;c quy</string>
+    <string name="launcher_widget_picture">Picture</string>
+    <string name="launcher_widget_suggestions">G&#7907;i &#253;</string>
 </resources>

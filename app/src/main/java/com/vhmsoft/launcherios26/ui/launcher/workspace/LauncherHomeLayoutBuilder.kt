@@ -78,5 +78,10 @@ object LauncherHomeLayoutBuilder {
     }
 
     const val DEFAULT_FOLDER_TITLE = "Thư mục"
+    fun compact(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
+        return normalize(items)
+            .filterNot { item -> item is LauncherHomeItemUiModel.Placeholder }
+    }
+
     private const val MIN_FOLDER_SIZE = 2
 }

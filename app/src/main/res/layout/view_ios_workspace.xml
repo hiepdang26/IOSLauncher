@@ -593,10 +593,13 @@
                 </LinearLayout>
 
                 <FrameLayout
+                    android:id="@+id/widgetWeatherOption"
                     android:layout_width="match_parent"
                     android:layout_height="240dp"
                     android:layout_marginTop="10dp"
-                    android:background="@drawable/bg_widget_blue_card">
+                    android:background="@drawable/bg_widget_blue_card"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <TextView
                         android:layout_width="match_parent"
@@ -627,11 +630,14 @@
                     android:orientation="horizontal">
 
                     <FrameLayout
+                        android:id="@+id/widgetBatteryOption"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_marginEnd="10dp"
                         android:layout_weight="1"
-                        android:background="@drawable/bg_widget_dark_card">
+                        android:background="@drawable/bg_widget_dark_card"
+                        android:clickable="true"
+                        android:focusable="true">
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -654,11 +660,14 @@
                     </FrameLayout>
 
                     <FrameLayout
+                        android:id="@+id/widgetPictureOption"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_marginStart="10dp"
                         android:layout_weight="1"
-                        android:background="@drawable/bg_app_library_folder">
+                        android:background="@drawable/bg_app_library_folder"
+                        android:clickable="true"
+                        android:focusable="true">
 
                         <TextView
                             android:layout_width="wrap_content"

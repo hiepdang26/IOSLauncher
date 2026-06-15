@@ -138,8 +138,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var forceSettingsPanel = false
     private var skipNextResumeReload = true
     private var waitingForLauncherSelection = false
+    private var hasPositionedInitialHomePage = false
     private var layoutDarkMode = false
     private var layoutIphone8Style = false
+    private var layoutAutoArrange = false
     private var homeIconSizeDp = DEFAULT_HOME_ICON_SIZE_DP
     private var homeGridRows = DEFAULT_HOME_GRID_ROWS
     private var effectiveHomeIconSizeDp = DEFAULT_HOME_ICON_SIZE_DP
@@ -214,6 +216,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         setContentView(binding.root)
         layoutDarkMode = layoutPreferences.getBoolean(KEY_LAYOUT_DARK_MODE, false)
         layoutIphone8Style = layoutPreferences.getBoolean(KEY_LAYOUT_IPHONE8_STYLE, false)
+        layoutAutoArrange = layoutPreferences.getBoolean(KEY_LAYOUT_AUTO_ARRANGE, false)
         homeIconSizeDp = layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
             .coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
         homeGridRows = layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
@@ -467,14 +470,17 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.iphone8Row.setOnClickListener {
             binding.iphone8Switch.isChecked = !binding.iphone8Switch.isChecked
         }
-        listOf(
-            binding.bottomSpacingRow to binding.bottomSpacingSwitch,
-            binding.autoArrangeRow to binding.autoArrangeSwitch
-        ).forEach { (row, switch) ->
-            switch.isChecked = false
-            row.setOnClickListener {
-                switch.isChecked = !switch.isChecked
-            }
+        binding.bottomSpacingSwitch.isChecked = false
+        binding.bottomSpacingRow.setOnClickListener {
+            binding.bottomSpacingSwitch.isChecked = !binding.bottomSpacingSwitch.isChecked
+        }
+        binding.autoArrangeSwitch.setOnCheckedChangeListener(null)
+        binding.autoArrangeSwitch.isChecked = layoutAutoArrange
+        binding.autoArrangeSwitch.setOnCheckedChangeListener { _, checked ->
+            applyAutoArrange(checked, persist = true)
+        }
+        binding.autoArrangeRow.setOnClickListener {
+            binding.autoArrangeSwitch.isChecked = !binding.autoArrangeSwitch.isChecked
         }
         binding.iconSizeSeekBar.max = MAX_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
         binding.iconSizeSeekBar.progress = homeIconSizeDp - MIN_HOME_ICON_SIZE_DP
@@ -600,7 +606,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         dockFolders: List<LauncherFolder>,
         dockOrder: List<String>
     ) {
-        homeItems = LauncherHomeDuplicateSanitizer.sanitize(
+        homeItems = arrangeHomeItems(
             LauncherHomeLayoutBuilder.build(apps, folders)
         )
         dockItems = buildDockItems(apps, dockFolders, dockOrder)
@@ -608,13 +614,17 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         updateLauncherContentDescription()
         workspacePageAdapter.submitItems(homeItems)
         workspacePageAdapter.submitLibraryGroups(AppLibraryGroupBuilder.buildGroups(apps))
+        if (!hasPositionedInitialHomePage && workspacePageAdapter.homePageCount() > 0) {
+            binding.workspace.workspacePager.setCurrentItem(workspacePageAdapter.firstHomeAdapterPosition(), false)
+            hasPositionedInitialHomePage = true
+        }
         dockAdapter.submitItems(dockItems)
         widgetAppAdapter.submitApps(apps)
         searchController.submitApps(apps)
         updateOpenFolderContent()
         applyWorkspaceAppearance()
         updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-        updatePageIndicatorDots(binding.workspace.workspacePager.currentItem)
+        updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
     }
 
     private fun handleHomeItemsChanged(
@@ -624,24 +634,25 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         refreshOpenFolder: Boolean = true,
         refreshAppearance: Boolean = true
     ) {
-        homeItems = LauncherHomeDuplicateSanitizer.sanitize(items)
+        homeItems = arrangeHomeItems(items)
         presenter.onHomeItemsChanged(homeItems)
         if (refreshWorkspace) {
             workspacePageAdapter.submitItems(homeItems)
             preferredPage?.let { page ->
-                val targetPage = page.coerceIn(
+                val targetHomePage = page.coerceIn(
                     0,
                     (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0)
                 )
+                val targetPage = workspacePageAdapter.adapterPositionForHomePage(targetHomePage)
                 if (binding.workspace.workspacePager.currentItem != targetPage) {
                     binding.workspace.workspacePager.setCurrentItem(targetPage, false)
                 }
             }
         }
-        val chromePage = preferredPage?.coerceIn(
-            0,
-            (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0)
-        ) ?: binding.workspace.workspacePager.currentItem
+        val chromePage = preferredPage
+            ?.coerceIn(0, (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0))
+            ?.let { page -> workspacePageAdapter.adapterPositionForHomePage(page) }
+            ?: binding.workspace.workspacePager.currentItem
         if (refreshOpenFolder) {
             updateOpenFolderContent()
         }
@@ -649,7 +660,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             applyWorkspaceAppearance()
         }
         updateWorkspaceChromeForPage(chromePage)
-        updatePageIndicatorDots(chromePage)
+        updatePageIndicatorDotsForAdapterPosition(chromePage)
+    }
+
+    private fun arrangeHomeItems(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
+        val sanitizedItems = LauncherHomeDuplicateSanitizer.sanitize(items)
+        return if (layoutAutoArrange) {
+            LauncherHomeLayoutBuilder.compact(sanitizedItems)
+        } else {
+            sanitizedItems
+        }
     }
 
     private fun handleDockItemsChanged(
@@ -1041,7 +1061,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
         val insertAfterTarget = localX - column * cellWidth > cellWidth / 2f
         val pageCount = homePageCountForItemCount(itemCountAfterRemoval + 1)
-        val page = binding.workspace.workspacePager.currentItem.coerceIn(0, pageCount - 1)
+        val page = currentHomePageIndex().coerceIn(0, pageCount - 1)
         val targetIndex = page * homePageSize + row * HOME_PAGE_COLUMNS + column
         return (targetIndex + if (insertAfterTarget) 1 else 0).coerceIn(0, itemCountAfterRemoval)
     }
@@ -1113,8 +1133,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         homeEdgeDraggedItem = draggedItem
         homeEdgeCommitted = false
         homeEdgeBaseItems = LauncherHomeDragBaseBuilder.forMovingItem(homeItems, draggedItem)
-        homeEdgeSourcePage = binding.workspace.workspacePager.currentItem
-        homeEdgeDragPage = binding.workspace.workspacePager.currentItem.coerceAtMost(
+        homeEdgeSourcePage = currentHomePageIndex()
+        homeEdgeDragPage = currentHomePageIndex().coerceAtMost(
             maxOf(0, homePageCountForItemCount(homeEdgeBaseItems.size + 1) - 1)
         )
         homeEdgePreviewIndex = NO_PREVIEW_INDEX
@@ -1311,13 +1331,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         binding.workspace.workspacePager.postDelayed({
             if (homeEdgeDragActive) {
-                binding.workspace.workspacePager.setCurrentItem(homeEdgeDragPage, false)
+                binding.workspace.workspacePager.setCurrentItem(
+                    workspacePageAdapter.adapterPositionForHomePage(homeEdgeDragPage),
+                    false
+                )
                 binding.workspace.workspacePager.post {
                     updateHomeEdgePreview()
                 }
             }
         }, if (baseChanged) HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS else HOME_EDGE_SWITCH_START_DELAY_MS)
-        showPageIndicator(homeEdgeDragPage)
+        showPageIndicator(workspacePageAdapter.adapterPositionForHomePage(homeEdgeDragPage))
         homeEdgeDirection = 0
     }
 
@@ -1417,7 +1440,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (restoreWorkspace) {
             workspacePageAdapter.submitItems(homeItems)
             updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDots(binding.workspace.workspacePager.currentItem)
+            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
         }
         homeEdgeDragActive = false
         homeEdgeDraggedItem = null
@@ -1645,7 +1668,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (restoreWorkspace && folderExitBaseHomeItems.isNotEmpty()) {
             workspacePageAdapter.submitItems(homeItems)
             updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDots(binding.workspace.workspacePager.currentItem)
+            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
         }
         folderExitDragActive = false
         folderExitDraggedApp = null
@@ -1678,7 +1701,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         folderExitDropCommitGuard.beginDrag()
         folderExitDraggedApp = draggedApp
         folderExitBaseHomeItems = removeAppFromOpenFolder(draggedApp)
-        folderExitDragPage = binding.workspace.workspacePager.currentItem.coerceIn(
+        folderExitDragPage = currentHomePageIndex().coerceIn(
             0,
             homePageCountForItemCount(folderExitBaseHomeItems.size + 1) - 1
         )
@@ -1914,8 +1937,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 focusPage = folderExitDragPage
             )
         }
-        binding.workspace.workspacePager.setCurrentItem(folderExitDragPage, false)
-        showPageIndicator(folderExitDragPage)
+        binding.workspace.workspacePager.setCurrentItem(
+            workspacePageAdapter.adapterPositionForHomePage(folderExitDragPage),
+            false
+        )
+        showPageIndicator(workspacePageAdapter.adapterPositionForHomePage(folderExitDragPage))
         updateFolderExitHomePreview()
         folderExitEdgeDirection = 0
     }
@@ -2381,6 +2407,27 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         applyWorkspaceAppearance()
     }
 
+    private fun applyAutoArrange(enabled: Boolean, persist: Boolean) {
+        val changed = layoutAutoArrange != enabled
+        layoutAutoArrange = enabled
+        if (persist && changed) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_LAYOUT_AUTO_ARRANGE, enabled)
+                .apply()
+        }
+        binding.autoArrangeSwitch.setOnCheckedChangeListener(null)
+        binding.autoArrangeSwitch.isChecked = enabled
+        binding.autoArrangeSwitch.setOnCheckedChangeListener { _, checked ->
+            applyAutoArrange(checked, persist = true)
+        }
+        if (!enabled || homeItems.isEmpty()) return
+
+        val compactedItems = arrangeHomeItems(homeItems)
+        if (compactedItems != homeItems) {
+            handleHomeItemsChanged(compactedItems)
+        }
+    }
+
     override fun openApp(app: LauncherApp) {
         if (app.packageName == packageName) {
             showSettingsPanelFromLauncher()
@@ -2437,7 +2484,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 handleHomePageDragEnded(item, centerX, centerY)
             },
             onLibrarySearchClicked = { showLibrarySearchOverlay() },
-            onLibraryGroupClicked = { group -> showCategoryDetail(group) }
+            onLibraryGroupClicked = { group -> showCategoryDetail(group) },
+            onWidgetEditClicked = { setHomeEditing(true) }
         )
         workspacePageAdapter.setIconSizeDp(effectiveHomeIconSizeDp)
         workspacePageAdapter.setHomeGridRows(effectiveHomeGridRows)
@@ -2497,7 +2545,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             isCurrentPageLibrary = { isLibraryPage(binding.workspace.workspacePager.currentItem) },
             showSearchTrigger = { animated -> showSearchControlInIndicator(animated) }
         )
-        widgetAppAdapter = WidgetAppAdapter()
+        widgetAppAdapter = WidgetAppAdapter {
+            workspacePageAdapter.addSuggestionsWidget()
+            hideWidgetSheet()
+        }
 
         binding.workspace.workspacePager.apply {
             adapter = workspacePageAdapter
@@ -2532,8 +2583,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             }
         }
         showSearchControlInIndicator(animated = false)
+        binding.workspace.editOptionsButton.text = getString(R.string.launcher_widget_add)
+        binding.workspace.editOptionsButton.textSize = 18f
         binding.workspace.editOptionsButton.setOnClickListener {
-            toggleEditWidgetPrompt()
+            showWidgetSheet()
         }
         binding.workspace.doneEditButton.setOnClickListener {
             setHomeEditing(false)
@@ -2547,6 +2600,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         binding.workspace.widgetSheet.setOnTouchListener { _, event ->
             handleWidgetSheetDrag(event)
+        }
+        binding.workspace.widgetWeatherOption.setOnClickListener {
+            workspacePageAdapter.addWeatherWidget()
+            hideWidgetSheet()
+        }
+        binding.workspace.widgetBatteryOption.setOnClickListener {
+            workspacePageAdapter.addBatteryWidget()
+            hideWidgetSheet()
+        }
+        binding.workspace.widgetPictureOption.setOnClickListener {
+            workspacePageAdapter.addPictureWidget()
+            hideWidgetSheet()
         }
         binding.workspace.categoryDetailOverlay.setOnClickListener {
             hideCategoryDetail()
@@ -2687,6 +2752,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             binding.workspace.widgetSheetOverlay.visibility != View.VISIBLE &&
             binding.workspace.contextOverlay.visibility != View.VISIBLE &&
             !appOptionsController.isShowing() &&
+            !isWidgetPage(binding.workspace.workspacePager.currentItem) &&
             !isLibraryPage(binding.workspace.workspacePager.currentItem)
     }
 
@@ -2751,6 +2817,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (binding.workspace.librarySearchOverlay.visibility == View.VISIBLE) return false
         if (binding.workspace.categoryDetailOverlay.visibility == View.VISIBLE) return false
         if (binding.workspace.folderOverlay.visibility == View.VISIBLE) return false
+        if (isWidgetPage(binding.workspace.workspacePager.currentItem)) return false
         if (isLibraryPage(binding.workspace.workspacePager.currentItem)) return false
         if (binding.workspace.contextOverlay.visibility == View.VISIBLE || appOptionsController.isShowing()) return false
 
@@ -2798,7 +2865,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun showPageIndicator(position: Int) {
         if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
-        if (isLibraryPage(position)) {
+        if (!isHomePage(position)) {
             indicatorHandler.removeCallbacks(hideIndicatorRunnable)
             binding.workspace.pageIndicator.visibility = View.GONE
             return
@@ -2808,7 +2875,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             showSearchControlInIndicator(animated = false)
             return
         }
-        showDotsInIndicator(position, animate = true)
+        showDotsInIndicator(workspacePageAdapter.homePagePositionForAdapterPosition(position), animate = true)
 
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
         binding.workspace.searchPill.visibility = View.GONE
@@ -2885,6 +2952,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun showSearchControlInIndicator(animated: Boolean) {
         if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
+        if (isWidgetPage(binding.workspace.workspacePager.currentItem)) return
         if (isLibraryPage(binding.workspace.workspacePager.currentItem)) return
         if (editingHome) return
 
@@ -2951,6 +3019,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             text = getString(R.string.launcher_search_hint)
             gravity = Gravity.CENTER
             includeFontPadding = false
+            setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search_18, 0, 0, 0)
+            compoundDrawablePadding = dp(4)
             setTextColor(Color.WHITE)
             textSize = 12f
             layoutParams = android.widget.LinearLayout.LayoutParams(
@@ -2968,27 +3038,49 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun homeIndicatorPageCount(): Int {
-        return (workspacePageAdapter.itemCount - 1).coerceAtLeast(0)
+        return workspacePageAdapter.homePageCount()
     }
 
     private fun updateWorkspaceChromeForPage(position: Int) {
         val libraryPage = isLibraryPage(position)
-        binding.workspace.bottomControlSlot.visibility = if (libraryPage) View.GONE else View.VISIBLE
-        binding.workspace.dockRecyclerView.visibility = if (libraryPage) View.GONE else View.VISIBLE
-        if (libraryPage) {
+        val widgetPage = isWidgetPage(position)
+        binding.workspace.bottomControlSlot.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
+        binding.workspace.dockRecyclerView.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
+        if (libraryPage || widgetPage) {
             indicatorHandler.removeCallbacks(hideIndicatorRunnable)
             binding.workspace.pageIndicator.visibility = View.GONE
+            binding.workspace.searchPill.visibility = View.GONE
         } else if (editingHome) {
             binding.workspace.searchPill.visibility = View.GONE
-            showDotsInIndicator(position, animate = false)
+            showDotsInIndicator(workspacePageAdapter.homePagePositionForAdapterPosition(position), animate = false)
             binding.workspace.pageIndicator.visibility = View.VISIBLE
         } else if (indicatorMode == IndicatorMode.SEARCH) {
             showSearchControlInIndicator(animated = false)
         }
     }
 
+    private fun updatePageIndicatorDotsForAdapterPosition(position: Int) {
+        if (isHomePage(position)) {
+            updatePageIndicatorDots(workspacePageAdapter.homePagePositionForAdapterPosition(position))
+        }
+    }
+
     private fun isLibraryPage(position: Int): Boolean {
         return workspacePageAdapter.itemCount > 0 && position == workspacePageAdapter.itemCount - 1
+    }
+
+    private fun isWidgetPage(position: Int): Boolean {
+        return ::workspacePageAdapter.isInitialized && workspacePageAdapter.isWidgetPage(position)
+    }
+
+    private fun isHomePage(position: Int): Boolean {
+        return ::workspacePageAdapter.isInitialized && workspacePageAdapter.isHomePage(position)
+    }
+
+    private fun currentHomePageIndex(): Int {
+        return workspacePageAdapter.homePagePositionForAdapterPosition(
+            binding.workspace.workspacePager.currentItem
+        ).coerceIn(0, (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0))
     }
 
     private fun setHomeEditing(enabled: Boolean) {
@@ -3022,7 +3114,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                     .start()
             }
             binding.workspace.searchPill.visibility = View.GONE
-            showDotsInIndicator(binding.workspace.workspacePager.currentItem, animate = false)
+            if (isHomePage(binding.workspace.workspacePager.currentItem)) {
+                showDotsInIndicator(currentHomePageIndex(), animate = false)
+            } else {
+                binding.workspace.pageIndicator.visibility = View.GONE
+            }
         } else {
             hideEditWidgetPrompt()
             hideWidgetSheet()
@@ -3036,7 +3132,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 }
                 .start()
             binding.workspace.pageIndicator.visibility = View.GONE
-            if (!isLibraryPage(binding.workspace.workspacePager.currentItem)) {
+            if (isHomePage(binding.workspace.workspacePager.currentItem)) {
                 showSearchControlInIndicator(animated = true)
             }
             workspacePageAdapter.submitItems(homeItems)
@@ -3249,16 +3345,15 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         applyHomeLayoutSettingsUi()
         applyResponsiveWorkspaceLayout()
         if (::workspacePageAdapter.isInitialized) {
-            val targetPage = if (wasLibraryPage) {
-                workspacePageAdapter.itemCount - 1
-            } else {
-                binding.workspace.workspacePager.currentItem.coerceAtMost(
-                    (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0)
-                )
+            val currentPage = binding.workspace.workspacePager.currentItem
+            val targetPage = when {
+                wasLibraryPage -> workspacePageAdapter.itemCount - 1
+                isWidgetPage(currentPage) -> currentPage
+                else -> workspacePageAdapter.adapterPositionForHomePage(currentHomePageIndex())
             }
             binding.workspace.workspacePager.setCurrentItem(targetPage.coerceAtLeast(0), false)
             updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDots(binding.workspace.workspacePager.currentItem)
+            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
         }
     }
 
@@ -3299,6 +3394,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         val currentPage = binding.workspace.workspacePager.currentItem
         val wasLibraryPage = ::workspacePageAdapter.isInitialized && isLibraryPage(currentPage)
+        val wasWidgetPage = ::workspacePageAdapter.isInitialized && isWidgetPage(currentPage)
 
         effectiveHomeGridRows = spec.effectiveRows
         effectiveHomeIconSizeDp = spec.effectiveIconSizeDp
@@ -3324,14 +3420,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             workspacePageAdapter.setIconSizeDp(spec.effectiveIconSizeDp)
             val targetPage = if (wasLibraryPage) {
                 workspacePageAdapter.itemCount - 1
+            } else if (wasWidgetPage) {
+                currentPage
             } else {
-                currentPage.coerceAtMost((workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0))
+                workspacePageAdapter.adapterPositionForHomePage(currentHomePageIndex())
             }.coerceAtLeast(0)
             if (binding.workspace.workspacePager.currentItem != targetPage) {
                 binding.workspace.workspacePager.setCurrentItem(targetPage, false)
             }
             updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDots(binding.workspace.workspacePager.currentItem)
+            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
         }
         if (::dockAdapter.isInitialized) {
             dockAdapter.setIconSizeDp(spec.effectiveIconSizeDp)
@@ -3401,7 +3499,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             folderContentAdapter.setDarkMode(layoutDarkMode)
         }
         if (::workspacePageAdapter.isInitialized) {
-            updatePageIndicatorDots(binding.workspace.workspacePager.currentItem)
+            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
         }
     }
 
@@ -3667,6 +3765,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
         const val KEY_LAYOUT_DARK_MODE = "layout_dark_mode"
         const val KEY_LAYOUT_IPHONE8_STYLE = "layout_iphone8_style"
+        const val KEY_LAYOUT_AUTO_ARRANGE = "layout_auto_arrange"
         const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
         const val KEY_HOME_GRID_ROWS = "home_grid_rows"
     }

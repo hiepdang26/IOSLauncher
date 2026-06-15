@@ -76,6 +76,35 @@ class LauncherHomeLayoutBuilderTest {
         assertEquals(placeholderIds.size, placeholderIds.toSet().size)
     }
 
+    @Test
+    fun compact_removesPlaceholdersAndKeepsItemOrder() {
+        val photos = appItem("Photos")
+        val camera = appItem("Camera")
+        val maps = appItem("Maps")
+        val folderItem = LauncherHomeItemUiModel.Folder(
+            id = "folder-1",
+            title = "Folder",
+            apps = listOf(camera, maps)
+        )
+
+        val compacted = LauncherHomeLayoutBuilder.compact(
+            listOf(
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(0),
+                LauncherHomeItemUiModel.App(photos),
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(2),
+                folderItem
+            )
+        )
+
+        assertEquals(
+            listOf(
+                LauncherHomeItemUiModel.App(photos),
+                folderItem
+            ),
+            compacted
+        )
+    }
+
     private fun appItem(label: String): LauncherIconUiModel {
         val app = LauncherApp(
             label = label,
