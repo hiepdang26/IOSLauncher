@@ -69,10 +69,11 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragPreviewPositi
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDropCommitRenderGate
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherFolderExitDropResolver
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeDragBaseBuilder
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeDuplicateSanitizer
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeEdgePreviewPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemDropResolver
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutBuilder
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
@@ -181,10 +182,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var homeEdgeDragCenterY = 0f
     private var homeEdgeDragPage = 0
     private var homeEdgeSourcePage = 0
+    private var homeEdgeHasLeftSourcePage = false
     private var homeEdgeDirection = 0
     private var homeEdgePreviewIndex = NO_PREVIEW_INDEX
     private var homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
     private var homeEdgeDraggedItem: LauncherHomeItemUiModel? = null
+    private var homeEdgeDragPlaceholder: LauncherHomeItemUiModel.Placeholder? = null
     private var homeEdgeBaseItems: List<LauncherHomeItemUiModel> = emptyList()
     private var homeEdgeCommitted = false
     private var homeDockDragActive = false
@@ -424,7 +427,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             iconRes = R.drawable.ic_circle_outline_24,
             iconColorRes = R.color.icon_make_default,
             showDivider = false,
-            onClick = { presenter.onSetDefaultLauncherClicked() }
+            onClick = {
+                resetFoldersForDefaultLauncher()
+                presenter.onSetDefaultLauncherClicked()
+            }
         )
         bindSettingsRow(
             row = binding.rateRow,
@@ -616,9 +622,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         dockFolders: List<LauncherFolder>,
         dockOrder: List<String>
     ) {
-        homeItems = arrangeHomeItems(
-            LauncherHomeLayoutBuilder.build(apps, folders)
-        )
+        val builtHomeItems = LauncherHomeLayoutBuilder.build(apps, folders)
+        val restoredHomeItems = if (layoutAutoArrange) {
+            builtHomeItems
+        } else {
+            LauncherHomeLayoutStatePolicy.restore(
+                encoded = layoutPreferences.getString(KEY_HOME_LAYOUT_ITEMS, null),
+                apps = apps,
+                folders = folders,
+                fallbackItems = builtHomeItems
+            )
+        }
+        homeItems = arrangeHomeItems(restoredHomeItems)
         dockItems = buildDockItems(apps, dockFolders, dockOrder)
         state.appCount = apps.size
         updateLauncherContentDescription()
@@ -645,6 +660,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         refreshAppearance: Boolean = true
     ) {
         homeItems = arrangeHomeItems(items)
+        saveHomeLayoutItems(homeItems)
         presenter.onHomeItemsChanged(homeItems)
         if (refreshWorkspace) {
             workspacePageAdapter.submitItems(homeItems)
@@ -674,12 +690,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun arrangeHomeItems(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
-        val sanitizedItems = LauncherHomeDuplicateSanitizer.sanitize(items)
-        return if (layoutAutoArrange) {
-            LauncherHomeLayoutBuilder.compact(sanitizedItems)
-        } else {
-            sanitizedItems
-        }
+        return LauncherHomeLayoutStatePolicy.arrange(
+            items = items,
+            autoArrange = layoutAutoArrange
+        )
+    }
+
+    private fun saveHomeLayoutItems(items: List<LauncherHomeItemUiModel>) {
+        layoutPreferences.edit()
+            .putString(KEY_HOME_LAYOUT_ITEMS, LauncherHomeLayoutStatePolicy.encode(items))
+            .apply()
     }
 
     private fun handleDockItemsChanged(
@@ -1142,8 +1162,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         homeEdgeDraggedItem = draggedItem
         homeEdgeCommitted = false
-        homeEdgeBaseItems = LauncherHomeDragBaseBuilder.forMovingItem(homeItems, draggedItem)
+        homeEdgeDragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+        homeEdgeBaseItems = LauncherHomeDragBaseBuilder.forMovingItem(
+            items = homeItems,
+            draggedItem = draggedItem,
+            placeholder = homeEdgeDragPlaceholder
+        )
         homeEdgeSourcePage = currentHomePageIndex()
+        homeEdgeHasLeftSourcePage = false
         homeEdgeDragPage = currentHomePageIndex().coerceAtMost(
             maxOf(0, homePageCountForItemCount(homeEdgeBaseItems.size + 1) - 1)
         )
@@ -1253,8 +1279,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun updateHomeEdgePreview() {
         val draggedItem = homeEdgeDraggedItem ?: return
-        if (!homeEdgeDragActive) return
-        if (homeEdgeDragPage == homeEdgeSourcePage) {
+        if (!LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
+                dragActive = homeEdgeDragActive,
+                pageSwitching = false,
+                dragPage = homeEdgeDragPage,
+                sourcePage = homeEdgeSourcePage,
+                hasLeftSourcePage = homeEdgeHasLeftSourcePage
+            )
+        ) {
             homeEdgePreviewIndex = NO_PREVIEW_INDEX
             homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
             return
@@ -1282,7 +1314,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             insertItemAtHomeIndex(
                 baseItems = homeEdgeBaseItems,
                 index = insertIndex,
-                item = LauncherHomeItemUiModel.Placeholder.forGridIndex(insertIndex)
+                item = homeEdgeDragPlaceholder
+                    ?: LauncherHomeItemUiModel.Placeholder.forGridIndex(insertIndex)
             )
         }
         workspacePageAdapter.submitDragPreviewItems(
@@ -1330,6 +1363,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 baseChanged = true
             }
             homeEdgeDragPage = targetPage
+            if (targetPage != homeEdgeSourcePage) {
+                homeEdgeHasLeftSourcePage = true
+            }
         }
         homeEdgePreviewIndex = NO_PREVIEW_INDEX
         homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
@@ -1454,8 +1490,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         homeEdgeDragActive = false
         homeEdgeDraggedItem = null
+        homeEdgeDragPlaceholder = null
         homeEdgeBaseItems = emptyList()
         homeEdgeSourcePage = 0
+        homeEdgeHasLeftSourcePage = false
         homeEdgePreviewIndex = NO_PREVIEW_INDEX
         homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
         homeEdgeDirection = 0
@@ -2320,6 +2358,24 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
 
         openHomeSettings()
+    }
+
+    private fun resetFoldersForDefaultLauncher() {
+        val resetHomeItems = LauncherHomeLayoutStatePolicy.resetFoldersToApps(homeItems)
+        if (resetHomeItems != homeItems) {
+            handleHomeItemsChanged(
+                items = resetHomeItems,
+                preferredPage = 0,
+                refreshOpenFolder = false
+            )
+            hideFolderOverlay()
+        }
+
+        val resetDockItems = LauncherHomeLayoutStatePolicy.resetFoldersToApps(dockItems)
+            .take(DOCK_APP_COUNT)
+        if (resetDockItems != dockItems) {
+            handleDockItemsChanged(resetDockItems)
+        }
     }
 
     private fun openHomeSettings() {
@@ -3816,5 +3872,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val KEY_LAYOUT_AUTO_ARRANGE = "layout_auto_arrange"
         const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
         const val KEY_HOME_GRID_ROWS = "home_grid_rows"
+        const val KEY_HOME_LAYOUT_ITEMS = "home_layout_items"
     }
 }

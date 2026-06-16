@@ -42,6 +42,21 @@ class LauncherIconListDiffTest {
         assertTrue(diff.changedIndices.isEmpty())
     }
 
+    @Test
+    fun between_detectsSingleStablePlaceholderMoveWithoutSlotChanges() {
+        val dragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+        val camera = LauncherHomeItemUiModel.App(appItem("Camera"))
+        val maps = LauncherHomeItemUiModel.App(appItem("Maps"))
+        val oldItems = listOf(dragPlaceholder, camera, maps)
+        val newItems = listOf(camera, maps, dragPlaceholder)
+
+        val diff = LauncherIconListDiff.between(oldItems, newItems)
+
+        assertFalse(diff.requiresFullRefresh)
+        assertEquals(LauncherIconListDiff.Move(0, 2), diff.move)
+        assertTrue(diff.changedIndices.isEmpty())
+    }
+
     private fun appItem(label: String): LauncherIconUiModel {
         val app = LauncherApp(
             label = label,

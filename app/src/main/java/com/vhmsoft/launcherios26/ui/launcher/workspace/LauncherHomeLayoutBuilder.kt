@@ -71,7 +71,7 @@ object LauncherHomeLayoutBuilder {
             }
         }.mapIndexed { index, item ->
             when (item) {
-                is LauncherHomeItemUiModel.Placeholder -> LauncherHomeItemUiModel.Placeholder.forGridIndex(index)
+                is LauncherHomeItemUiModel.Placeholder -> item.normalizedForGridIndex(index)
                 else -> item
             }
         }

@@ -72,6 +72,14 @@ class LauncherIconAdapter(
             return
         }
 
+        diff.move?.let { move ->
+            notifyItemMoved(move.fromPosition, move.toPosition)
+            diff.changedIndices
+                .filter { index -> index in items.indices }
+                .forEach { index -> notifyItemChanged(index) }
+            return
+        }
+
         val activeDragIndex = oldItems.indexOfFirst { item ->
             item.stableId == previousActiveDragStableId
         }
@@ -300,50 +308,22 @@ class LauncherIconAdapter(
         val target = pendingDropTarget ?: return false
         pendingDropTarget = null
 
-        val draggedIndex = items.indexOfFirst { item -> item.stableId == target.draggedStableId }
-        val targetIndex = items.indexOfFirst { item -> item.stableId == target.targetStableId }
-        if (draggedIndex == -1 || targetIndex == -1 || draggedIndex == targetIndex) {
+        val result = LauncherFolderDropCommitResolver.resolve(
+            items = items,
+            draggedStableId = target.draggedStableId,
+            targetStableId = target.targetStableId,
+            newFolderId = { "folder_${System.nanoTime()}" }
+        )
+        if (result == null) {
             notifyDropTargetChanged(target.targetStableId)
             return false
         }
 
-        val dragged = items[draggedIndex] as? LauncherHomeItemUiModel.App
-        if (dragged == null) {
-            notifyDropTargetChanged(target.targetStableId)
-            return false
-        }
-        val targetItem = items[targetIndex]
-        val updatedTarget = when (targetItem) {
-            is LauncherHomeItemUiModel.App -> LauncherHomeItemUiModel.Folder(
-                id = "folder_${System.nanoTime()}",
-                title = LauncherHomeLayoutBuilder.DEFAULT_FOLDER_TITLE,
-                apps = listOf(targetItem.iconItem, dragged.iconItem)
-            )
-
-            is LauncherHomeItemUiModel.Folder -> {
-                if (targetItem.apps.any { item -> item.app.iconKey == dragged.iconItem.app.iconKey }) {
-                    notifyDropTargetChanged(target.targetStableId)
-                    return false
-                }
-                targetItem.copy(apps = targetItem.apps + dragged.iconItem)
-            }
-
-            is LauncherHomeItemUiModel.Placeholder -> {
-                notifyDropTargetChanged(target.targetStableId)
-                return false
-            }
-        }
-
-        val newItems = items.toMutableList()
-        newItems.removeAt(draggedIndex)
-        val adjustedTargetIndex = if (draggedIndex < targetIndex) targetIndex - 1 else targetIndex
-        newItems[adjustedTargetIndex] = updatedTarget
-
-        recentlyUpdatedFolderStableId = updatedTarget.stableId
+        recentlyUpdatedFolderStableId = result.updatedFolderStableId
         items.clear()
-        items.addAll(LauncherHomeLayoutBuilder.normalize(newItems))
-        notifyItemRemoved(draggedIndex)
-        notifyItemChanged(adjustedTargetIndex)
+        items.addAll(result.items)
+        notifyItemRemoved(result.draggedIndex)
+        notifyItemChanged(result.updatedTargetIndex)
         return true
     }
 

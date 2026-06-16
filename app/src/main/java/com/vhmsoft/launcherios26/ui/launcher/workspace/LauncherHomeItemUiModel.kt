@@ -21,14 +21,23 @@ sealed class LauncherHomeItemUiModel {
     }
 
     data class Placeholder(
-        private val placeholderId: Long = nextPlaceholderId()
+        private val placeholderId: Long = nextPlaceholderId(),
+        private val keepStableIdOnNormalize: Boolean = false
     ) : LauncherHomeItemUiModel() {
         override val label: String = ""
         override val stableId: Long = Long.MIN_VALUE + placeholderId
 
+        fun normalizedForGridIndex(index: Int): Placeholder {
+            return if (keepStableIdOnNormalize) this else forGridIndex(index)
+        }
+
         companion object {
             fun forGridIndex(index: Int): Placeholder {
                 return Placeholder(GRID_PLACEHOLDER_ID_BASE + index.coerceAtLeast(0))
+            }
+
+            fun forDragSession(): Placeholder {
+                return Placeholder(nextPlaceholderId(), keepStableIdOnNormalize = true)
             }
         }
     }

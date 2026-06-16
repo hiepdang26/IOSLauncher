@@ -37,7 +37,7 @@ class LauncherResponsiveWorkspaceLayoutTest {
     }
 
     @Test
-    fun resolve_usesCompactFiveRowsOnVeryShortScreen() {
+    fun resolve_keepsPreferredSixRowsOnVeryShortScreen() {
         val spec = LauncherResponsiveWorkspaceLayout.resolve(
             rootHeightPx = 560,
             density = 1f,
@@ -46,7 +46,7 @@ class LauncherResponsiveWorkspaceLayoutTest {
             iphone8Style = false
         )
 
-        assertEquals(5, spec.effectiveRows)
+        assertEquals(6, spec.effectiveRows)
         assertTrue(spec.effectiveIconSizeDp <= 56)
     }
 

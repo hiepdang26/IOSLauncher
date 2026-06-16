@@ -36,6 +36,24 @@ class LauncherHomeDragBaseBuilderTest {
     }
 
     @Test
+    fun forMovingApp_usesProvidedDragSessionPlaceholder() {
+        val dragged = appItem("Photos")
+        val dragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+        val items = listOf(
+            LauncherHomeItemUiModel.App(dragged),
+            LauncherHomeItemUiModel.App(appItem("Music"))
+        )
+
+        val baseItems = LauncherHomeDragBaseBuilder.forMovingApp(
+            items = items,
+            draggedApp = dragged,
+            placeholder = dragPlaceholder
+        )
+
+        assertEquals(dragPlaceholder.stableId, baseItems[0].stableId)
+    }
+
+    @Test
     fun forMovingItem_replacesDraggedFolderWithPlaceholderWithoutShiftingNextPageApps() {
         val draggedFolder = LauncherHomeItemUiModel.Folder(
             id = "folder-1",

@@ -58,6 +58,7 @@ class LauncherPageAdapter(
         TodayWidget(3L, TodayWidgetType.APP_GROUP)
     )
     private val attachedHomePageHolders = mutableMapOf<Int, PageViewHolder>()
+    private val boundHomePageHolders = mutableMapOf<Int, PageViewHolder>()
     private var attachedWidgetPageHolder: WidgetPageViewHolder? = null
     private var attachedLibraryPageHolder: AppLibraryViewHolder? = null
     private var nextTodayWidgetId = 4L
@@ -150,6 +151,7 @@ class LauncherPageAdapter(
             is PageViewHolder -> {
                 holder.cancelPendingPageBind()
                 attachedHomePageHolders.remove(holder.boundPagePosition(), holder)
+                boundHomePageHolders.remove(holder.boundPagePosition(), holder)
             }
 
             is AppLibraryViewHolder -> if (attachedLibraryPageHolder === holder) {
@@ -210,6 +212,7 @@ class LauncherPageAdapter(
         pages.addAll(newPages)
         if (diff.pageCountChanged) {
             attachedHomePageHolders.clear()
+            boundHomePageHolders.clear()
             notifyDataSetChanged()
             return
         }
@@ -285,6 +288,7 @@ class LauncherPageAdapter(
         pages.addAll(newPages)
         if (diff.pageCountChanged || refreshAllWhenPageCountUnchanged) {
             attachedHomePageHolders.clear()
+            boundHomePageHolders.clear()
             notifyDataSetChanged()
             return
         }
@@ -300,7 +304,7 @@ class LauncherPageAdapter(
     }
 
     private fun pageSize(): Int {
-        return PAGE_COLUMNS * pageRows
+        return LauncherHomeScreenGridPolicy.pageSize(pageRows, PAGE_COLUMNS)
     }
 
     fun submitApps(apps: List<LauncherIconUiModel>) {
@@ -314,9 +318,31 @@ class LauncherPageAdapter(
     }
 
     fun setEditing(enabled: Boolean) {
-        if (editing == enabled) return
+        val update = LauncherEditModePagerUpdatePolicy.plan(
+            currentEditing = editing,
+            nextEditing = enabled
+        )
+        if (!update.refreshWholePager &&
+            !update.updateBoundHomePages &&
+            !update.updateAttachedWidgetPage
+        ) {
+            return
+        }
         editing = enabled
-        notifyDataSetChanged()
+        if (update.refreshWholePager) {
+            attachedHomePageHolders.clear()
+            boundHomePageHolders.clear()
+            notifyDataSetChanged()
+            return
+        }
+        if (update.updateAttachedWidgetPage) {
+            attachedWidgetPageHolder?.refreshEditingState()
+        }
+        if (update.updateBoundHomePages) {
+            boundHomePageHolders.values.toList().forEach { holder ->
+                holder.setEditing(enabled)
+            }
+        }
     }
 
     fun setDarkMode(enabled: Boolean) {
@@ -417,6 +443,10 @@ class LauncherPageAdapter(
                     addSmallWidgetRow(rowWidgets, apps)
                 }
             }
+        }
+
+        fun refreshEditingState() {
+            bind(todayWidgets, availableTodayApps())
         }
 
         fun cancelAnimations() {
@@ -1085,6 +1115,7 @@ class LauncherPageAdapter(
             itemTouchHelper = ItemTouchHelper(
                 LauncherDragCallback(
                     adapter = pageAdapter,
+                    gridRows = { pageRows },
                     onDragMoved = onHomeDragMoved,
                     onDragEnded = onHomeDragEnded
                 )
@@ -1115,8 +1146,10 @@ class LauncherPageAdapter(
 
         fun bind(position: Int, items: List<LauncherHomeItemUiModel>) {
             attachedHomePageHolders.remove(boundPagePosition, this)
+            boundHomePageHolders.remove(boundPagePosition, this)
             boundPagePosition = position
             attachedHomePageHolders[position] = this
+            boundHomePageHolders[position] = this
             bindPageItems(items)
         }
 
@@ -1152,6 +1185,10 @@ class LauncherPageAdapter(
             pageAdapter.setDarkMode(enabled)
         }
 
+        fun setEditing(enabled: Boolean) {
+            pageAdapter.setEditing(enabled)
+        }
+
         fun setIconSizeDp(sizeDp: Int) {
             pageAdapter.setIconSizeDp(sizeDp)
         }
@@ -1166,8 +1203,34 @@ class LauncherPageAdapter(
     private fun handlePageItemsChanged(pagePosition: Int, pageItems: List<LauncherHomeItemUiModel>) {
         if (pagePosition !in pages.indices) return
 
-        pages[pagePosition] = pageItems
-        onHomeItemsChanged(pages.flatten())
+        val updatedItems = LauncherHomeScreenGridPolicy.replacePage(
+            pages = pages,
+            pagePosition = pagePosition,
+            pageItems = pageItems,
+            pageSize = pageSize()
+        )
+        sourceItems.clear()
+        sourceItems.addAll(updatedItems)
+        val oldPages = pages.toList()
+        val updatedPages = updatedItems.chunked(pageSize())
+        val diff = LauncherPageDiff.between(oldPages, updatedPages)
+        pages.clear()
+        pages.addAll(updatedPages)
+        if (diff.pageCountChanged) {
+            attachedHomePageHolders.clear()
+            boundHomePageHolders.clear()
+            notifyDataSetChanged()
+        } else {
+            diff.changedIndices.forEach { index ->
+                val holder = attachedHomePageHolders[index]
+                if (holder != null) {
+                    holder.bindPageItems(pages[index])
+                } else {
+                    notifyItemChanged(adapterPositionForHomePage(index))
+                }
+            }
+        }
+        onHomeItemsChanged(updatedItems)
     }
 
     inner class AppLibraryViewHolder(

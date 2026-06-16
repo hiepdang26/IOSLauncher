@@ -16,6 +16,7 @@ class LauncherDragCallback(
     private val adapter: LauncherIconAdapter,
     private val allowFolderDrop: Boolean = true,
     private val reorderOnMove: Boolean = false,
+    private val gridRows: () -> Int = { DEFAULT_GRID_ROWS },
     private val isDroppedOutside: (RecyclerView, RecyclerView.ViewHolder, Float, Float) -> Boolean = { _, _, _, _ -> false },
     private val onDragOutsideChanged: (
         LauncherHomeItemUiModel?,
@@ -222,7 +223,7 @@ class LauncherDragCallback(
 
             null -> {
                 adapter.clearPendingDropTarget()
-                val blankCellPosition = findBlankGridDropPosition(recyclerView, viewHolder, dX, dY)
+                val blankCellPosition = findBlankGridDropPosition(recyclerView)
                 if (blankCellPosition != RecyclerView.NO_POSITION) {
                     val moved = adapter.moveItemByStableIdToPosition(
                         draggedStableId = draggedStableId,
@@ -401,8 +402,20 @@ class LauncherDragCallback(
 
         if (adapter.hasPendingDropTarget()) {
             val targetPosition = adapter.pendingDropTargetPosition()
+            val commitBeforeAnimation = LauncherFolderDropCommitPolicy.shouldCommitBeforeAnimation(
+                hasPendingDropTarget = adapter.hasPendingDropTarget()
+            )
+            if (commitBeforeAnimation) {
+                adapter.commitPendingDropTarget()
+                adapter.notifyOrderChanged()
+            }
             restoreHomeDraggedViewAtPreview(recyclerView, viewHolder, lastDragPreviewTransform)
-            animateDropIntoFolder(recyclerView, viewHolder, targetPosition)
+            animateDropIntoFolder(
+                recyclerView = recyclerView,
+                viewHolder = viewHolder,
+                targetPosition = targetPosition,
+                commitOnEnd = !commitBeforeAnimation
+            )
         } else {
             restoreHomeDraggedViewAtFinger(recyclerView, viewHolder)
             recyclerView.post { settleHomeDraggedView(viewHolder) }
@@ -554,7 +567,8 @@ class LauncherDragCallback(
     private fun animateDropIntoFolder(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder,
-        targetPosition: Int
+        targetPosition: Int,
+        commitOnEnd: Boolean = true
     ) {
         val targetCenter = targetCenterInRecycler(recyclerView, targetPosition)
         val draggedView = viewHolder.itemView
@@ -583,8 +597,10 @@ class LauncherDragCallback(
             .setDuration(DROP_INTO_FOLDER_DURATION_MS)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                adapter.commitPendingDropTarget()
-                adapter.notifyOrderChanged()
+                if (commitOnEnd) {
+                    adapter.commitPendingDropTarget()
+                    adapter.notifyOrderChanged()
+                }
                 resetDraggedView(viewHolder)
             }
             .start()
@@ -771,32 +787,18 @@ class LauncherDragCallback(
         return bestTarget
     }
 
-    private fun findBlankGridDropPosition(
-        recyclerView: RecyclerView,
-        viewHolder: RecyclerView.ViewHolder,
-        dX: Float,
-        dY: Float
-    ): Int {
-        val draggedView = viewHolder.itemView
+    private fun findBlankGridDropPosition(recyclerView: RecyclerView): Int {
         val (draggedCenterX, draggedCenterY) = dragCenterInRecycler(recyclerView)
-        if (draggedCenterX < 0f ||
-            draggedCenterX > recyclerView.width ||
-            draggedCenterY < 0f ||
-            draggedCenterY > recyclerView.height
-        ) {
-            return RecyclerView.NO_POSITION
-        }
-
         val spanCount = (recyclerView.layoutManager as? GridLayoutManager)?.spanCount ?: DEFAULT_GRID_COLUMNS
-        val cellWidth = recyclerView.width / spanCount.toFloat()
-        val cellHeight = draggedView.height.takeIf { height -> height > 0 }?.toFloat()
-            ?: (recyclerView.height / DEFAULT_GRID_ROWS.toFloat())
-        val column = (draggedCenterX / cellWidth).toInt().coerceIn(0, spanCount - 1)
-        val row = (draggedCenterY / cellHeight).toInt().coerceAtLeast(0)
-        val gridIndex = row * spanCount + column
-        if (gridIndex < adapter.itemCount) return RecyclerView.NO_POSITION
-
-        return adapter.itemCount - 1
+        return LauncherHomeScreenGridPolicy.blankDropPosition(
+            draggedCenterX = draggedCenterX,
+            draggedCenterY = draggedCenterY,
+            gridWidth = recyclerView.width,
+            gridHeight = recyclerView.height,
+            rows = gridRows(),
+            columns = spanCount,
+            itemCount = adapter.itemCount
+        )
     }
 
     private fun dragCenterInRecycler(recyclerView: RecyclerView): Pair<Float, Float> {

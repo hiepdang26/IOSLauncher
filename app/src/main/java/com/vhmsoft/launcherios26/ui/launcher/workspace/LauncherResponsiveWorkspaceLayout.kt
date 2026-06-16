@@ -48,8 +48,7 @@ object LauncherResponsiveWorkspaceLayout {
             dockHeightDp
 
         val effectiveRows = resolveRows(
-            preferredRows = preferredRows,
-            availablePagerHeightDp = availablePagerHeightDp
+            preferredRows = preferredRows
         )
         val cellHeightDp = availablePagerHeightDp / effectiveRows.coerceAtLeast(1)
         val fitIconSizeDp = (cellHeightDp - MIN_LABEL_AND_GAP_DP)
@@ -80,18 +79,9 @@ object LauncherResponsiveWorkspaceLayout {
     }
 
     private fun resolveRows(
-        preferredRows: Int,
-        availablePagerHeightDp: Float
+        preferredRows: Int
     ): Int {
-        val boundedRows = preferredRows.coerceIn(MIN_HOME_ROWS, MAX_HOME_ROWS)
-        val minimumCellHeightDp = MIN_COMPACT_ICON_SIZE_DP + MIN_LABEL_AND_GAP_DP
-        return if (boundedRows == MAX_HOME_ROWS &&
-            availablePagerHeightDp / MAX_HOME_ROWS < minimumCellHeightDp
-        ) {
-            MIN_HOME_ROWS
-        } else {
-            boundedRows
-        }
+        return preferredRows.coerceIn(MIN_HOME_ROWS, MAX_HOME_ROWS)
     }
 
     private fun compactFactor(rootHeightDp: Float): Float {

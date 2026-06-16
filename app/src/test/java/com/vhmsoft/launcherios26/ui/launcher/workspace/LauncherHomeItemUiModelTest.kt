@@ -20,4 +20,13 @@ class LauncherHomeItemUiModelTest {
 
         assertNotEquals(first.stableId, second.stableId)
     }
+
+    @Test
+    fun dragSessionPlaceholderKeepsStableIdWhenNormalizedToAnotherGridIndex() {
+        val placeholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+
+        val normalized = placeholder.normalizedForGridIndex(12)
+
+        assertEquals(placeholder.stableId, normalized.stableId)
+    }
 }
