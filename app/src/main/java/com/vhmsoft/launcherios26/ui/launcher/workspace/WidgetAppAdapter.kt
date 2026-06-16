@@ -4,12 +4,12 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.databinding.ItemWidgetAppBinding
-import java.util.Locale
 
 class WidgetAppAdapter(
     private val onAppClicked: (LauncherIconUiModel) -> Unit = {}
 ) : RecyclerView.Adapter<WidgetAppAdapter.WidgetAppViewHolder>() {
     private val items = mutableListOf<LauncherIconUiModel>()
+    private val suggestionSeed = System.currentTimeMillis()
 
     init {
         setHasStableIds(true)
@@ -34,7 +34,14 @@ class WidgetAppAdapter(
 
     fun submitApps(apps: List<LauncherIconUiModel>) {
         items.clear()
-        items.addAll(apps.sortedBy { item -> item.label.lowercase(Locale.getDefault()) })
+        items.addAll(
+            LauncherTodayAppSuggester.select(
+                apps = apps,
+                limit = WIDGET_APP_SUGGESTION_COUNT,
+                stableKey = { item -> item.app.iconKey },
+                seed = suggestionSeed
+            )
+        )
         notifyDataSetChanged()
     }
 
@@ -47,5 +54,9 @@ class WidgetAppAdapter(
             binding.appLabel.text = item.label
             binding.root.setOnClickListener { onAppClicked(item) }
         }
+    }
+
+    private companion object {
+        const val WIDGET_APP_SUGGESTION_COUNT = 8
     }
 }

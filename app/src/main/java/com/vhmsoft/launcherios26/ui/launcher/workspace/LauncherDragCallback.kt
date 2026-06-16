@@ -1,7 +1,8 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
-import android.graphics.Canvas
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.os.SystemClock
 import android.view.animation.DecelerateInterpolator
 import androidx.recyclerview.widget.GridLayoutManager
@@ -9,6 +10,7 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.R
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 class LauncherDragCallback(
     private val adapter: LauncherIconAdapter,
@@ -52,6 +54,10 @@ class LauncherDragCallback(
     private var dragPreviewBitmap: Bitmap? = null
     private var dragPreviewAnchorX = 0f
     private var dragPreviewAnchorY = 0f
+    private val dragPreviewPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private var folderAbsorbTargetPosition = RecyclerView.NO_POSITION
+    private var folderAbsorbStartedAt = 0L
+    private var lastDragPreviewTransform: LauncherFolderDropPreviewTransform.Transform? = null
 
     override fun getMovementFlags(
         recyclerView: RecyclerView,
@@ -88,6 +94,7 @@ class LauncherDragCallback(
             draggingOutside = false
             externalDragActive = false
             edgeReordered = false
+            resetFolderAbsorbState()
             resetHoverState()
             viewHolder?.let { holder -> rememberDragStartCenter(holder) }
             if (allowFolderDrop && !reorderOnMove) {
@@ -121,8 +128,12 @@ class LauncherDragCallback(
             !externalDragActive &&
             preview != null
         ) {
-            val (centerX, centerY) = dragCenterInRecycler(recyclerView)
-            c.drawBitmap(preview, centerX - dragPreviewAnchorX, centerY - dragPreviewAnchorY, null)
+            val transform = dragPreviewTransform(recyclerView)
+            lastDragPreviewTransform = transform
+            drawDragPreview(c, preview, transform)
+            if (folderAbsorbTargetPosition != RecyclerView.NO_POSITION) {
+                recyclerView.postInvalidateOnAnimation()
+            }
             return
         }
         super.onChildDrawOver(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
@@ -389,10 +400,9 @@ class LauncherDragCallback(
         }
 
         if (adapter.hasPendingDropTarget()) {
-            clearHomeDragPreview()
-            resetDraggedView(viewHolder)
-            adapter.commitPendingDropTarget()
-            adapter.notifyOrderChanged()
+            val targetPosition = adapter.pendingDropTargetPosition()
+            restoreHomeDraggedViewAtPreview(recyclerView, viewHolder, lastDragPreviewTransform)
+            animateDropIntoFolder(recyclerView, viewHolder, targetPosition)
         } else {
             restoreHomeDraggedViewAtFinger(recyclerView, viewHolder)
             recyclerView.post { settleHomeDraggedView(viewHolder) }
@@ -418,20 +428,46 @@ class LauncherDragCallback(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder
     ) {
+        val (centerX, centerY) = dragCenterInRecycler(recyclerView)
+        restoreHomeDraggedViewAtPreview(
+            recyclerView = recyclerView,
+            viewHolder = viewHolder,
+            transform = LauncherFolderDropPreviewTransform.Transform(
+                centerX = centerX,
+                centerY = centerY,
+                scale = 1.08f,
+                alphaFraction = 0.96f
+            )
+        )
+    }
+
+    private fun restoreHomeDraggedViewAtPreview(
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder,
+        transform: LauncherFolderDropPreviewTransform.Transform?
+    ) {
         val draggedView = viewHolder.itemView
         val iconPlate = draggedView.findViewById<android.view.View>(R.id.iconPlate) ?: draggedView
-        val (centerX, centerY) = dragCenterInRecycler(recyclerView)
+        val (fallbackCenterX, fallbackCenterY) = dragCenterInRecycler(recyclerView)
+        val previewTransform = transform ?: LauncherFolderDropPreviewTransform.Transform(
+            centerX = fallbackCenterX,
+            centerY = fallbackCenterY,
+            scale = 1.08f,
+            alphaFraction = 0.96f
+        )
         val currentCenterX = draggedView.left + iconPlate.left + iconPlate.width / 2f
         val currentCenterY = draggedView.top + iconPlate.top + iconPlate.height / 2f
 
         adapter.setActiveDragStableId(null)
         recycleDragPreviewBitmap()
         draggedView.animate().cancel()
-        draggedView.alpha = 0.96f
-        draggedView.scaleX = 1.08f
-        draggedView.scaleY = 1.08f
-        draggedView.translationX = centerX - currentCenterX
-        draggedView.translationY = centerY - currentCenterY
+        draggedView.pivotX = iconPlate.left + iconPlate.width / 2f
+        draggedView.pivotY = iconPlate.top + iconPlate.height / 2f
+        draggedView.alpha = previewTransform.alphaFraction
+        draggedView.scaleX = previewTransform.scale
+        draggedView.scaleY = previewTransform.scale
+        draggedView.translationX = previewTransform.centerX - currentCenterX
+        draggedView.translationY = previewTransform.centerY - currentCenterY
         draggedView.elevation = dp(draggedView, DRAGGED_HOME_ELEVATION_DP)
     }
 
@@ -446,6 +482,73 @@ class LauncherDragCallback(
         dragPreviewBitmap = null
         dragPreviewAnchorX = 0f
         dragPreviewAnchorY = 0f
+        lastDragPreviewTransform = null
+        resetFolderAbsorbState()
+        dragPreviewPaint.alpha = 255
+    }
+
+    private fun dragPreviewTransform(
+        recyclerView: RecyclerView
+    ): LauncherFolderDropPreviewTransform.Transform {
+        val (centerX, centerY) = dragCenterInRecycler(recyclerView)
+        val targetPosition = adapter.pendingDropTargetPosition()
+        val targetCenter = targetCenterInRecycler(recyclerView, targetPosition)
+
+        if (targetCenter == null) {
+            resetFolderAbsorbState()
+            return LauncherFolderDropPreviewTransform.Transform(
+                centerX = centerX,
+                centerY = centerY,
+                scale = 1f,
+                alphaFraction = 1f
+            )
+        }
+
+        if (folderAbsorbTargetPosition != targetPosition) {
+            folderAbsorbTargetPosition = targetPosition
+            folderAbsorbStartedAt = SystemClock.uptimeMillis()
+        }
+        return LauncherFolderDropPreviewTransform.hoverTransform(
+            currentCenterX = centerX,
+            currentCenterY = centerY,
+            targetCenterX = targetCenter.first,
+            targetCenterY = targetCenter.second,
+            elapsedMs = SystemClock.uptimeMillis() - folderAbsorbStartedAt,
+            durationMs = FOLDER_HOVER_ABSORB_DURATION_MS
+        )
+    }
+
+    private fun drawDragPreview(
+        canvas: Canvas,
+        preview: Bitmap,
+        transform: LauncherFolderDropPreviewTransform.Transform
+    ) {
+        val scale = transform.scale.coerceAtLeast(0.01f)
+        val left = transform.centerX - dragPreviewAnchorX * scale
+        val top = transform.centerY - dragPreviewAnchorY * scale
+        dragPreviewPaint.alpha = (transform.alphaFraction.coerceIn(0f, 1f) * 255f).roundToInt()
+
+        canvas.save()
+        canvas.translate(left, top)
+        canvas.scale(scale, scale)
+        canvas.drawBitmap(preview, 0f, 0f, dragPreviewPaint)
+        canvas.restore()
+        dragPreviewPaint.alpha = 255
+    }
+
+    private fun targetCenterInRecycler(recyclerView: RecyclerView, targetPosition: Int): Pair<Float, Float>? {
+        if (targetPosition == RecyclerView.NO_POSITION) return null
+        val targetView = recyclerView.findViewHolderForAdapterPosition(targetPosition)?.itemView ?: return null
+        val targetPlate = targetView.findViewById<android.view.View>(R.id.iconPlate) ?: targetView
+        return Pair(
+            targetView.left + targetPlate.left + targetPlate.width / 2f,
+            targetView.top + targetPlate.top + targetPlate.height / 2f
+        )
+    }
+
+    private fun resetFolderAbsorbState() {
+        folderAbsorbTargetPosition = RecyclerView.NO_POSITION
+        folderAbsorbStartedAt = 0L
     }
 
     private fun animateDropIntoFolder(
@@ -453,37 +556,36 @@ class LauncherDragCallback(
         viewHolder: RecyclerView.ViewHolder,
         targetPosition: Int
     ) {
-        val targetView = recyclerView.findViewHolderForAdapterPosition(targetPosition)?.itemView
-        val targetPlate = targetView?.findViewById<android.view.View>(R.id.iconPlate) ?: targetView
+        val targetCenter = targetCenterInRecycler(recyclerView, targetPosition)
         val draggedView = viewHolder.itemView
-        val targetCenterX = if (targetPlate == null || targetView == null) {
-            0f
-        } else {
-            targetView.left + targetPlate.left + targetPlate.width / 2f
-        }
-        val targetCenterY = if (targetPlate == null || targetView == null) {
-            0f
-        } else {
-            targetView.top + targetPlate.top + targetPlate.height / 2f
-        }
+        val targetCenterX = targetCenter?.first ?: 0f
+        val targetCenterY = targetCenter?.second ?: 0f
         val draggedPlate = draggedView.findViewById<android.view.View>(R.id.iconPlate) ?: draggedView
         val draggedCenterX = draggedView.left + draggedView.translationX + draggedPlate.left + draggedPlate.width / 2f
         val draggedCenterY = draggedView.top + draggedView.translationY + draggedPlate.top + draggedPlate.height / 2f
-        val targetDx = if (targetPlate == null) 0f else targetCenterX - draggedCenterX
-        val targetDy = if (targetPlate == null) 0f else targetCenterY - draggedCenterY
+        val finalTransform = LauncherFolderDropPreviewTransform.dropTransform(
+            currentCenterX = draggedCenterX,
+            currentCenterY = draggedCenterY,
+            targetCenterX = targetCenterX,
+            targetCenterY = targetCenterY,
+            progress = if (targetCenter == null) 0f else 1f
+        )
+        val targetDx = finalTransform.centerX - draggedCenterX
+        val targetDy = finalTransform.centerY - draggedCenterY
 
         draggedView.animate().cancel()
         draggedView.animate()
-            .translationX(draggedView.translationX + targetDx * DROP_INTO_FOLDER_PROGRESS)
-            .translationY(draggedView.translationY + targetDy * DROP_INTO_FOLDER_PROGRESS)
-            .scaleX(0.42f)
-            .scaleY(0.42f)
-            .alpha(0.08f)
-            .setDuration(150L)
+            .translationX(draggedView.translationX + targetDx)
+            .translationY(draggedView.translationY + targetDy)
+            .scaleX(finalTransform.scale)
+            .scaleY(finalTransform.scale)
+            .alpha(finalTransform.alphaFraction)
+            .setDuration(DROP_INTO_FOLDER_DURATION_MS)
+            .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                resetDraggedView(viewHolder)
                 adapter.commitPendingDropTarget()
                 adapter.notifyOrderChanged()
+                resetDraggedView(viewHolder)
             }
             .start()
     }
@@ -496,6 +598,8 @@ class LauncherDragCallback(
         viewHolder.itemView.scaleY = 1f
         viewHolder.itemView.alpha = 1f
         viewHolder.itemView.elevation = 0f
+        viewHolder.itemView.pivotX = viewHolder.itemView.width / 2f
+        viewHolder.itemView.pivotY = viewHolder.itemView.height / 2f
     }
 
     private fun rememberDragStartCenter(viewHolder: RecyclerView.ViewHolder) {
@@ -718,7 +822,8 @@ class LauncherDragCallback(
         const val EDGE_INSERT_HIT_SLOP_DP = 18
         const val EDGE_INSERT_FRACTION = 0.32f
         const val EDGE_INSERT_VERTICAL_FRACTION = 0.22f
-        const val DROP_INTO_FOLDER_PROGRESS = 0.78f
+        const val FOLDER_HOVER_ABSORB_DURATION_MS = 180L
+        const val DROP_INTO_FOLDER_DURATION_MS = 155L
         const val HOME_HOVER_SETTLE_MS = 45L
         const val HOME_REORDER_THROTTLE_MS = 95L
         const val HOME_DROP_SETTLE_MS = 120L

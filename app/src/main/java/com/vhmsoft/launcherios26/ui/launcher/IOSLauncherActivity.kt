@@ -1,5 +1,6 @@
 package com.vhmsoft.launcherios26.ui.launcher
 
+import android.Manifest
 import android.app.SearchManager
 import android.app.role.RoleManager
 import android.app.Dialog
@@ -33,6 +34,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -139,6 +141,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var skipNextResumeReload = true
     private var waitingForLauncherSelection = false
     private var hasPositionedInitialHomePage = false
+    private var lastWorkspacePagePosition = RecyclerView.NO_POSITION
     private var layoutDarkMode = false
     private var layoutIphone8Style = false
     private var layoutAutoArrange = false
@@ -208,6 +211,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             Toast.makeText(this, R.string.launcher_default_not_selected, Toast.LENGTH_SHORT).show()
         }
     }
+    private val weatherLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        updateWidgetWeatherPermissionState()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -287,6 +296,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         super.onResume()
         updateLauncherMode()
         applyLauncherSystemUi()
+        updateWidgetWeatherPermissionState()
         if (skipNextResumeReload) {
             skipNextResumeReload = false
         } else if (::presenter.isInitialized) {
@@ -2485,8 +2495,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             },
             onLibrarySearchClicked = { showLibrarySearchOverlay() },
             onLibraryGroupClicked = { group -> showCategoryDetail(group) },
-            onWidgetEditClicked = { setHomeEditing(true) }
+            onWidgetEditClicked = { setHomeEditing(true) },
+            onWidgetAppClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
+            onWeatherPermissionClicked = { requestWeatherLocationPermission() }
         )
+        workspacePageAdapter.setWeatherLocationGranted(hasWeatherLocationPermission())
         workspacePageAdapter.setIconSizeDp(effectiveHomeIconSizeDp)
         workspacePageAdapter.setHomeGridRows(effectiveHomeGridRows)
         dockAdapter = LauncherDockAdapter(
@@ -2565,6 +2578,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             }
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
+                    val wasWidgetPage = isWidgetPage(lastWorkspacePagePosition)
+                    lastWorkspacePagePosition = position
+                    if (editingHome && wasWidgetPage && !isWidgetPage(position)) {
+                        setHomeEditing(false)
+                    }
                     updateWorkspaceChromeForPage(position)
                     showPageIndicator(position)
                 }
@@ -3196,6 +3214,36 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun handleWidgetSheetDrag(event: MotionEvent): Boolean {
         return widgetSheetController.handleWidgetSheetDrag(event)
+    }
+
+    private fun requestWeatherLocationPermission() {
+        if (hasWeatherLocationPermission()) {
+            updateWidgetWeatherPermissionState()
+            return
+        }
+        weatherLocationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        )
+    }
+
+    private fun updateWidgetWeatherPermissionState() {
+        if (::workspacePageAdapter.isInitialized) {
+            workspacePageAdapter.setWeatherLocationGranted(hasWeatherLocationPermission())
+        }
+    }
+
+    private fun hasWeatherLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun showRemoveAppDialog(app: LauncherApp) {

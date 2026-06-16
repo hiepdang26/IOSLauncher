@@ -7,13 +7,16 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -42,7 +45,9 @@ class LauncherPageAdapter(
     ) -> Boolean = { _, _, _, _ -> false },
     private val onLibrarySearchClicked: () -> Unit = {},
     private val onLibraryGroupClicked: (AppLibraryGroupUiModel) -> Unit = {},
-    private val onWidgetEditClicked: () -> Unit = {}
+    private val onWidgetEditClicked: () -> Unit = {},
+    private val onWidgetAppClicked: (LauncherIconUiModel) -> Unit = {},
+    private val onWeatherPermissionClicked: () -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     private val sourceItems = mutableListOf<LauncherHomeItemUiModel>()
     private val pages = mutableListOf<List<LauncherHomeItemUiModel>>()
@@ -56,8 +61,10 @@ class LauncherPageAdapter(
     private var attachedWidgetPageHolder: WidgetPageViewHolder? = null
     private var attachedLibraryPageHolder: AppLibraryViewHolder? = null
     private var nextTodayWidgetId = 4L
+    private val todaySuggestionSeed = System.currentTimeMillis()
     private var editing = false
     private var darkMode = false
+    private var weatherLocationGranted = false
     private var pageRows = DEFAULT_PAGE_ROWS
     private var iconSizeDp = DEFAULT_ICON_SIZE_DP
     private var parentRecyclerView: RecyclerView? = null
@@ -322,6 +329,12 @@ class LauncherPageAdapter(
         notifyItemChanged(libraryAdapterPosition())
     }
 
+    fun setWeatherLocationGranted(granted: Boolean) {
+        if (weatherLocationGranted == granted) return
+        weatherLocationGranted = granted
+        attachedWidgetPageHolder?.bind(todayWidgets, availableTodayApps()) ?: notifyItemChanged(WIDGET_PAGE_POSITION)
+    }
+
     private fun addTodayWidget(type: TodayWidgetType) {
         todayWidgets += TodayWidget(nextTodayWidgetId++, type)
         attachedWidgetPageHolder?.bind(todayWidgets, availableTodayApps()) ?: notifyItemChanged(WIDGET_PAGE_POSITION)
@@ -329,15 +342,34 @@ class LauncherPageAdapter(
 
     private fun removeTodayWidget(widgetId: Long) {
         if (todayWidgets.removeAll { widget -> widget.id == widgetId }) {
-            attachedWidgetPageHolder?.bind(todayWidgets, availableTodayApps()) ?: notifyItemChanged(WIDGET_PAGE_POSITION)
+            attachedWidgetPageHolder?.bind(todayWidgets, availableTodayApps())
+                ?: notifyItemChanged(WIDGET_PAGE_POSITION)
         }
     }
 
+    private fun moveTodayWidget(widgetId: Long, targetIndex: Int) {
+        val fromIndex = todayWidgets.indexOfFirst { widget -> widget.id == widgetId }
+        if (fromIndex == -1 || fromIndex == targetIndex) return
+
+        val movedWidgets = LauncherTodayWidgetLayoutPlanner.move(
+            items = todayWidgets,
+            fromIndex = fromIndex,
+            toIndex = targetIndex
+        )
+        todayWidgets.clear()
+        todayWidgets.addAll(movedWidgets)
+        attachedWidgetPageHolder?.bind(todayWidgets, availableTodayApps()) ?: notifyItemChanged(WIDGET_PAGE_POSITION)
+    }
+
     private fun availableTodayApps(): List<LauncherIconUiModel> {
-        return sourceItems
+        val apps = sourceItems
             .flatMap { item -> item.containedApps() }
-            .distinctBy { item -> item.app.iconKey }
-            .take(TODAY_APP_WIDGET_COUNT)
+        return LauncherTodayAppSuggester.select(
+            apps = apps,
+            limit = TODAY_APP_WIDGET_COUNT,
+            stableKey = { item -> item.app.iconKey },
+            seed = todaySuggestionSeed
+        )
     }
 
     private fun libraryAdapterPosition(): Int {
@@ -348,6 +380,16 @@ class LauncherPageAdapter(
         private val binding: ItemLauncherWidgetPageBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         private val wiggleAnimators = mutableListOf<ObjectAnimator>()
+        private val widgetViews = mutableMapOf<Long, View>()
+        private val widgetBaseCenters = mutableMapOf<Long, LauncherTodayWidgetCenter>()
+        private var boundWidgets: List<TodayWidget> = emptyList()
+        private var draggingWidgetId: Long? = null
+        private var draggingView: View? = null
+        private var dragStartRawX = 0f
+        private var dragStartRawY = 0f
+        private var lastWidgetTouchRawX = 0f
+        private var lastWidgetTouchRawY = 0f
+        private var lastWidgetPreviewTargetIndex = RecyclerView.NO_POSITION
 
         init {
             binding.todayWidgetEditButton.setOnClickListener { onWidgetEditClicked() }
@@ -356,26 +398,24 @@ class LauncherPageAdapter(
         fun bind(widgets: List<TodayWidget>, apps: List<LauncherIconUiModel>) {
             attachedWidgetPageHolder = this
             cancelAnimations()
+            widgetViews.clear()
+            widgetBaseCenters.clear()
+            boundWidgets = widgets.toList()
+            draggingWidgetId = null
+            draggingView = null
+            lastWidgetPreviewTargetIndex = RecyclerView.NO_POSITION
             binding.todayWidgetContainer.removeAllViews()
 
-            val pendingSmallWidgets = mutableListOf<TodayWidget>()
-            widgets.forEach { widget ->
-                if (widget.type.isSmall) {
-                    pendingSmallWidgets += widget
-                    if (pendingSmallWidgets.size == 2) {
-                        addSmallWidgetRow(pendingSmallWidgets.toList(), apps)
-                        pendingSmallWidgets.clear()
-                    }
+            val rows = LauncherTodayWidgetLayoutPlanner.rows(
+                widgets.map { widget -> widget.type.widgetSize }
+            )
+            rows.forEach { rowIndices ->
+                val rowWidgets = rowIndices.mapNotNull { index -> widgets.getOrNull(index) }
+                if (rowWidgets.size == 1 && !rowWidgets.first().type.isSmall) {
+                    addFullWidthWidget(rowWidgets.first(), apps)
                 } else {
-                    if (pendingSmallWidgets.isNotEmpty()) {
-                        addSmallWidgetRow(pendingSmallWidgets.toList(), apps)
-                        pendingSmallWidgets.clear()
-                    }
-                    addFullWidthWidget(widget, apps)
+                    addSmallWidgetRow(rowWidgets, apps)
                 }
-            }
-            if (pendingSmallWidgets.isNotEmpty()) {
-                addSmallWidgetRow(pendingSmallWidgets.toList(), apps)
             }
         }
 
@@ -398,13 +438,13 @@ class LauncherPageAdapter(
                 view,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    when (widget.type) {
-                        TodayWidgetType.WEATHER -> dp(82)
-                        TodayWidgetType.APP_GROUP -> dp(190)
-                        else -> dp(168)
-                    }
+                    widgetHeightPx(widget)
                 ).apply {
-                    bottomMargin = if (widget.type == TodayWidgetType.WEATHER) dp(56) else dp(22)
+                    bottomMargin = if (widget.type == TodayWidgetType.WEATHER) {
+                        dp(WEATHER_WIDGET_BOTTOM_MARGIN_DP)
+                    } else {
+                        dp(WIDGET_BOTTOM_MARGIN_DP)
+                    }
                 }
             )
         }
@@ -425,12 +465,12 @@ class LauncherPageAdapter(
                 row.addView(
                     editableWidgetFrame(widget, content),
                     LinearLayout.LayoutParams(
-                        if (widgets.size == 1) dp(168) else 0,
+                        if (widgets.size == 1) dp(SINGLE_SMALL_WIDGET_WIDTH_DP) else 0,
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         if (widgets.size == 1) 0f else 1f
                     ).apply {
                         if (index < widgets.lastIndex) {
-                            marginEnd = dp(22)
+                            marginEnd = dp(SMALL_WIDGET_GAP_DP)
                         }
                     }
                 )
@@ -439,9 +479,9 @@ class LauncherPageAdapter(
                 row,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(168)
+                    dp(SMALL_WIDGET_HEIGHT_DP)
                 ).apply {
-                    bottomMargin = dp(22)
+                    bottomMargin = dp(WIDGET_BOTTOM_MARGIN_DP)
                 }
             )
         }
@@ -450,6 +490,7 @@ class LauncherPageAdapter(
             return FrameLayout(binding.root.context).apply {
                 clipChildren = false
                 clipToPadding = false
+                widgetViews[widget.id] = this
                 addView(
                     content,
                     FrameLayout.LayoutParams(
@@ -459,12 +500,277 @@ class LauncherPageAdapter(
                 )
                 if (editing) {
                     addView(createRemoveBadge(widget.id))
+                    setOnLongClickListener {
+                        beginWidgetDrag(widget.id, this)
+                        true
+                    }
+                    setOnTouchListener { _, event ->
+                        handleWidgetDragTouch(widget.id, this, event)
+                    }
                     startWiggle(this, widget.id)
                 }
             }
         }
 
+        private fun beginWidgetDrag(widgetId: Long, view: View) {
+            draggingWidgetId = widgetId
+            draggingView = view
+            dragStartRawX = lastWidgetTouchRawX
+            dragStartRawY = lastWidgetTouchRawY
+            lastWidgetPreviewTargetIndex = boundWidgets.indexOfFirst { widget -> widget.id == widgetId }
+            captureWidgetBaseCenters()
+            binding.todayWidgetScroll.requestDisallowInterceptTouchEvent(true)
+            view.animate().cancel()
+            view.bringToFront()
+            view.elevation = dp(14).toFloat()
+            view.scaleX = 1.03f
+            view.scaleY = 1.03f
+        }
+
+        private fun handleWidgetDragTouch(widgetId: Long, view: View, event: MotionEvent): Boolean {
+            if (!editing) return false
+
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                dragStartRawX = event.rawX
+                dragStartRawY = event.rawY
+                lastWidgetTouchRawX = event.rawX
+                lastWidgetTouchRawY = event.rawY
+            }
+
+            if (draggingWidgetId != widgetId || draggingView !== view) return false
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_MOVE -> {
+                    if (dragStartRawX == 0f && dragStartRawY == 0f) {
+                        dragStartRawX = event.rawX
+                        dragStartRawY = event.rawY
+                    }
+                    view.translationX = event.rawX - dragStartRawX
+                    view.translationY = event.rawY - dragStartRawY
+                    updateWidgetPushPreview(widgetId, event.rawX, event.rawY)
+                    return true
+                }
+
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    finishWidgetDrag(widgetId, event.rawX, event.rawY)
+                    return true
+                }
+            }
+
+            return true
+        }
+
+        private fun finishWidgetDrag(widgetId: Long, rawX: Float, rawY: Float) {
+            val targetIndex = findWidgetDropIndex(rawX, rawY)
+            val fromIndex = boundWidgets.indexOfFirst { widget -> widget.id == widgetId }
+            val draggedView = draggingView
+            draggingWidgetId = null
+            draggingView = null
+            lastWidgetPreviewTargetIndex = RecyclerView.NO_POSITION
+            binding.todayWidgetScroll.requestDisallowInterceptTouchEvent(false)
+            if (targetIndex != RecyclerView.NO_POSITION && targetIndex != fromIndex) {
+                moveTodayWidget(widgetId, targetIndex)
+            } else {
+                resetWidgetPushPreview(animate = true)
+                draggedView?.let { view -> resetDraggedWidgetView(view) }
+            }
+        }
+
+        private fun findWidgetDropIndex(rawX: Float, rawY: Float): Int {
+            val currentIndex = boundWidgets.indexOfFirst { widget -> widget.id == draggingWidgetId }
+            var bestIndex = currentIndex.takeIf { index -> index != -1 } ?: 0
+            var bestDistance = Float.MAX_VALUE
+
+            boundWidgets.forEachIndexed { index, widget ->
+                val center = widgetBaseCenters[widget.id] ?: widgetCenterOnScreen(widget.id)
+                    ?: return@forEachIndexed
+                val distanceX = rawX - center.x
+                val distanceY = rawY - center.y
+                val distance = distanceX * distanceX + distanceY * distanceY
+                if (distance < bestDistance) {
+                    bestDistance = distance
+                    bestIndex = index
+                }
+            }
+
+            return bestIndex
+        }
+
+        private fun updateWidgetPushPreview(widgetId: Long, rawX: Float, rawY: Float) {
+            val targetIndex = findWidgetDropIndex(rawX, rawY)
+            if (targetIndex == RecyclerView.NO_POSITION || targetIndex == lastWidgetPreviewTargetIndex) return
+
+            lastWidgetPreviewTargetIndex = targetIndex
+            val offsets = LauncherTodayWidgetPushPreview.offsetsForTargetCenters(
+                draggedWidgetId = widgetId,
+                centers = widgetBaseCenters,
+                targetCenters = widgetTargetCentersForPreview(widgetId, targetIndex)
+            )
+            widgetViews.forEach { (id, view) ->
+                if (id == widgetId) return@forEach
+
+                val offset = offsets[id] ?: LauncherTodayWidgetOffset(0f, 0f)
+                view.animate()
+                    .translationX(offset.x)
+                    .translationY(offset.y)
+                    .setDuration(WIDGET_PUSH_PREVIEW_MS)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
+
+        private fun widgetTargetCentersForPreview(
+            draggedWidgetId: Long,
+            targetIndex: Int
+        ): Map<Long, LauncherTodayWidgetCenter> {
+            val fromIndex = boundWidgets.indexOfFirst { widget -> widget.id == draggedWidgetId }
+            if (fromIndex == -1) return emptyMap()
+
+            val previewWidgets = LauncherTodayWidgetLayoutPlanner.move(
+                items = boundWidgets,
+                fromIndex = fromIndex,
+                toIndex = targetIndex
+            )
+            val containerLocation = IntArray(2)
+            binding.todayWidgetContainer.getLocationOnScreen(containerLocation)
+            val containerLeft = containerLocation[0].toFloat()
+            val containerTop = containerLocation[1].toFloat()
+            val containerWidth = binding.todayWidgetContainer.width.toFloat()
+                .takeIf { width -> width > 0f }
+                ?: binding.root.width.toFloat()
+            if (containerWidth <= 0f) return emptyMap()
+
+            val targetCenters = mutableMapOf<Long, LauncherTodayWidgetCenter>()
+            var rowTop = 0f
+            val rows = LauncherTodayWidgetLayoutPlanner.rows(
+                previewWidgets.map { widget -> widget.type.widgetSize }
+            )
+            rows.forEach { rowIndices ->
+                val rowWidgets = rowIndices.mapNotNull { index -> previewWidgets.getOrNull(index) }
+                if (rowWidgets.isEmpty()) return@forEach
+
+                val rowHeight = rowHeightPx(rowWidgets)
+                val centerY = containerTop + rowTop + rowHeight / 2f
+                if (rowWidgets.size == 2 && rowWidgets.all { widget -> widget.type.isSmall }) {
+                    val gap = dp(SMALL_WIDGET_GAP_DP).toFloat()
+                    val childWidth = (containerWidth - gap) / 2f
+                    rowWidgets.forEachIndexed { index, widget ->
+                        val centerX = containerLeft + childWidth / 2f + index * (childWidth + gap)
+                        targetCenters[widget.id] = LauncherTodayWidgetCenter(centerX, centerY)
+                    }
+                } else {
+                    val widget = rowWidgets.first()
+                    val centerX = if (widget.type.isSmall) {
+                        containerLeft + dp(SINGLE_SMALL_WIDGET_WIDTH_DP) / 2f
+                    } else {
+                        containerLeft + containerWidth / 2f
+                    }
+                    targetCenters[widget.id] = LauncherTodayWidgetCenter(centerX, centerY)
+                }
+
+                rowTop += rowHeight + rowBottomMarginPx(rowWidgets)
+            }
+
+            return targetCenters
+        }
+
+        private fun rowHeightPx(widgets: List<TodayWidget>): Float {
+            val widget = widgets.firstOrNull() ?: return 0f
+            return if (widgets.size == 2 && widgets.all { item -> item.type.isSmall }) {
+                dp(SMALL_WIDGET_HEIGHT_DP).toFloat()
+            } else {
+                widgetHeightPx(widget).toFloat()
+            }
+        }
+
+        private fun rowBottomMarginPx(widgets: List<TodayWidget>): Float {
+            val widget = widgets.firstOrNull() ?: return 0f
+            return if (widget.type == TodayWidgetType.WEATHER) {
+                dp(WEATHER_WIDGET_BOTTOM_MARGIN_DP).toFloat()
+            } else {
+                dp(WIDGET_BOTTOM_MARGIN_DP).toFloat()
+            }
+        }
+
+        private fun widgetHeightPx(widget: TodayWidget): Int {
+            return when (widget.type) {
+                TodayWidgetType.WEATHER -> {
+                    if (weatherLocationGranted) {
+                        dp(WEATHER_FORECAST_WIDGET_HEIGHT_DP)
+                    } else {
+                        dp(WEATHER_PERMISSION_WIDGET_HEIGHT_DP)
+                    }
+                }
+
+                TodayWidgetType.APP_GROUP -> dp(APP_GROUP_WIDGET_HEIGHT_DP)
+                TodayWidgetType.BATTERY,
+                TodayWidgetType.PICTURE -> dp(SMALL_WIDGET_HEIGHT_DP)
+            }
+        }
+
+        private fun captureWidgetBaseCenters() {
+            widgetBaseCenters.clear()
+            widgetViews.keys.forEach { widgetId ->
+                widgetCenterOnScreen(widgetId)?.let { center ->
+                    widgetBaseCenters[widgetId] = center
+                }
+            }
+        }
+
+        private fun widgetCenterOnScreen(widgetId: Long): LauncherTodayWidgetCenter? {
+            val view = widgetViews[widgetId] ?: return null
+            val location = IntArray(2)
+            view.getLocationOnScreen(location)
+            return LauncherTodayWidgetCenter(
+                x = location[0] + view.width / 2f,
+                y = location[1] + view.height / 2f
+            )
+        }
+
+        private fun resetWidgetPushPreview(animate: Boolean) {
+            widgetViews.forEach { (id, view) ->
+                if (id == draggingWidgetId) return@forEach
+
+                view.animate().cancel()
+                if (animate) {
+                    view.animate()
+                        .translationX(0f)
+                        .translationY(0f)
+                        .setDuration(WIDGET_PUSH_PREVIEW_MS)
+                        .setInterpolator(DecelerateInterpolator())
+                        .start()
+                } else {
+                    view.translationX = 0f
+                    view.translationY = 0f
+                }
+            }
+        }
+
+        private fun resetDraggedWidgetView(view: View) {
+            view.animate().cancel()
+            view.animate()
+                .translationX(0f)
+                .translationY(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(WIDGET_PUSH_PREVIEW_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction {
+                    view.elevation = 0f
+                }
+                .start()
+        }
+
         private fun createWeatherWidget(): View {
+            return if (weatherLocationGranted) {
+                createWeatherForecastWidget()
+            } else {
+                createWeatherPermissionWidget()
+            }
+        }
+
+        private fun createWeatherPermissionWidget(): View {
             return FrameLayout(binding.root.context).apply {
                 background = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
@@ -472,6 +778,9 @@ class LauncherPageAdapter(
                 ).apply {
                     cornerRadius = dp(18).toFloat()
                 }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { onWeatherPermissionClicked() }
                 addView(
                     TextView(context).apply {
                         gravity = Gravity.CENTER
@@ -505,6 +814,87 @@ class LauncherPageAdapter(
                         leftMargin = dp(4)
                         rightMargin = dp(4)
                         bottomMargin = dp(4)
+                    }
+                )
+            }
+        }
+
+        private fun createWeatherForecastWidget(): View {
+            return FrameLayout(binding.root.context).apply {
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(0xFF3D6FA8.toInt(), 0xFF6EA2DE.toInt())
+                ).apply {
+                    cornerRadius = dp(18).toFloat()
+                }
+                addView(
+                    TextView(context).apply {
+                        text = context.getString(R.string.launcher_widget_weather_location)
+                        setTextColor(Color.WHITE)
+                        textSize = 15f
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(34),
+                        Gravity.TOP or Gravity.START
+                    ).apply {
+                        leftMargin = dp(16)
+                        topMargin = dp(14)
+                    }
+                )
+                addView(
+                    TextView(context).apply {
+                        text = context.getString(R.string.launcher_widget_weather_temperature)
+                        setTextColor(Color.WHITE)
+                        textSize = 44f
+                        includeFontPadding = false
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(62),
+                        Gravity.START or Gravity.TOP
+                    ).apply {
+                        leftMargin = dp(16)
+                        topMargin = dp(54)
+                    }
+                )
+                addView(
+                    ImageView(context).apply {
+                        setImageResource(R.drawable.ic_weather_24)
+                        imageTintList = ColorStateList.valueOf(Color.WHITE)
+                    },
+                    FrameLayout.LayoutParams(dp(54), dp(54), Gravity.TOP or Gravity.END).apply {
+                        topMargin = dp(18)
+                        rightMargin = dp(16)
+                    }
+                )
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.END
+                        addView(
+                            TextView(context).apply {
+                                text = context.getString(R.string.launcher_widget_weather_condition)
+                                setTextColor(Color.WHITE)
+                                textSize = 15f
+                                gravity = Gravity.END
+                            }
+                        )
+                        addView(
+                            TextView(context).apply {
+                                text = context.getString(R.string.launcher_widget_weather_high_low)
+                                setTextColor(Color.WHITE)
+                                textSize = 13f
+                                gravity = Gravity.END
+                            }
+                        )
+                    },
+                    FrameLayout.LayoutParams(
+                        dp(152),
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        Gravity.END or Gravity.CENTER_VERTICAL
+                    ).apply {
+                        rightMargin = dp(18)
                     }
                 )
             }
@@ -599,6 +989,11 @@ class LauncherPageAdapter(
                                                 contentDescription = app?.label
                                                 visibility = if (app == null) View.INVISIBLE else View.VISIBLE
                                                 scaleType = ImageView.ScaleType.FIT_CENTER
+                                                if (app != null) {
+                                                    isClickable = true
+                                                    isFocusable = true
+                                                    setOnClickListener { onWidgetAppClicked(app) }
+                                                }
                                             },
                                             FrameLayout.LayoutParams(dp(62), dp(62), Gravity.CENTER)
                                         )
@@ -630,17 +1025,17 @@ class LauncherPageAdapter(
                 textSize = 18f
                 setOnClickListener { removeTodayWidget(widgetId) }
                 layoutParams = FrameLayout.LayoutParams(dp(26), dp(26), Gravity.TOP or Gravity.START).apply {
-                    leftMargin = -dp(8)
-                    topMargin = -dp(8)
+                    leftMargin = dp(2)
+                    topMargin = dp(2)
                 }
             }
         }
 
         private fun startWiggle(view: View, widgetId: Long) {
-            val startRotation = if (widgetId % 2L == 0L) -1.2f else 1.2f
+            val startRotation = if (widgetId % 2L == 0L) -0.38f else 0.38f
             view.rotation = startRotation
             ObjectAnimator.ofFloat(view, View.ROTATION, startRotation, -startRotation).apply {
-                duration = 95L
+                duration = 165L
                 repeatCount = ObjectAnimator.INFINITE
                 repeatMode = ObjectAnimator.REVERSE
                 interpolator = LinearInterpolator()
@@ -699,7 +1094,13 @@ class LauncherPageAdapter(
                 adapter = pageAdapter
                 itemTouchHelper.attachToRecyclerView(this)
                 setHasFixedSize(true)
-                itemAnimator = null
+                itemAnimator = DefaultItemAnimator().apply {
+                    supportsChangeAnimations = false
+                    addDuration = 0L
+                    removeDuration = 0L
+                    changeDuration = 0L
+                    moveDuration = HOME_ICON_REORDER_MOVE_MS
+                }
                 setOnTouchListener { _, event ->
                     pageAdapter.updateActiveTouch(event.rawX, event.rawY)
                     false
@@ -833,12 +1234,13 @@ class LauncherPageAdapter(
     )
 
     private enum class TodayWidgetType(
-        val isSmall: Boolean
+        val isSmall: Boolean,
+        val widgetSize: LauncherTodayWidgetSize
     ) {
-        WEATHER(isSmall = false),
-        BATTERY(isSmall = true),
-        PICTURE(isSmall = true),
-        APP_GROUP(isSmall = false)
+        WEATHER(isSmall = false, widgetSize = LauncherTodayWidgetSize.WIDE),
+        BATTERY(isSmall = true, widgetSize = LauncherTodayWidgetSize.SMALL),
+        PICTURE(isSmall = true, widgetSize = LauncherTodayWidgetSize.SMALL),
+        APP_GROUP(isSmall = false, widgetSize = LauncherTodayWidgetSize.WIDE)
     }
 
     private companion object {
@@ -851,6 +1253,16 @@ class LauncherPageAdapter(
         const val LIBRARY_COLUMNS = 2
         const val PAGE_COLUMNS = 4
         const val TODAY_APP_WIDGET_COUNT = 8
+        const val WEATHER_PERMISSION_WIDGET_HEIGHT_DP = 96
+        const val WEATHER_FORECAST_WIDGET_HEIGHT_DP = 184
+        const val APP_GROUP_WIDGET_HEIGHT_DP = 190
+        const val SMALL_WIDGET_HEIGHT_DP = 168
+        const val SINGLE_SMALL_WIDGET_WIDTH_DP = 168
+        const val SMALL_WIDGET_GAP_DP = 22
+        const val WEATHER_WIDGET_BOTTOM_MARGIN_DP = 34
+        const val WIDGET_BOTTOM_MARGIN_DP = 22
+        const val WIDGET_PUSH_PREVIEW_MS = 130L
+        const val HOME_ICON_REORDER_MOVE_MS = 170L
         const val MIN_PAGE_ROWS = 5
         const val DEFAULT_PAGE_ROWS = 6
         const val MAX_PAGE_ROWS = 6
