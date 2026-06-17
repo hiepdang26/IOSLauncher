@@ -26,6 +26,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -75,6 +76,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemDropResol
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePolicy
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
@@ -689,14 +691,19 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun arrangeHomeItems(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
-        return LauncherHomeLayoutStatePolicy.arrange(
+        val arrangedItems = LauncherHomeLayoutStatePolicy.arrange(
             items = items,
             autoArrange = layoutAutoArrange
+        )
+        return LauncherHomeScreenGridPolicy.removeEmptyPages(
+            items = arrangedItems,
+            pageSize = homePageSize
         )
     }
 
     private fun shouldRefreshWorkspaceAfterHomeItemsChanged(items: List<LauncherHomeItemUiModel>): Boolean {
-        return layoutAutoArrange && items.any { item -> item is LauncherHomeItemUiModel.Placeholder }
+        return arrangeHomeItems(items) != items ||
+            layoutAutoArrange && items.any { item -> item is LauncherHomeItemUiModel.Placeholder }
     }
 
     private fun saveHomeLayoutItems(items: List<LauncherHomeItemUiModel>) {
@@ -783,10 +790,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     ): Boolean {
         val draggedApp = (item as? LauncherHomeItemUiModel.App)?.iconItem
         if (draggedApp != null && isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen)) {
-            hideHomeDockDragPreview()
-            binding.workspace.root.post {
-                moveHomeIconToDock(draggedApp, centerXOnScreen, centerYOnScreen)
-            }
+            animateHomeIconIntoDock(draggedApp, centerXOnScreen, centerYOnScreen)
             return true
         }
         if (homeDockDragActive) {
@@ -869,6 +873,100 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         homeDockDraggedApp = null
         binding.workspace.workspacePager.isUserInputEnabled = true
         forceHideSelectedIconPreview()
+    }
+
+    private fun animateHomeIconIntoDock(
+        item: LauncherIconUiModel,
+        centerXOnScreen: Float,
+        centerYOnScreen: Float
+    ) {
+        if (!homeDockDragActive || binding.workspace.selectedIconPreview.visibility != View.VISIBLE) {
+            hideHomeDockDragPreview()
+            binding.workspace.root.post {
+                moveHomeIconToDock(item, centerXOnScreen, centerYOnScreen)
+            }
+            return
+        }
+
+        homeDockDragActive = false
+        homeDockDraggedApp = null
+        binding.workspace.workspacePager.isUserInputEnabled = true
+
+        val preview = binding.workspace.selectedIconPreview
+        val target = dockDropPreviewTarget(centerXOnScreen, centerYOnScreen)
+        preview.animate().cancel()
+        binding.workspace.selectedIconLabel.animate().cancel()
+        preview.pivotX = preview.width / 2f
+        preview.pivotY = dp(DRAG_PREVIEW_ICON_CENTER_Y_DP).toFloat()
+        preview.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        binding.workspace.selectedIconLabel.animate()
+            .alpha(0f)
+            .setDuration(HOME_DOCK_DROP_IN_MS)
+            .start()
+        preview.animate()
+            .x(target.left)
+            .y(target.top)
+            .scaleX(HOME_DOCK_DROP_SHRINK_SCALE)
+            .scaleY(HOME_DOCK_DROP_SHRINK_SCALE)
+            .alpha(0.92f)
+            .setDuration(HOME_DOCK_DROP_IN_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                moveHomeIconToDock(item, centerXOnScreen, centerYOnScreen)
+                preview.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(0f)
+                    .setDuration(HOME_DOCK_DROP_POP_MS)
+                    .setInterpolator(OvershootInterpolator(1.18f))
+                    .withEndAction { forceHideSelectedIconPreview() }
+                    .start()
+            }
+            .start()
+    }
+
+    private fun dockDropPreviewTarget(centerXOnScreen: Float, centerYOnScreen: Float): DockDropPreviewTarget {
+        val rootLocation = IntArray(2)
+        binding.workspace.root.getLocationOnScreen(rootLocation)
+        val previewWidth = binding.workspace.selectedIconPreview.width.takeIf { it > 0 }
+            ?: dp(DRAG_PREVIEW_WIDTH_DP)
+        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen)
+        val targetCenter = if (folderTargetIndex != NO_PREVIEW_INDEX) {
+            dockChildCenterOnScreen(folderTargetIndex) ?: dockSlotCenterOnScreen(centerXOnScreen)
+        } else {
+            dockSlotCenterOnScreen(centerXOnScreen)
+        }
+
+        return DockDropPreviewTarget(
+            left = targetCenter.first - rootLocation[0] - previewWidth / 2f,
+            top = targetCenter.second - rootLocation[1] - dp(DRAG_PREVIEW_ICON_CENTER_Y_DP)
+        )
+    }
+
+    private fun dockChildCenterOnScreen(position: Int): Pair<Float, Float>? {
+        val recyclerView = binding.workspace.dockRecyclerView
+        val child = recyclerView.findViewHolderForAdapterPosition(position)?.itemView ?: return null
+        val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
+        val childLocation = IntArray(2)
+        child.getLocationOnScreen(childLocation)
+        return Pair(
+            childLocation[0] + iconPlate.left + iconPlate.width / 2f,
+            childLocation[1] + iconPlate.top + iconPlate.height / 2f
+        )
+    }
+
+    private fun dockSlotCenterOnScreen(centerXOnScreen: Float): Pair<Float, Float> {
+        val recyclerView = binding.workspace.dockRecyclerView
+        val dockLocation = IntArray(2)
+        recyclerView.getLocationOnScreen(dockLocation)
+        val dockWidth = recyclerView.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val dockHeight = recyclerView.height.takeIf { it > 0 } ?: dp(effectiveHomeIconSizeDp + DOCK_VERTICAL_EXTRA_DP)
+        val dockIndex = dockDropIndexForPoint(centerXOnScreen, dockAdapter.itemCount)
+        val slotWidth = dockWidth / DOCK_APP_COUNT.toFloat()
+        return Pair(
+            dockLocation[0] + slotWidth * (dockIndex + 0.5f),
+            dockLocation[1] + dockHeight / 2f
+        )
     }
 
     private fun handleDockDragEnded(
@@ -3305,6 +3403,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.selectedIconPreview.animate().cancel()
         binding.workspace.selectedIconImage.setImageDrawable(null)
         binding.workspace.selectedIconLabel.text = ""
+        binding.workspace.selectedIconLabel.alpha = 1f
         binding.workspace.selectedIconPreview.apply {
             clearAnimation()
             setLayerType(View.LAYER_TYPE_NONE, null)
@@ -3883,6 +3982,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         SEARCH
     }
 
+    private data class DockDropPreviewTarget(
+        val left: Float,
+        val top: Float
+    )
+
     private companion object {
         const val DOCK_APP_COUNT = 4
         const val SEARCH_COLUMNS = 4
@@ -3903,6 +4007,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val DRAG_PREVIEW_HEIGHT_DP = 118
         const val DRAG_PREVIEW_ICON_CENTER_Y_DP = 36
         const val DRAG_PREVIEW_ELEVATION_DP = 70
+        const val HOME_DOCK_DROP_IN_MS = 170L
+        const val HOME_DOCK_DROP_POP_MS = 95L
+        const val HOME_DOCK_DROP_SHRINK_SCALE = 0.72f
         const val FOLDER_EXIT_PREVIEW_ELEVATION_DP = 88
         const val HOME_EDGE_SWITCH_ZONE_DP = 30
         const val HOME_EDGE_SWITCH_DELAY_MS = 420L

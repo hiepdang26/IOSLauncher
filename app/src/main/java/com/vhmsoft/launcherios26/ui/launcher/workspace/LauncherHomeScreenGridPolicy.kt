@@ -5,6 +5,17 @@ internal object LauncherHomeScreenGridPolicy {
         return rows.coerceAtLeast(1) * columns.coerceAtLeast(1)
     }
 
+    fun removeEmptyPages(
+        items: List<LauncherHomeItemUiModel>,
+        pageSize: Int
+    ): List<LauncherHomeItemUiModel> {
+        val capacity = pageSize.coerceAtLeast(1)
+        return items.chunked(capacity)
+            .filter { page -> page.any { item -> item.hasHomeIcon() } }
+            .flatten()
+            .let { visiblePages -> LauncherHomeLayoutBuilder.normalize(visiblePages) }
+    }
+
     fun <T> replacePage(
         pages: List<List<T>>,
         pagePosition: Int,
@@ -71,4 +82,12 @@ internal object LauncherHomeScreenGridPolicy {
     }
 
     const val NO_POSITION = -1
+
+    private fun LauncherHomeItemUiModel.hasHomeIcon(): Boolean {
+        return when (this) {
+            is LauncherHomeItemUiModel.App -> true
+            is LauncherHomeItemUiModel.Folder -> apps.isNotEmpty()
+            is LauncherHomeItemUiModel.Placeholder -> false
+        }
+    }
 }

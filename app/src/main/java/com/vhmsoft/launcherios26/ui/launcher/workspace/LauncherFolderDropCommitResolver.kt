@@ -38,14 +38,13 @@ internal object LauncherFolderDropCommitResolver {
         }
 
         val newItems = items.toMutableList()
-        newItems.removeAt(draggedIndex)
-        val updatedTargetIndex = if (draggedIndex < targetIndex) targetIndex - 1 else targetIndex
-        newItems[updatedTargetIndex] = updatedTarget
+        newItems[draggedIndex] = LauncherHomeItemUiModel.Placeholder.forGridIndex(draggedIndex)
+        newItems[targetIndex] = updatedTarget
 
         return LauncherFolderDropCommitResult(
             items = LauncherHomeLayoutBuilder.normalize(newItems),
             draggedIndex = draggedIndex,
-            updatedTargetIndex = updatedTargetIndex,
+            updatedTargetIndex = targetIndex,
             updatedFolderStableId = updatedTarget.stableId
         )
     }

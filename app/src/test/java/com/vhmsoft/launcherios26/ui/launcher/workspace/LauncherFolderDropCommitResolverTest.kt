@@ -8,6 +8,7 @@ import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LauncherFolderDropCommitResolverTest {
@@ -27,7 +28,8 @@ class LauncherFolderDropCommitResolverTest {
         )
 
         assertNotNull(result)
-        val folder = result!!.items.single() as LauncherHomeItemUiModel.Folder
+        assertTrue(result!!.items[0] is LauncherHomeItemUiModel.Placeholder)
+        val folder = result.items[1] as LauncherHomeItemUiModel.Folder
         assertEquals("folder-new", folder.id)
         assertEquals(listOf(target, dragged), folder.apps)
     }
@@ -54,9 +56,40 @@ class LauncherFolderDropCommitResolverTest {
         )
 
         assertNotNull(result)
-        val folder = result!!.items.single() as LauncherHomeItemUiModel.Folder
+        assertTrue(result!!.items[0] is LauncherHomeItemUiModel.Placeholder)
+        val folder = result.items[1] as LauncherHomeItemUiModel.Folder
         assertEquals("folder-1", folder.id)
         assertEquals(listOf(folderApp, youtube, dragged), folder.apps)
+    }
+
+    @Test
+    fun resolve_keepsPlaceholderWhenFullPageAppIsDroppedIntoFolder() {
+        val dragged = appItem("Dragged")
+        val folderApp = appItem("Folder App")
+        val folderApp2 = appItem("Folder App 2")
+        val existingFolder = LauncherHomeItemUiModel.Folder(
+            id = "folder-1",
+            title = "ThÆ° má»¥c",
+            apps = listOf(folderApp, folderApp2)
+        )
+        val pageItems = MutableList<LauncherHomeItemUiModel>(24) { index ->
+            LauncherHomeItemUiModel.App(appItem("App $index"))
+        }
+        pageItems[5] = LauncherHomeItemUiModel.App(dragged)
+        pageItems[10] = existingFolder
+
+        val result = LauncherFolderDropCommitResolver.resolve(
+            items = pageItems,
+            draggedStableId = dragged.stableId,
+            targetStableId = existingFolder.stableId,
+            newFolderId = { "unused" }
+        )
+
+        assertNotNull(result)
+        assertEquals(24, result!!.items.size)
+        assertTrue(result.items[5] is LauncherHomeItemUiModel.Placeholder)
+        val folder = result.items[10] as LauncherHomeItemUiModel.Folder
+        assertEquals(listOf(folderApp, folderApp2, dragged), folder.apps)
     }
 
     private fun appItem(label: String): LauncherIconUiModel {

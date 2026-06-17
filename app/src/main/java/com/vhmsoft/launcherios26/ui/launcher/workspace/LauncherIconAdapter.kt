@@ -347,7 +347,7 @@ class LauncherIconAdapter(
         recentlyUpdatedFolderStableId = result.updatedFolderStableId
         items.clear()
         items.addAll(result.items)
-        notifyItemRemoved(result.draggedIndex)
+        notifyItemChanged(result.draggedIndex)
         notifyItemChanged(result.updatedTargetIndex)
         return true
     }
