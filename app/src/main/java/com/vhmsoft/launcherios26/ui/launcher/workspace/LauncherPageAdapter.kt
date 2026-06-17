@@ -65,6 +65,7 @@ class LauncherPageAdapter(
     private val todaySuggestionSeed = System.currentTimeMillis()
     private var editing = false
     private var darkMode = false
+    private var liquidGlassEnabled = false
     private var weatherLocationGranted = false
     private var pageRows = DEFAULT_PAGE_ROWS
     private var iconSizeDp = DEFAULT_ICON_SIZE_DP
@@ -358,6 +359,12 @@ class LauncherPageAdapter(
         attachedLibraryPageHolder?.setDarkMode(enabled)
         notifyItemChanged(WIDGET_PAGE_POSITION)
         notifyItemChanged(libraryAdapterPosition())
+    }
+
+    fun setLiquidGlassEnabled(enabled: Boolean) {
+        if (liquidGlassEnabled == enabled) return
+        liquidGlassEnabled = enabled
+        attachedHomePageHolders.values.forEach { holder -> holder.setLiquidGlassEnabled(enabled) }
     }
 
     fun setWeatherLocationGranted(granted: Boolean) {
@@ -1168,6 +1175,7 @@ class LauncherPageAdapter(
         private fun applyPageItems(pageItems: List<LauncherHomeItemUiModel>) {
             pageAdapter.setEditing(editing)
             pageAdapter.setDarkMode(darkMode)
+            pageAdapter.setLiquidGlassEnabled(liquidGlassEnabled)
             pageAdapter.setIconSizeDp(iconSizeDp)
             pageAdapter.submitItems(pageItems)
             binding.pageRecyclerView.post {
@@ -1188,6 +1196,10 @@ class LauncherPageAdapter(
 
         fun setDarkMode(enabled: Boolean) {
             pageAdapter.setDarkMode(enabled)
+        }
+
+        fun setLiquidGlassEnabled(enabled: Boolean) {
+            pageAdapter.setLiquidGlassEnabled(enabled)
         }
 
         fun setEditing(enabled: Boolean) {

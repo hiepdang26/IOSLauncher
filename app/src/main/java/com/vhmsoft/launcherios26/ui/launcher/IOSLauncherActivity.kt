@@ -149,6 +149,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var layoutDarkMode = false
     private var layoutIphone8Style = false
     private var layoutAutoArrange = false
+    private var layoutLiquidGlass = false
     private var homeIconSizeDp = DEFAULT_HOME_ICON_SIZE_DP
     private var homeGridRows = DEFAULT_HOME_GRID_ROWS
     private var effectiveHomeIconSizeDp = DEFAULT_HOME_ICON_SIZE_DP
@@ -234,6 +235,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         layoutDarkMode = layoutPreferences.getBoolean(KEY_LAYOUT_DARK_MODE, false)
         layoutIphone8Style = layoutPreferences.getBoolean(KEY_LAYOUT_IPHONE8_STYLE, false)
         layoutAutoArrange = layoutPreferences.getBoolean(KEY_LAYOUT_AUTO_ARRANGE, false)
+        layoutLiquidGlass = layoutPreferences.getBoolean(KEY_LAYOUT_LIQUID_GLASS, false)
         homeIconSizeDp = layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
             .coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
         homeGridRows = layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
@@ -291,6 +293,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         setupSettingsRows()
         setupLayoutSettingsPage()
+        setupLiquidGlassSettingsPage()
         setupSettingsDrawer()
         updateLauncherContentDescription()
         applyLayoutAppearance()
@@ -400,7 +403,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             onClick = { presenter.onLayoutSettingsClicked() }
         )
         bindSettingsRow(binding.weatherRow, R.string.settings_weather, R.drawable.ic_weather_24, R.color.icon_weather)
-        bindSettingsRow(binding.liquidGlassRow, R.string.settings_liquid_glass, R.drawable.ic_drop_24, R.color.icon_liquid)
+        bindSettingsRow(
+            row = binding.liquidGlassRow,
+            titleRes = R.string.settings_liquid_glass,
+            iconRes = R.drawable.ic_drop_24,
+            iconColorRes = R.color.icon_liquid,
+            showDivider = true,
+            onClick = { showLiquidGlassSettingsPage() }
+        )
         bindSettingsRow(binding.blurEffectRow, R.string.settings_blur_effect, R.drawable.ic_dots_24, R.color.icon_blur)
         bindSettingsRow(
             binding.motionWallpaperRow,
@@ -526,6 +536,21 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         tintLayoutSwitches()
     }
 
+    private fun setupLiquidGlassSettingsPage() {
+        binding.liquidGlassBackButton.setOnClickListener {
+            hideLiquidGlassSettingsPage()
+        }
+        binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
+        binding.liquidGlassSwitch.isChecked = layoutLiquidGlass
+        binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
+            applyLiquidGlass(checked, persist = true)
+        }
+        binding.liquidGlassOptionsCard.setOnClickListener {
+            binding.liquidGlassSwitch.isChecked = !binding.liquidGlassSwitch.isChecked
+        }
+        applyLiquidGlassSettingsAppearance()
+    }
+
     private fun setupSettingsDrawer() {
         binding.settingsDrawerDim.setOnClickListener {
             hideSettingsDrawer()
@@ -558,6 +583,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 when {
                     binding.layoutSettingsPanel.visibility == View.VISIBLE -> {
                         hideLayoutSettingsPage()
+                    }
+
+                    binding.liquidGlassSettingsPanel.visibility == View.VISIBLE -> {
+                        hideLiquidGlassSettingsPage()
                     }
 
                     binding.settingsDrawerOverlay.visibility == View.VISIBLE -> {
@@ -2338,6 +2367,25 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             .start()
     }
 
+    private fun hideLiquidGlassSettingsPage() {
+        if (binding.liquidGlassSettingsPanel.visibility != View.VISIBLE) return
+
+        binding.liquidGlassSettingsPanel.animate()
+            .alpha(0f)
+            .translationX(dp(28).toFloat())
+            .setDuration(150L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.liquidGlassSettingsPanel.visibility = View.GONE
+                binding.liquidGlassSettingsPanel.alpha = 1f
+                binding.liquidGlassSettingsPanel.translationX = 0f
+                if (!state.launcherMode) {
+                    binding.settingsFab.visibility = View.VISIBLE
+                }
+            }
+            .start()
+    }
+
     private fun hideSettingsDrawer() {
         val overlay = binding.settingsDrawerOverlay
         if (overlay.visibility != View.VISIBLE) {
@@ -2604,6 +2652,23 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.settingsFab.visibility = View.GONE
     }
 
+    private fun showLiquidGlassSettingsPage() {
+        binding.liquidGlassSettingsPanel.apply {
+            animate().cancel()
+            alpha = 0f
+            translationX = dp(28).toFloat()
+            visibility = View.VISIBLE
+            bringToFront()
+            animate()
+                .alpha(1f)
+                .translationX(0f)
+                .setDuration(180L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+        binding.settingsFab.visibility = View.GONE
+    }
+
     override fun applyLayoutDarkMode(enabled: Boolean) {
         val changed = layoutDarkMode != enabled
         layoutDarkMode = enabled
@@ -2651,6 +2716,23 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (compactedItems != homeItems) {
             handleHomeItemsChanged(compactedItems)
         }
+    }
+
+    private fun applyLiquidGlass(enabled: Boolean, persist: Boolean) {
+        val changed = layoutLiquidGlass != enabled
+        layoutLiquidGlass = enabled
+        if (persist && changed) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_LAYOUT_LIQUID_GLASS, enabled)
+                .apply()
+        }
+        binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
+        binding.liquidGlassSwitch.isChecked = enabled
+        binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
+            applyLiquidGlass(checked, persist = true)
+        }
+        applyLiquidGlassSettingsAppearance()
+        applyWorkspaceAppearance()
     }
 
     override fun openApp(app: LauncherApp) {
@@ -3499,6 +3581,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         IosLauncherIconTheme.setDarkMode(layoutDarkMode)
         applySettingsAppearance()
         applyLayoutSettingsAppearance()
+        applyLiquidGlassSettingsAppearance()
         applyWorkspaceAppearance()
         invalidateLauncherArtwork()
         tintLayoutSwitches()
@@ -3581,6 +3664,27 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             ColorStateList.valueOf(if (layoutDarkMode) 0xFF1C1C1E.toInt() else 0xFFC7C7CC.toInt())
         binding.iconSizeSeekBar.thumbTintList = ColorStateList.valueOf(cardColor)
         applyHomeLayoutSettingsUi()
+    }
+
+    private fun applyLiquidGlassSettingsAppearance() {
+        val backgroundColor = themedColor(R.color.settings_background, R.color.dark_settings_background)
+        val cardColor = themedColor(R.color.settings_card, R.color.dark_settings_card)
+        val primaryTextColor = themedColor(R.color.launcher_text_primary, R.color.dark_settings_text_primary)
+
+        binding.liquidGlassSettingsPanel.setBackgroundColor(backgroundColor)
+        binding.liquidGlassSettingsToolbar.setBackgroundColor(cardColor)
+        binding.liquidGlassContent.setBackgroundColor(backgroundColor)
+        binding.liquidGlassTopSpacer.setBackgroundColor(backgroundColor)
+        binding.liquidGlassOptionsCard.setBackgroundColor(cardColor)
+        binding.liquidGlassTitle.setTextColor(primaryTextColor)
+        binding.liquidGlassOptionTitle.setTextColor(primaryTextColor)
+        binding.liquidGlassIconContainer.backgroundTintList =
+            ColorStateList.valueOf(getColor(R.color.icon_liquid))
+        binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
+        binding.liquidGlassSwitch.isChecked = layoutLiquidGlass
+        binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
+            applyLiquidGlass(checked, persist = true)
+        }
     }
 
     private fun applyHomeIconSize(sizeDp: Int, persist: Boolean) {
@@ -3734,7 +3838,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun applyWorkspaceAppearance() {
         val dockColor = if (layoutDarkMode) 0x5C082637 else 0x562E6175
-        val folderColor = if (layoutDarkMode) 0x5A42484B else 0x705F6663
+        val folderColor = when {
+            layoutLiquidGlass -> 0x52FFFFFF
+            layoutDarkMode -> 0x5A42484B
+            else -> 0x705F6663
+        }
+        val folderStroke = if (layoutLiquidGlass) 0x90FFFFFF.toInt() else null
         val pillColor = if (layoutDarkMode) 0xA8001520.toInt() else 0x9A001A24.toInt()
         val indicatorColor = if (layoutDarkMode) 0x66324B5C else 0x733B5B6A
         val searchTextColor = Color.WHITE
@@ -3747,7 +3856,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.searchPillText.setTextColor(searchTextColor)
         binding.workspace.searchPillIcon.imageTintList = ColorStateList.valueOf(searchTextColor)
         binding.workspace.pageIndicator.background = roundedBackground(indicatorColor, 16)
-        binding.workspace.folderContentPanel.background = roundedBackground(folderColor, 34)
+        binding.workspace.folderContentPanel.background = roundedBackground(
+            color = folderColor,
+            radiusDp = 34,
+            strokeColor = folderStroke
+        )
         binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
         binding.workspace.widgetSheet.setBackgroundColor(
             themedColor(R.color.settings_card, R.color.dark_settings_card)
@@ -3758,15 +3871,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         if (::workspacePageAdapter.isInitialized) {
             workspacePageAdapter.setDarkMode(layoutDarkMode)
+            workspacePageAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
         }
         if (::dockAdapter.isInitialized) {
             dockAdapter.setDarkMode(layoutDarkMode)
+            dockAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
         }
         if (::categoryDetailAdapter.isInitialized) {
             categoryDetailAdapter.setDarkMode(layoutDarkMode)
         }
         if (::folderContentAdapter.isInitialized) {
             folderContentAdapter.setDarkMode(layoutDarkMode)
+            folderContentAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
         }
         if (::workspacePageAdapter.isInitialized) {
             updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
@@ -3796,7 +3912,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             binding.darkModeSwitch,
             binding.iphone8Switch,
             binding.bottomSpacingSwitch,
-            binding.autoArrangeSwitch
+            binding.autoArrangeSwitch,
+            binding.liquidGlassSwitch
         ).forEach { switch ->
             switch.thumbTintList = thumbTint
             switch.trackTintList = trackTint
@@ -3830,7 +3947,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun folderOverlayDimColor(): Int {
-        return if (layoutDarkMode) 0x44000000 else FOLDER_OVERLAY_DIM_COLOR
+        return when {
+            layoutLiquidGlass -> 0x10000000
+            layoutDarkMode -> 0x44000000
+            else -> FOLDER_OVERLAY_DIM_COLOR
+        }
     }
 
     private fun roundedBackground(
@@ -3878,6 +3999,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         state.launcherMode = showLauncherWorkspace
         binding.settingsPanel.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
         binding.layoutSettingsPanel.visibility = View.GONE
+        binding.liquidGlassSettingsPanel.visibility = View.GONE
         binding.settingsFab.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
         binding.workspace.root.visibility = if (showLauncherWorkspace) View.VISIBLE else View.GONE
         applyLauncherRootBackground(showLauncherWorkspace)
@@ -4046,6 +4168,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val KEY_LAYOUT_DARK_MODE = "layout_dark_mode"
         const val KEY_LAYOUT_IPHONE8_STYLE = "layout_iphone8_style"
         const val KEY_LAYOUT_AUTO_ARRANGE = "layout_auto_arrange"
+        const val KEY_LAYOUT_LIQUID_GLASS = "layout_liquid_glass"
         const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
         const val KEY_HOME_GRID_ROWS = "home_grid_rows"
         const val KEY_HOME_LAYOUT_ITEMS = "home_layout_items"

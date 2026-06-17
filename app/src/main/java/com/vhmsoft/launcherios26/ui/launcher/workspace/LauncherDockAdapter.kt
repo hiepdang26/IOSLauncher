@@ -24,6 +24,7 @@ class LauncherDockAdapter(
     private var editing = false
     private var iconSizeDp = DEFAULT_ICON_SIZE_DP
     private var darkMode = false
+    private var liquidGlassEnabled = false
     private var pendingDropTarget: PendingDropTarget? = null
     private var recentlyUpdatedFolderStableId: Long? = null
     private var activeTouchRawX = 0f
@@ -89,6 +90,12 @@ class LauncherDockAdapter(
     fun setDarkMode(enabled: Boolean) {
         if (darkMode == enabled) return
         darkMode = enabled
+        notifyDataSetChanged()
+    }
+
+    fun setLiquidGlassEnabled(enabled: Boolean) {
+        if (liquidGlassEnabled == enabled) return
+        liquidGlassEnabled = enabled
         notifyDataSetChanged()
     }
 
@@ -302,6 +309,7 @@ class LauncherDockAdapter(
             } else {
                 View.GONE
             }
+            applyRemoveBadgeAppearance()
             binding.removeBadge.setOnClickListener {
                 when (item) {
                     is LauncherHomeItemUiModel.App -> onRemoveClicked(item.iconItem)
@@ -466,8 +474,28 @@ class LauncherDockAdapter(
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(16).toFloat()
-                setColor(if (darkMode) 0x5A42484B else 0x705F6663)
+                if (liquidGlassEnabled) {
+                    setColor(0x4DFFFFFF)
+                    setStroke(dp(1), 0x9AFFFFFF.toInt())
+                } else {
+                    setColor(if (darkMode) 0x5A42484B else 0x705F6663)
+                }
             }
+        }
+
+        private fun applyRemoveBadgeAppearance() {
+            binding.removeBadge.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(12).toFloat()
+                if (liquidGlassEnabled) {
+                    setColor(0x68FFFFFF)
+                    setStroke(dp(1), 0xB5FFFFFF.toInt())
+                } else {
+                    setColor(0xC8FFFFFF.toInt())
+                    setStroke(dp(1), 0xA8FFFFFF.toInt())
+                }
+            }
+            binding.removeBadge.alpha = if (liquidGlassEnabled) 0.72f else 1f
         }
 
         private fun folderPreviewIcons(): List<ImageView> {
