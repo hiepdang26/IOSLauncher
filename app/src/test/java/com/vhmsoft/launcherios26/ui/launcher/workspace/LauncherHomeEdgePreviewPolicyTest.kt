@@ -43,4 +43,17 @@ class LauncherHomeEdgePreviewPolicyTest {
             )
         )
     }
+
+    @Test
+    fun shouldUpdatePreview_skipsWhilePageSwitching() {
+        assertFalse(
+            LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
+                dragActive = true,
+                pageSwitching = true,
+                dragPage = 1,
+                sourcePage = 0,
+                hasLeftSourcePage = true
+            )
+        )
+    }
 }

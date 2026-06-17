@@ -2,6 +2,7 @@ package com.vhmsoft.launcherios26.data.source.remote
 
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Build
@@ -43,7 +44,11 @@ class PackageManagerRemoteDataSource(
                     label = label,
                     packageName = packageName,
                     className = className,
-                    iconKey = "$packageName/$className"
+                    iconKey = "$packageName/$className",
+                    canUninstall = canUninstall(
+                        packageName = packageName,
+                        applicationFlags = activityInfo.applicationInfo?.flags ?: 0
+                    )
                 )
             }
             .distinctBy { it.iconKey }
@@ -56,5 +61,16 @@ class PackageManagerRemoteDataSource(
 
     override suspend fun getAppIcon(app: LauncherApp): Drawable = withContext(dispatcherProvider.io) {
         packageManager.getActivityIcon(ComponentName(app.packageName, app.className))
+    }
+
+    private fun canUninstall(
+        packageName: String,
+        applicationFlags: Int
+    ): Boolean {
+        if (packageName == appPackageName) return false
+
+        val systemApp = (applicationFlags and ApplicationInfo.FLAG_SYSTEM) != 0
+        val updatedSystemApp = (applicationFlags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        return !systemApp && !updatedSystemApp
     }
 }

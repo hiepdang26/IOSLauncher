@@ -41,7 +41,8 @@ internal object LauncherHomeScreenGridPolicy {
         gridHeight: Int,
         rows: Int,
         columns: Int,
-        itemCount: Int
+        itemCount: Int,
+        isBlankAtPosition: (Int) -> Boolean = { false }
     ): Int {
         if (gridWidth <= 0 || gridHeight <= 0 || itemCount <= 0) return NO_POSITION
         if (draggedCenterX < 0f ||
@@ -62,7 +63,9 @@ internal object LauncherHomeScreenGridPolicy {
         val column = (draggedCenterX / cellWidth).toInt().coerceIn(0, safeColumns - 1)
         val row = (draggedCenterY / cellHeight).toInt().coerceIn(0, safeRows - 1)
         val gridIndex = row * safeColumns + column
-        if (gridIndex < itemCount) return NO_POSITION
+        if (gridIndex < itemCount) {
+            return if (isBlankAtPosition(gridIndex)) gridIndex else NO_POSITION
+        }
 
         return (itemCount - 1).coerceIn(0, capacity - 1)
     }

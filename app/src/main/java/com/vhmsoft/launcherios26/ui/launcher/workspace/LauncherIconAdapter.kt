@@ -35,6 +35,7 @@ class LauncherIconAdapter(
     private var activeTouchRawX = 0f
     private var activeTouchRawY = 0f
     private var hasActiveTouch = false
+    private var attachedRecyclerView: RecyclerView? = null
 
     init {
         setHasStableIds(true)
@@ -56,6 +57,18 @@ class LauncherIconAdapter(
     override fun getItemCount(): Int = items.size
 
     override fun getItemId(position: Int): Long = items[position].stableId
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        attachedRecyclerView = recyclerView
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        if (attachedRecyclerView === recyclerView) {
+            attachedRecyclerView = null
+        }
+        super.onDetachedFromRecyclerView(recyclerView)
+    }
 
     fun submitItems(homeItems: List<LauncherHomeItemUiModel>) {
         val oldItems = items.toList()
@@ -203,6 +216,18 @@ class LauncherIconAdapter(
         if (fromPosition == -1 || fromPosition !in items.indices) return false
         val boundedFinalPosition = finalPosition.coerceIn(0, items.lastIndex)
         if (fromPosition == boundedFinalPosition) return false
+
+        if (items[boundedFinalPosition] is LauncherHomeItemUiModel.Placeholder) {
+            val movedItem = items[fromPosition]
+            if (movedItem is LauncherHomeItemUiModel.Placeholder) return false
+
+            items[boundedFinalPosition] = movedItem
+            items[fromPosition] = LauncherHomeItemUiModel.Placeholder.forGridIndex(fromPosition)
+            pendingDropTarget = null
+            notifyItemChanged(fromPosition)
+            notifyItemChanged(boundedFinalPosition)
+            return true
+        }
 
         val movedItem = items.removeAt(fromPosition)
         items.add(boundedFinalPosition, movedItem)
@@ -410,7 +435,11 @@ class LauncherIconAdapter(
             binding.iconPlate.setOnClickListener(clickListener)
             binding.iconPlate.setOnLongClickListener(longClickListener)
             binding.iconPlate.setOnTouchListener(touchListener)
-            binding.removeBadge.visibility = if (editing) View.VISIBLE else View.GONE
+            binding.removeBadge.visibility = if (editing && canShowRemoveBadge(item)) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
             binding.removeBadge.setOnClickListener {
                 when (item) {
                     is LauncherHomeItemUiModel.App -> onRemoveClicked(item.iconItem)
@@ -661,6 +690,14 @@ class LauncherIconAdapter(
         notifyOrderChanged()
     }
 
+    private fun canShowRemoveBadge(item: LauncherHomeItemUiModel): Boolean {
+        return when (item) {
+            is LauncherHomeItemUiModel.App -> item.iconItem.app.canUninstall
+            is LauncherHomeItemUiModel.Folder,
+            is LauncherHomeItemUiModel.Placeholder -> false
+        }
+    }
+
     private data class PendingDropTarget(
         val draggedStableId: Long,
         val targetStableId: Long
@@ -681,7 +718,12 @@ class LauncherIconAdapter(
 
         val position = items.indexOfFirst { item -> item.stableId == stableId }
         if (position != -1) {
-            notifyItemChanged(position)
+            val recyclerView = attachedRecyclerView
+            if (recyclerView?.isComputingLayout == true) {
+                recyclerView.post { notifyDragVisibilityChanged(stableId) }
+            } else {
+                notifyItemChanged(position)
+            }
         }
     }
 }

@@ -297,7 +297,11 @@ class LauncherDockAdapter(
                 updateActiveTouch(event.rawX, event.rawY)
                 false
             }
-            binding.removeBadge.visibility = if (editing) View.VISIBLE else View.GONE
+            binding.removeBadge.visibility = if (editing && canShowRemoveBadge(item)) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
             binding.removeBadge.setOnClickListener {
                 when (item) {
                     is LauncherHomeItemUiModel.App -> onRemoveClicked(item.iconItem)
@@ -501,6 +505,14 @@ class LauncherDockAdapter(
         items.addAll(index, folder.apps.map { app -> LauncherHomeItemUiModel.App(app) })
         notifyDataSetChanged()
         notifyOrderChanged()
+    }
+
+    private fun canShowRemoveBadge(item: LauncherHomeItemUiModel): Boolean {
+        return when (item) {
+            is LauncherHomeItemUiModel.App -> item.iconItem.app.canUninstall
+            is LauncherHomeItemUiModel.Folder,
+            is LauncherHomeItemUiModel.Placeholder -> false
+        }
     }
 
     private data class PendingDropTarget(

@@ -81,6 +81,39 @@ class LauncherHomeLayoutStatePolicyTest {
     }
 
     @Test
+    fun restoreThenAutoArrange_preservesSavedOrderAndCompactsPlaceholders() {
+        val photos = appItem("Photos")
+        val camera = appItem("Camera")
+        val maps = appItem("Maps")
+        val music = appItem("Music")
+        val saved = LauncherHomeLayoutStatePolicy.encode(
+            listOf(
+                LauncherHomeItemUiModel.App(maps),
+                LauncherHomeItemUiModel.Placeholder.forGridIndex(1),
+                LauncherHomeItemUiModel.App(photos),
+                LauncherHomeItemUiModel.App(camera)
+            )
+        )
+        val fallback = listOf(
+            LauncherHomeItemUiModel.App(photos),
+            LauncherHomeItemUiModel.App(camera),
+            LauncherHomeItemUiModel.App(maps),
+            LauncherHomeItemUiModel.App(music)
+        )
+
+        val restored = LauncherHomeLayoutStatePolicy.restore(
+            encoded = saved,
+            apps = listOf(photos, camera, maps, music),
+            folders = emptyList(),
+            fallbackItems = fallback
+        )
+        val arranged = LauncherHomeLayoutStatePolicy.arrange(restored, autoArrange = true)
+
+        assertEquals(listOf("Maps", "Photos", "Camera", "Music"), arranged.map { item -> item.label })
+        assertTrue(arranged.none { item -> item is LauncherHomeItemUiModel.Placeholder })
+    }
+
+    @Test
     fun restore_keepsSavedFolderPosition() {
         val photos = appItem("Photos")
         val camera = appItem("Camera")

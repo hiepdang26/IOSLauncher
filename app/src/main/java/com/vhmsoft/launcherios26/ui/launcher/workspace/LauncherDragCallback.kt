@@ -752,7 +752,9 @@ class LauncherDragCallback(
             val holder = recyclerView.getChildViewHolder(child)
             val position = holder.bindingAdapterPosition
             if (position == RecyclerView.NO_POSITION) continue
-            val targetStableId = adapter.stableIdAt(position) ?: continue
+            val targetItem = adapter.itemAt(position)
+            if (targetItem == null || targetItem is LauncherHomeItemUiModel.Placeholder) continue
+            val targetStableId = targetItem.stableId
             if (targetStableId == draggedStableId) continue
 
             val iconPlate = child.findViewById<android.view.View>(R.id.iconPlate) ?: child
@@ -797,7 +799,10 @@ class LauncherDragCallback(
             gridHeight = recyclerView.height,
             rows = gridRows(),
             columns = spanCount,
-            itemCount = adapter.itemCount
+            itemCount = adapter.itemCount,
+            isBlankAtPosition = { position ->
+                adapter.itemAt(position) is LauncherHomeItemUiModel.Placeholder
+            }
         )
     }
 

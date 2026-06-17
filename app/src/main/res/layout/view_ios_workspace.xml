@@ -248,8 +248,8 @@
 
             <FrameLayout
                 android:id="@+id/folderContentPanel"
-                android:layout_width="310dp"
-                android:layout_height="360dp"
+                android:layout_width="322dp"
+                android:layout_height="382dp"
                 android:layout_gravity="center"
                 android:background="@drawable/bg_launcher_folder_panel"
                 android:clickable="true"
@@ -267,7 +267,11 @@
                     android:layout_height="match_parent"
                     android:clipChildren="false"
                     android:clipToPadding="false"
-                    android:overScrollMode="never" />
+                    android:overScrollMode="never"
+                    android:paddingStart="6dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="4dp" />
             </FrameLayout>
         </FrameLayout>
 

@@ -43,6 +43,38 @@ class LauncherHomeScreenGridPolicyTest {
         assertEquals(23, position)
     }
 
+    @Test
+    fun blankDropPosition_returnsPlaceholderCellInsideCurrentItems() {
+        val position = LauncherHomeScreenGridPolicy.blankDropPosition(
+            draggedCenterX = 150f,
+            draggedCenterY = 150f,
+            gridWidth = 400,
+            gridHeight = 600,
+            rows = 6,
+            columns = 4,
+            itemCount = 24,
+            isBlankAtPosition = { index -> index == 5 }
+        )
+
+        assertEquals(5, position)
+    }
+
+    @Test
+    fun blankDropPosition_ignoresOccupiedCellInsideCurrentItems() {
+        val position = LauncherHomeScreenGridPolicy.blankDropPosition(
+            draggedCenterX = 150f,
+            draggedCenterY = 150f,
+            gridWidth = 400,
+            gridHeight = 600,
+            rows = 6,
+            columns = 4,
+            itemCount = 24,
+            isBlankAtPosition = { false }
+        )
+
+        assertEquals(LauncherHomeScreenGridPolicy.NO_POSITION, position)
+    }
+
     private fun placeholder(index: Int): LauncherHomeItemUiModel.Placeholder {
         return LauncherHomeItemUiModel.Placeholder.forGridIndex(index)
     }

@@ -38,6 +38,7 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -190,6 +191,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var homeEdgeDragPlaceholder: LauncherHomeItemUiModel.Placeholder? = null
     private var homeEdgeBaseItems: List<LauncherHomeItemUiModel> = emptyList()
     private var homeEdgeCommitted = false
+    private var homeEdgeTouchActive = false
+    private var homeEdgePageSwitching = false
     private var homeDockDragActive = false
     private var homeDockDraggedApp: LauncherIconUiModel? = null
     private var openFolderSource = FolderSource.HOME
@@ -623,16 +626,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         dockOrder: List<String>
     ) {
         val builtHomeItems = LauncherHomeLayoutBuilder.build(apps, folders)
-        val restoredHomeItems = if (layoutAutoArrange) {
-            builtHomeItems
-        } else {
-            LauncherHomeLayoutStatePolicy.restore(
-                encoded = layoutPreferences.getString(KEY_HOME_LAYOUT_ITEMS, null),
-                apps = apps,
-                folders = folders,
-                fallbackItems = builtHomeItems
-            )
-        }
+        val restoredHomeItems = LauncherHomeLayoutStatePolicy.restore(
+            encoded = layoutPreferences.getString(KEY_HOME_LAYOUT_ITEMS, null),
+            apps = apps,
+            folders = folders,
+            fallbackItems = builtHomeItems
+        )
         homeItems = arrangeHomeItems(restoredHomeItems)
         dockItems = buildDockItems(apps, dockFolders, dockOrder)
         state.appCount = apps.size
@@ -694,6 +693,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             items = items,
             autoArrange = layoutAutoArrange
         )
+    }
+
+    private fun shouldRefreshWorkspaceAfterHomeItemsChanged(items: List<LauncherHomeItemUiModel>): Boolean {
+        return layoutAutoArrange && items.any { item -> item is LauncherHomeItemUiModel.Placeholder }
     }
 
     private fun saveHomeLayoutItems(items: List<LauncherHomeItemUiModel>) {
@@ -794,7 +797,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (!homeEdgeDragActive) return false
         if (homeEdgeCommitted) return true
 
+        if (homeEdgeTouchActive) return true
+
         updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
+        finishHomeEdgeDrag(commit = true)
         return true
     }
 
@@ -1093,6 +1099,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val pageCount = homePageCountForItemCount(itemCountAfterRemoval + 1)
         val page = currentHomePageIndex().coerceIn(0, pageCount - 1)
         val targetIndex = page * homePageSize + row * HOME_PAGE_COLUMNS + column
+        if (homeItems.getOrNull(targetIndex) is LauncherHomeItemUiModel.Placeholder) {
+            return targetIndex.coerceIn(0, itemCountAfterRemoval)
+        }
         return (targetIndex + if (insertAfterTarget) 1 else 0).coerceIn(0, itemCountAfterRemoval)
     }
 
@@ -1142,16 +1151,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
         hideFolderEdgeGlows()
-        binding.workspace.workspacePager.postDelayed(
-            {
-                if (!homeEdgeCommitted) return@postDelayed
-                handleHomeItemsChanged(updatedItems, preferredPage = committedPage)
-                dropCommitRenderGate.afterCommittedRender {
-                    hideHomeEdgeDragPreview(restoreWorkspace = false)
-                }
-            },
-            HOME_EDGE_DROP_COMMIT_DELAY_MS
-        )
+        binding.workspace.workspacePager.post {
+            if (!homeEdgeCommitted) return@post
+            handleHomeItemsChanged(updatedItems, preferredPage = committedPage)
+            dropCommitRenderGate.afterCommittedRender {
+                hideHomeEdgeDragPreview(restoreWorkspace = false)
+            }
+        }
     }
 
     private fun beginHomeEdgeDragIfNeeded(
@@ -1162,6 +1168,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         homeEdgeDraggedItem = draggedItem
         homeEdgeCommitted = false
+        homeEdgeTouchActive = true
+        homeEdgePageSwitching = false
         homeEdgeDragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
         homeEdgeBaseItems = LauncherHomeDragBaseBuilder.forMovingItem(
             items = homeItems,
@@ -1234,11 +1242,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             MotionEvent.ACTION_MOVE -> updateHomeEdgeDragPosition(event.rawX, event.rawY)
 
             MotionEvent.ACTION_UP -> {
+                homeEdgeTouchActive = false
                 updateHomeEdgeDragPosition(event.rawX, event.rawY)
                 finishHomeEdgeDrag(commit = true)
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                homeEdgeTouchActive = false
                 updateHomeEdgeDragPosition(event.rawX, event.rawY)
                 finishHomeEdgeDrag(commit = false)
             }
@@ -1281,7 +1291,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val draggedItem = homeEdgeDraggedItem ?: return
         if (!LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
                 dragActive = homeEdgeDragActive,
-                pageSwitching = false,
+                pageSwitching = homeEdgePageSwitching,
                 dragPage = homeEdgeDragPage,
                 sourcePage = homeEdgeSourcePage,
                 hasLeftSourcePage = homeEdgeHasLeftSourcePage
@@ -1335,6 +1345,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.folderDragLeftEdgeGlow.visibility = if (direction < 0) View.VISIBLE else View.GONE
         binding.workspace.folderDragRightEdgeGlow.visibility = if (direction > 0) View.VISIBLE else View.GONE
 
+        if (homeEdgePageSwitching) {
+            homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
+            homeEdgeDirection = 0
+            return
+        }
+
         if (direction == 0) {
             homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
             homeEdgeDirection = 0
@@ -1349,7 +1365,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun performHomeEdgeSwitch() {
         val direction = homeEdgeDirection
-        if (!homeEdgeDragActive || direction == 0) return
+        if (!homeEdgeDragActive || homeEdgeCommitted || homeEdgePageSwitching || direction == 0) return
 
         var baseChanged = false
         if (direction < 0 && homeEdgeDragPage == 0) {
@@ -1377,17 +1393,57 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         binding.workspace.workspacePager.postDelayed({
             if (homeEdgeDragActive) {
-                binding.workspace.workspacePager.setCurrentItem(
-                    workspacePageAdapter.adapterPositionForHomePage(homeEdgeDragPage),
-                    false
-                )
-                binding.workspace.workspacePager.post {
-                    updateHomeEdgePreview()
-                }
+                smoothScrollHomeEdgeToPage(homeEdgeDragPage)
             }
         }, if (baseChanged) HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS else HOME_EDGE_SWITCH_START_DELAY_MS)
         showPageIndicator(workspacePageAdapter.adapterPositionForHomePage(homeEdgeDragPage))
         homeEdgeDirection = 0
+    }
+
+    private fun smoothScrollHomeEdgeToPage(homePage: Int) {
+        val targetAdapterPosition = workspacePageAdapter.adapterPositionForHomePage(homePage)
+        val pager = binding.workspace.workspacePager
+        if (pager.currentItem == targetAdapterPosition) {
+            pager.post { updateHomeEdgePreview() }
+            return
+        }
+
+        homeEdgePageSwitching = true
+        val recyclerView = pager.getChildAt(0) as? RecyclerView
+        val layoutManager = recyclerView?.layoutManager as? LinearLayoutManager
+        if (layoutManager == null) {
+            pager.setCurrentItem(targetAdapterPosition, true)
+        } else {
+            val smoothScroller = object : LinearSmoothScroller(this) {
+                override fun calculateTimeForScrolling(dx: Int): Int {
+                    return HOME_EDGE_PAGE_SWITCH_ANIMATION_MS.toInt()
+                }
+
+                override fun calculateTimeForDeceleration(dx: Int): Int {
+                    return HOME_EDGE_PAGE_SWITCH_ANIMATION_MS.toInt()
+                }
+
+                override fun getHorizontalSnapPreference(): Int {
+                    return SNAP_TO_START
+                }
+            }
+            smoothScroller.targetPosition = targetAdapterPosition
+            layoutManager.startSmoothScroll(smoothScroller)
+        }
+
+        pager.postDelayed(
+            {
+                homeEdgePageSwitching = false
+                if (!homeEdgeDragActive || homeEdgeCommitted) return@postDelayed
+                if (pager.currentItem != targetAdapterPosition &&
+                    pager.scrollState == ViewPager2.SCROLL_STATE_IDLE
+                ) {
+                    pager.setCurrentItem(targetAdapterPosition, false)
+                }
+                updateHomeEdgePreview()
+            },
+            HOME_EDGE_PAGE_SWITCH_ANIMATION_MS + HOME_EDGE_PAGE_SWITCH_SETTLE_MS
+        )
     }
 
     private fun ensurePageExists(
@@ -1422,10 +1478,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val column = (localX / cellWidth).toInt().coerceIn(0, HOME_PAGE_COLUMNS - 1)
         val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
         val insertAfterTarget = localX - column * cellWidth > cellWidth / 2f
-        return homeEdgeDragPage * homePageSize +
+        val targetIndex = homeEdgeDragPage * homePageSize +
             row * HOME_PAGE_COLUMNS +
-            column +
-            if (insertAfterTarget) 1 else 0
+            column
+        if (homeEdgeBaseItems.getOrNull(targetIndex) is LauncherHomeItemUiModel.Placeholder) {
+            return targetIndex
+        }
+        return targetIndex + if (insertAfterTarget) 1 else 0
     }
 
     private fun homeEdgeFolderDropIndex(): Int {
@@ -1498,6 +1557,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
         homeEdgeDirection = 0
         homeEdgeCommitted = false
+        homeEdgeTouchActive = false
+        homeEdgePageSwitching = false
         homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
         hideFolderEdgeGlows()
         binding.workspace.workspacePager.isUserInputEnabled = true
@@ -2542,7 +2603,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             },
             onRemoveClicked = { item -> showRemoveAppDialog(item.app) },
             onFolderClicked = { folder -> showFolderOverlay(folder, FolderSource.HOME) },
-            onHomeItemsChanged = { items -> handleHomeItemsChanged(items, refreshWorkspace = false) },
+            onHomeItemsChanged = { items ->
+                handleHomeItemsChanged(
+                    items = items,
+                    refreshWorkspace = shouldRefreshWorkspaceAfterHomeItemsChanged(items)
+                )
+            },
             onHomeDragMoved = { item, holder, centerX, centerY ->
                 handleHomePageDragMoved(item, holder, centerX, centerY)
             },
@@ -2777,6 +2843,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 false
             }
             post {
+                folderContentAdapter.setIconSizeDp(FOLDER_ICON_SIZE_DP)
                 folderContentAdapter.setItemHeight(dp(FOLDER_ICON_CELL_HEIGHT_DP))
             }
         }
@@ -3821,7 +3888,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val SEARCH_COLUMNS = 4
         const val FOLDER_COLUMNS = 3
         const val SEARCH_ICON_CELL_HEIGHT_DP = 104
-        const val FOLDER_ICON_CELL_HEIGHT_DP = 108
+        const val FOLDER_ICON_CELL_HEIGHT_DP = 112
+        const val FOLDER_ICON_SIZE_DP = 50
         const val PAGE_INDICATOR_VISIBLE_MS = 2000L
         const val MAX_PAGE_INDICATOR_DOTS = 4
         const val PAGE_INDICATOR_WIDTH_DP = 104
@@ -3840,7 +3908,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val HOME_EDGE_SWITCH_DELAY_MS = 420L
         const val HOME_EDGE_SWITCH_START_DELAY_MS = 45L
         const val HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS = 95L
-        const val HOME_EDGE_DROP_COMMIT_DELAY_MS = 90L
+        const val HOME_EDGE_PAGE_SWITCH_ANIMATION_MS = 360L
+        const val HOME_EDGE_PAGE_SWITCH_SETTLE_MS = 80L
         const val HOME_FOLDER_DROP_MIN_X = 0.24f
         const val HOME_FOLDER_DROP_MAX_X = 0.76f
         const val HOME_FOLDER_DROP_MIN_Y = 0.08f

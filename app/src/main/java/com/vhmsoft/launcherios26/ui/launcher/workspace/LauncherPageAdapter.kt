@@ -217,12 +217,17 @@ class LauncherPageAdapter(
             return
         }
 
-        val holder = attachedHomePageHolders[focusPage]
-        if (holder != null) {
-            holder.bindPageItems(pages[focusPage])
-        } else if (focusPage in pages.indices) {
-            notifyItemChanged(adapterPositionForHomePage(focusPage))
-        }
+        (diff.changedIndices + focusPage)
+            .filter { index -> index in pages.indices }
+            .distinct()
+            .forEach { index ->
+                val holder = attachedHomePageHolders[index]
+                if (holder != null) {
+                    holder.bindPageItems(pages[index])
+                } else {
+                    notifyItemChanged(adapterPositionForHomePage(index))
+                }
+            }
     }
 
     private fun shouldDeferParentAdapterUpdate(): Boolean {
