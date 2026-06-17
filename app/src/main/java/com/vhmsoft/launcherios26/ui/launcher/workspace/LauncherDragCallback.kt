@@ -1,9 +1,14 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
 import android.os.SystemClock
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -59,6 +64,7 @@ class LauncherDragCallback(
     private var folderAbsorbTargetPosition = RecyclerView.NO_POSITION
     private var folderAbsorbStartedAt = 0L
     private var lastDragPreviewTransform: LauncherFolderDropPreviewTransform.Transform? = null
+    private var dropPreviewAnimator: ValueAnimator? = null
 
     override fun getMovementFlags(
         recyclerView: RecyclerView,
@@ -90,6 +96,7 @@ class LauncherDragCallback(
     override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
         super.onSelectedChanged(viewHolder, actionState)
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+            cancelDropPreviewAnimation()
             draggedStableId = viewHolder?.bindingAdapterPosition
                 ?.let { position -> adapter.stableIdAt(position) }
             draggingOutside = false
@@ -405,17 +412,28 @@ class LauncherDragCallback(
             val commitBeforeAnimation = LauncherFolderDropCommitPolicy.shouldCommitBeforeAnimation(
                 hasPendingDropTarget = adapter.hasPendingDropTarget()
             )
+            val overlayAnimation = if (commitBeforeAnimation) {
+                captureDropPreviewAnimation(recyclerView, targetPosition)
+            } else {
+                null
+            }
             if (commitBeforeAnimation) {
                 adapter.commitPendingDropTarget()
                 adapter.notifyOrderChanged()
             }
-            restoreHomeDraggedViewAtPreview(recyclerView, viewHolder, lastDragPreviewTransform)
-            animateDropIntoFolder(
-                recyclerView = recyclerView,
-                viewHolder = viewHolder,
-                targetPosition = targetPosition,
-                commitOnEnd = !commitBeforeAnimation
-            )
+            if (overlayAnimation != null) {
+                hideHomeDraggedViewHolder(viewHolder)
+                clearHomeDragPreview()
+                startDropPreviewAnimation(recyclerView, overlayAnimation)
+            } else {
+                restoreHomeDraggedViewAtPreview(recyclerView, viewHolder, lastDragPreviewTransform)
+                animateDropIntoFolder(
+                    recyclerView = recyclerView,
+                    viewHolder = viewHolder,
+                    targetPosition = targetPosition,
+                    commitOnEnd = !commitBeforeAnimation
+                )
+            }
         } else {
             restoreHomeDraggedViewAtFinger(recyclerView, viewHolder)
             recyclerView.post { settleHomeDraggedView(viewHolder) }
@@ -564,6 +582,129 @@ class LauncherDragCallback(
         folderAbsorbStartedAt = 0L
     }
 
+    private fun captureDropPreviewAnimation(
+        recyclerView: RecyclerView,
+        targetPosition: Int
+    ): DropPreviewAnimation? {
+        val preview = dragPreviewBitmap?.copy(Bitmap.Config.ARGB_8888, false) ?: return null
+        val targetCenter = targetCenterInRecycler(recyclerView, targetPosition)
+        if (targetCenter == null) {
+            preview.recycle()
+            return null
+        }
+        val fallbackCenter = dragCenterInRecycler(recyclerView)
+        val startTransform = lastDragPreviewTransform ?: LauncherFolderDropPreviewTransform.Transform(
+            centerX = fallbackCenter.first,
+            centerY = fallbackCenter.second,
+            scale = 1.08f,
+            alphaFraction = 0.96f
+        )
+        return DropPreviewAnimation(
+            bitmap = preview,
+            anchorX = dragPreviewAnchorX,
+            anchorY = dragPreviewAnchorY,
+            startCenterX = startTransform.centerX,
+            startCenterY = startTransform.centerY,
+            startScale = startTransform.scale,
+            startAlpha = startTransform.alphaFraction,
+            targetCenterX = targetCenter.first,
+            targetCenterY = targetCenter.second
+        )
+    }
+
+    private fun startDropPreviewAnimation(
+        recyclerView: RecyclerView,
+        animation: DropPreviewAnimation
+    ) {
+        cancelDropPreviewAnimation()
+        val drawable = BitmapDrawable(recyclerView.resources, animation.bitmap).apply {
+            paint.isAntiAlias = true
+            paint.isFilterBitmap = true
+        }
+        val initialScale = animation.startScale.coerceAtLeast(0.01f)
+        val initialLeft = animation.startCenterX - animation.anchorX * initialScale
+        val initialTop = animation.startCenterY - animation.anchorY * initialScale
+        drawable.setBounds(
+            initialLeft.roundToInt(),
+            initialTop.roundToInt(),
+            (initialLeft + animation.bitmap.width * initialScale).roundToInt(),
+            (initialTop + animation.bitmap.height * initialScale).roundToInt()
+        )
+        drawable.alpha = (animation.startAlpha * 255f).roundToInt()
+        recyclerView.overlay.add(drawable)
+
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = DROP_INTO_FOLDER_DURATION_MS
+            interpolator = AccelerateDecelerateInterpolator()
+        }
+        val endScale = LauncherFolderDropPreviewTransform.dropTransform(
+            currentCenterX = animation.startCenterX,
+            currentCenterY = animation.startCenterY,
+            targetCenterX = animation.targetCenterX,
+            targetCenterY = animation.targetCenterY,
+            progress = 1f
+        ).scale
+        var cleanedUp = false
+        fun cleanup() {
+            if (cleanedUp) return
+            cleanedUp = true
+            recyclerView.overlay.remove(drawable)
+            animation.bitmap.recycle()
+            if (dropPreviewAnimator === animator) {
+                dropPreviewAnimator = null
+            }
+        }
+
+        animator.addUpdateListener { valueAnimator ->
+            val progress = valueAnimator.animatedValue as Float
+            val transform = LauncherFolderDropPreviewTransform.dropTransform(
+                currentCenterX = animation.startCenterX,
+                currentCenterY = animation.startCenterY,
+                targetCenterX = animation.targetCenterX,
+                targetCenterY = animation.targetCenterY,
+                progress = progress
+            )
+            val scale = interpolate(animation.startScale, endScale, progress).coerceAtLeast(0.01f)
+            val left = transform.centerX - animation.anchorX * scale
+            val top = transform.centerY - animation.anchorY * scale
+            val right = left + animation.bitmap.width * scale
+            val bottom = top + animation.bitmap.height * scale
+            val fadeProgress = ((progress - DROP_FADE_START_PROGRESS) /
+                (1f - DROP_FADE_START_PROGRESS)).coerceIn(0f, 1f)
+
+            drawable.setBounds(
+                left.roundToInt(),
+                top.roundToInt(),
+                right.roundToInt(),
+                bottom.roundToInt()
+            )
+            drawable.alpha = (animation.startAlpha * (1f - fadeProgress) * 255f).roundToInt()
+            drawable.invalidateSelf()
+            recyclerView.invalidate()
+        }
+        animator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                cleanup()
+            }
+
+            override fun onAnimationCancel(animation: Animator) {
+                cleanup()
+            }
+        })
+        dropPreviewAnimator = animator
+        animator.start()
+    }
+
+    private fun interpolate(start: Float, end: Float, progress: Float): Float {
+        val boundedProgress = progress.coerceIn(0f, 1f)
+        return start + (end - start) * boundedProgress
+    }
+
+    private fun cancelDropPreviewAnimation() {
+        dropPreviewAnimator?.cancel()
+        dropPreviewAnimator = null
+    }
+
     private fun animateDropIntoFolder(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder,
@@ -595,7 +736,7 @@ class LauncherDragCallback(
             .scaleY(finalTransform.scale)
             .alpha(finalTransform.alphaFraction)
             .setDuration(DROP_INTO_FOLDER_DURATION_MS)
-            .setInterpolator(DecelerateInterpolator())
+            .setInterpolator(DecelerateInterpolator(1.45f))
             .withEndAction {
                 if (commitOnEnd) {
                     adapter.commitPendingDropTarget()
@@ -829,8 +970,9 @@ class LauncherDragCallback(
         const val EDGE_INSERT_HIT_SLOP_DP = 18
         const val EDGE_INSERT_FRACTION = 0.32f
         const val EDGE_INSERT_VERTICAL_FRACTION = 0.22f
-        const val FOLDER_HOVER_ABSORB_DURATION_MS = 180L
-        const val DROP_INTO_FOLDER_DURATION_MS = 155L
+        const val FOLDER_HOVER_ABSORB_DURATION_MS = 240L
+        const val DROP_INTO_FOLDER_DURATION_MS = 420L
+        const val DROP_FADE_START_PROGRESS = 0.68f
         const val HOME_HOVER_SETTLE_MS = 45L
         const val HOME_REORDER_THROTTLE_MS = 95L
         const val HOME_DROP_SETTLE_MS = 120L
@@ -849,4 +991,16 @@ class LauncherDragCallback(
         INSERT_AFTER,
         FOLDER
     }
+
+    private data class DropPreviewAnimation(
+        val bitmap: Bitmap,
+        val anchorX: Float,
+        val anchorY: Float,
+        val startCenterX: Float,
+        val startCenterY: Float,
+        val startScale: Float,
+        val startAlpha: Float,
+        val targetCenterX: Float,
+        val targetCenterY: Float
+    )
 }
