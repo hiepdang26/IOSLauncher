@@ -80,6 +80,8 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPol
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWindowPolicy
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWheelView
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherResponsiveWorkspaceLayout
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherResponsiveWorkspaceSpec
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherScaledBoundsHitTest
@@ -200,7 +202,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var homeDockDraggedApp: LauncherIconUiModel? = null
     private var openFolderSource = FolderSource.HOME
     private var indicatorMode = IndicatorMode.SEARCH
-    private var indicatorWindowStart = 0
+    private var indicatorWheelView: LauncherPageIndicatorWheelView? = null
     private val appLibraryLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -2879,6 +2881,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 }
             }
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageScrolled(
+                    position: Int,
+                    positionOffset: Float,
+                    positionOffsetPixels: Int
+                ) {
+                    updatePageIndicatorScroll(position, positionOffset)
+                }
+
                 override fun onPageSelected(position: Int) {
                     val wasWidgetPage = isWidgetPage(lastWorkspacePagePosition)
                     lastWorkspacePagePosition = position
@@ -3219,35 +3229,51 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (pageCount <= 1) return
 
         val selectedPage = selectedPosition.coerceIn(0, pageCount - 1)
-        val visibleDotCount = minOf(MAX_PAGE_INDICATOR_DOTS, pageCount)
-        val maxWindowStart = (pageCount - visibleDotCount).coerceAtLeast(0)
-        indicatorWindowStart = when {
-            pageCount <= MAX_PAGE_INDICATOR_DOTS -> 0
-            selectedPage < indicatorWindowStart -> selectedPage
-            selectedPage >= indicatorWindowStart + visibleDotCount -> selectedPage - visibleDotCount + 1
-            else -> indicatorWindowStart
-        }.coerceIn(0, maxWindowStart)
-
-        val desiredPages = (indicatorWindowStart until indicatorWindowStart + visibleDotCount).toList()
-        val currentPages = (0 until binding.workspace.pageIndicator.childCount).mapNotNull { index ->
-            binding.workspace.pageIndicator.getChildAt(index).tag as? Int
-        }
-        if (currentPages != desiredPages) {
-            binding.workspace.pageIndicator.removeAllViews()
-            desiredPages.forEach { pageIndex ->
-                binding.workspace.pageIndicator.addView(createIndicatorDot(pageIndex))
-            }
-        }
-
-        desiredPages.forEachIndexed { index, pageIndex ->
-            val dot = binding.workspace.pageIndicator.getChildAt(index) ?: return@forEachIndexed
-            applyIndicatorDotState(dot, selected = pageIndex == selectedPage, animate = true)
-        }
+        val markers = LauncherPageIndicatorWindowPolicy.markers(
+            pageCount = pageCount,
+            selectedPage = selectedPage
+        )
+        ensureIndicatorWheelView().setMarkers(markers, animate = false)
     }
 
     private fun showDotsInIndicator(position: Int, animate: Boolean) {
+        showDotsIndicatorFrame()
+        updatePageIndicatorDots(position)
+        if (animate) {
+            binding.workspace.pageIndicator.animate()
+                .alpha(1f)
+                .setDuration(120L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+    }
+
+    private fun updatePageIndicatorScroll(position: Int, positionOffset: Float) {
+        if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
+        if (!::workspacePageAdapter.isInitialized) return
+        if (!isHomePage(position) && !isHomePage(position + 1)) return
+
+        val pageCount = homeIndicatorPageCount()
+        if (pageCount <= 1) return
+
+        val homePagePosition = (
+            position - workspacePageAdapter.firstHomeAdapterPosition() + positionOffset
+        ).coerceIn(0f, (pageCount - 1).toFloat())
+        showDotsIndicatorFrame()
+        ensureIndicatorWheelView().setScrollPosition(
+            pageCount = pageCount,
+            pagePosition = homePagePosition
+        )
+        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
+        if (!editingHome) {
+            indicatorHandler.postDelayed(hideIndicatorRunnable, PAGE_INDICATOR_VISIBLE_MS)
+        }
+    }
+
+    private fun showDotsIndicatorFrame() {
         indicatorMode = IndicatorMode.DOTS
-        ensureIndicatorFrame()
+        ensureDotsIndicatorFrame()
+        ensureIndicatorWheelView()
         binding.workspace.searchPill.animate().cancel()
         binding.workspace.searchPill.visibility = View.GONE
         if (homeIndicatorPageCount() <= 1) {
@@ -3261,14 +3287,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             alpha = 1f
             visibility = View.VISIBLE
         }
-        updatePageIndicatorDots(position)
-        if (animate) {
-            binding.workspace.pageIndicator.animate()
-                .alpha(1f)
-                .setDuration(120L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
     }
 
     private fun showSearchControlInIndicator(animated: Boolean) {
@@ -3278,7 +3296,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (editingHome) return
 
         indicatorMode = IndicatorMode.SEARCH
-        ensureIndicatorFrame()
+        ensureSearchIndicatorFrame()
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
         binding.workspace.searchPill.animate().cancel()
         binding.workspace.searchPill.visibility = View.GONE
@@ -3301,40 +3319,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun createIndicatorDot(pageIndex: Int): View {
-        val dotSize = dp(PAGE_INDICATOR_DOT_SIZE_DP)
-        return View(this).apply {
-            tag = pageIndex
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.WHITE)
-            }
-            layoutParams = android.widget.LinearLayout.LayoutParams(dotSize, dotSize).apply {
-                marginStart = dp(4)
-                marginEnd = dp(4)
-            }
-        }
-    }
-
-    private fun applyIndicatorDotState(dot: View, selected: Boolean, animate: Boolean) {
-        val targetAlpha = if (selected) 1f else 0.46f
-        val targetScale = if (selected) 1f else 0.72f
-        dot.animate().cancel()
-        if (animate) {
-            dot.animate()
-                .alpha(targetAlpha)
-                .scaleX(targetScale)
-                .scaleY(targetScale)
-                .setDuration(160L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        } else {
-            dot.alpha = targetAlpha
-            dot.scaleX = targetScale
-            dot.scaleY = targetScale
-        }
-    }
-
     private fun createIndicatorSearchText(): TextView {
         return TextView(this).apply {
             text = getString(R.string.launcher_search_hint)
@@ -3351,11 +3335,44 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun ensureIndicatorFrame() {
+    private fun ensureDotsIndicatorFrame() {
         binding.workspace.pageIndicator.layoutParams = binding.workspace.pageIndicator.layoutParams.apply {
-            width = dp(PAGE_INDICATOR_WIDTH_DP)
-            height = dp(PAGE_INDICATOR_HEIGHT_DP)
+            width = dp(PAGE_INDICATOR_SEARCH_WIDTH_DP)
+            height = dp(PAGE_INDICATOR_SEARCH_HEIGHT_DP)
         }
+        binding.workspace.pageIndicator.setPadding(
+            dp(PAGE_INDICATOR_DOT_PADDING_DP),
+            0,
+            dp(PAGE_INDICATOR_DOT_PADDING_DP),
+            0
+        )
+        binding.workspace.pageIndicator.layoutTransition = null
+    }
+
+    private fun ensureIndicatorWheelView(): LauncherPageIndicatorWheelView {
+        indicatorWheelView?.let { wheelView ->
+            if (wheelView.parent === binding.workspace.pageIndicator) return wheelView
+        }
+
+        val wheelView = LauncherPageIndicatorWheelView(this).apply {
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        binding.workspace.pageIndicator.removeAllViews()
+        binding.workspace.pageIndicator.addView(wheelView)
+        indicatorWheelView = wheelView
+        return wheelView
+    }
+
+    private fun ensureSearchIndicatorFrame() {
+        binding.workspace.pageIndicator.layoutParams = binding.workspace.pageIndicator.layoutParams.apply {
+            width = dp(PAGE_INDICATOR_SEARCH_WIDTH_DP)
+            height = dp(PAGE_INDICATOR_SEARCH_HEIGHT_DP)
+        }
+        binding.workspace.pageIndicator.setPadding(dp(10), 0, dp(10), 0)
+        indicatorWheelView = null
     }
 
     private fun homeIndicatorPageCount(): Int {
@@ -4117,10 +4134,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val FOLDER_ICON_CELL_HEIGHT_DP = 112
         const val FOLDER_ICON_SIZE_DP = 50
         const val PAGE_INDICATOR_VISIBLE_MS = 2000L
-        const val MAX_PAGE_INDICATOR_DOTS = 4
-        const val PAGE_INDICATOR_WIDTH_DP = 104
-        const val PAGE_INDICATOR_HEIGHT_DP = 32
-        const val PAGE_INDICATOR_DOT_SIZE_DP = 7
+        const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
+        const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
+        const val PAGE_INDICATOR_DOT_PADDING_DP = 4
         const val PULL_DOWN_SEARCH_THRESHOLD_DP = 54
         const val PULL_DOWN_HORIZONTAL_ESCAPE_DP = 28
         const val FOLDER_EXIT_SLOP_DP = 28
