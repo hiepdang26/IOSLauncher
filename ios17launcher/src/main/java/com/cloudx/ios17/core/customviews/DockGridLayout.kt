@@ -36,7 +36,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
 
     override fun setInsets(insets: Rect) {
         val deviceProfile = com.cloudx.ios17.BlissLauncher.getApplication(mContext).deviceProfile
-        val lp = layoutParams as com.cloudx.ios17.core.customviews.InsettableRelativeLayout.LayoutParams
+        val lp = layoutParams
         lp.height = deviceProfile.hotseatCellHeightPx + insets.bottom
         val horizontalPadding = Utilities.pxFromDp(14f, resources.displayMetrics)
         val verticalPadding = Utilities.pxFromDp(10f, resources.displayMetrics)

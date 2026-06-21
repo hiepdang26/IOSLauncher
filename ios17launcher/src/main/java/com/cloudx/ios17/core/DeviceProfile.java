@@ -122,6 +122,7 @@ public class DeviceProfile {
     public int folderChildDrawablePaddingPx;
 
     // Hotseat
+    public int hotseatCellWidthPx;
     public int hotseatCellHeightPx;
     // In portrait: size = height, in landscape: size = width
     public int hotseatBarSizePx;
@@ -233,7 +234,15 @@ public class DeviceProfile {
     private void updateIconSize(float scale, Resources res, DisplayMetrics dm) {
         iconSizePx = Utilities.pxFromDp(preferredHomeIconSizeDp, dm);
         iconTextSizePx = (int) (Utilities.pxFromSp(12, dm) * scale);
-        cellWidthPx = calculateCellWidth(availableWidthPx, numColumns);
+        int homeContentHorizontalPaddingPx = Utilities.pxFromDp(36, dm);
+        int pageHorizontalPaddingPx = Utilities.pxFromDp(8, dm);
+        int dockHorizontalPaddingPx = Utilities.pxFromDp(28, dm);
+        int workspaceGridWidthPx = Math.max(numColumns,
+                availableWidthPx - homeContentHorizontalPaddingPx - pageHorizontalPaddingPx);
+        int dockGridWidthPx = Math.max(numColumns,
+                availableWidthPx - homeContentHorizontalPaddingPx - dockHorizontalPaddingPx);
+        cellWidthPx = calculateCellWidth(workspaceGridWidthPx, numColumns);
+        hotseatCellWidthPx = calculateCellWidth(dockGridWidthPx, numColumns);
         iconDrawablePaddingPx = Math.max(Utilities.pxFromDp(4, dm), (cellWidthPx - iconSizePx) / 2);
 
         int tempUninstallIconSize = iconSizePx * 72 / 192;

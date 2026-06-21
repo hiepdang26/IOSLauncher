@@ -46,8 +46,6 @@ import android.os.Process;
 import android.os.StrictMode;
 import android.os.UserManager;
 import android.provider.Settings;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.ContextThemeWrapper;
 import android.view.DragEvent;
 import android.view.Gravity;
@@ -1518,8 +1516,8 @@ public class LauncherActivity extends AppCompatActivity
         GridLayout grid = (GridLayout) getLayoutInflater().inflate(R.layout.apps_page, null);
         grid.setRowCount(mDeviceProfile.numRows);
         grid.setLayoutTransition(getDefaultLayoutTransition());
-        grid.setPadding(mDeviceProfile.iconDrawablePaddingPx / 2, (int) (Utilities.pxFromDp(78, this)),
-                mDeviceProfile.iconDrawablePaddingPx / 2, (int) (Utilities.pxFromDp(16, this)));
+        int horizontalPagePadding = (int) Utilities.pxFromDp(4, this);
+        grid.setPadding(horizontalPagePadding, 0, horizontalPagePadding, (int) Utilities.pxFromDp(8, this));
 
         // If a user taps outside (background / space) stop wobbling
         grid.setOnClickListener(view -> handleWobbling(false));
@@ -1553,83 +1551,10 @@ public class LauncherActivity extends AppCompatActivity
         currentPageNumber = 1;
         mHorizontalPager.setCurrentPage(currentPageNumber);
 
-        widgetsPage.findViewById(R.id.used_apps_layout).setClipToOutline(true);
-
-        // Prepare app suggestions view
-        // [[BEGIN]]
-        widgetsPage.findViewById(R.id.openUsageAccessSettings)
-                .setOnClickListener(view -> startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)));
-
-        // divided by 2 because of left and right padding.
-        int padding = (int) (mDeviceProfile.availableWidthPx / 2 - Utilities.pxFromDp(8, this)
-                - 2 * mDeviceProfile.cellWidthPx);
-        widgetsPage.findViewById(R.id.suggestedAppGrid).setPadding(padding, 0, padding, 0);
-        // [[END]]
-
-        // Prepare search suggestion view
-        // [[BEGIN]]
-        ImageView clearSuggestions = widgetsPage.findViewById(R.id.clearSuggestionImageView);
-        clearSuggestions.setOnClickListener(v -> {
-            mSearchInput.setText("");
-            mSearchInput.clearFocus();
-        });
-
-        mSearchInput = widgetsPage.findViewById(R.id.search_input);
-        mSearchInput.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.toString().trim().length() == 0) {
-                    clearSuggestions.setVisibility(GONE);
-                } else {
-                    clearSuggestions.setVisibility(VISIBLE);
-                }
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-
-            }
-        });
-        RecyclerView suggestionRecyclerView = widgetsPage.findViewById(R.id.suggestionRecyclerView);
-        AutoCompleteAdapter suggestionAdapter = new AutoCompleteAdapter(this);
-        suggestionRecyclerView.setHasFixedSize(true);
-        suggestionRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
-        suggestionRecyclerView.setAdapter(suggestionAdapter);
-        getCompositeDisposable().add(RxTextView.textChanges(mSearchInput).debounce(300, TimeUnit.MILLISECONDS)
-                .map(CharSequence::toString).distinctUntilChanged().switchMap(charSequence -> {
-                    if (charSequence != null && charSequence.length() > 0) {
-                        return searchForQuery(charSequence);
-                    } else {
-                        return Observable.just(new SuggestionsResult(charSequence));
-                    }
-                }).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                .subscribeWith(new SearchInputDisposableObserver(this, suggestionAdapter, widgetsPage)));
-
-        mSearchInput.setOnFocusChangeListener((v, hasFocus) -> {
-            if (!hasFocus) {
-                hideKeyboard(v);
-            }
-        });
-
-        mSearchInput.setOnEditorActionListener((textView, action, keyEvent) -> {
-            if (action == EditorInfo.IME_ACTION_SEARCH) {
-                hideKeyboard(mSearchInput);
-                runSearch(mSearchInput.getText().toString());
-                mSearchInput.setText("");
-                mSearchInput.clearFocus();
-                return true;
-            }
-            return false;
-        });
-        // [[END]]
-
-        // Prepare edit widgets button
-        findViewById(R.id.edit_widgets_button)
-                .setOnClickListener(view -> startActivity(new Intent(this, WidgetsActivity.class)));
+        View editWidgetsButton = widgetsPage.findViewById(R.id.edit_widgets_button);
+        if (editWidgetsButton != null) {
+            editWidgetsButton.setOnClickListener(view -> startActivity(new Intent(this, WidgetsActivity.class)));
+        }
 
         if (WeatherUtils.isWeatherServiceAvailable(this)) {
             startService(new Intent(this, WeatherSourceListenerService.class));
@@ -1665,9 +1590,10 @@ public class LauncherActivity extends AppCompatActivity
                 mHorizontalPager, false);
         GridLayout appLibraryGrid = appLibraryPage.findViewById(R.id.app_library_grid);
         appLibraryGrid.setColumnCount(mDeviceProfile.numColumns);
-        appLibraryGrid.setPadding(mDeviceProfile.iconDrawablePaddingPx / 2, 0,
-                mDeviceProfile.iconDrawablePaddingPx / 2, 0);
+        appLibraryGrid.setPadding(0, 0, 0, 0);
         appLibraryGrid.removeAllViews();
+        int appLibraryCellWidthPx = Math.max(mDeviceProfile.numColumns,
+                (mDeviceProfile.availableWidthPx - dp(52)) / mDeviceProfile.numColumns);
 
         for (LauncherItem launcherItem : currentLauncherItems) {
             if (launcherItem.container == Constants.CONTAINER_HOTSEAT
@@ -1676,7 +1602,7 @@ public class LauncherActivity extends AppCompatActivity
             }
             BlissFrameLayout appView = prepareSuggestedApp(launcherItem);
             appView.findViewById(R.id.app_label).setVisibility(View.VISIBLE);
-            addAppToGrid(appLibraryGrid, appView);
+            addAppToGrid(appLibraryGrid, appView, EMPTY_LOCATION_DRAG, appLibraryCellWidthPx);
         }
         mHorizontalPager.addView(appLibraryPage);
     }
@@ -1888,11 +1814,15 @@ public class LauncherActivity extends AppCompatActivity
     }
 
     private void addAppToGrid(GridLayout page, BlissFrameLayout view, int index) {
+        addAppToGrid(page, view, index, mDeviceProfile.cellWidthPx);
+    }
+
+    private void addAppToGrid(GridLayout page, BlissFrameLayout view, int index, int cellWidthPx) {
         GridLayout.Spec rowSpec = GridLayout.spec(GridLayout.UNDEFINED);
         GridLayout.Spec colSpec = GridLayout.spec(GridLayout.UNDEFINED);
         GridLayout.LayoutParams iconLayoutParams = new GridLayout.LayoutParams(rowSpec, colSpec);
         iconLayoutParams.height = mDeviceProfile.cellHeightPx;
-        iconLayoutParams.width = mDeviceProfile.cellWidthPx;
+        iconLayoutParams.width = cellWidthPx;
         view.findViewById(R.id.app_label).setVisibility(View.VISIBLE);
         view.setLayoutParams(iconLayoutParams);
         view.setWithText(true);
@@ -1914,7 +1844,7 @@ public class LauncherActivity extends AppCompatActivity
         GridLayout.Spec colSpec = GridLayout.spec(GridLayout.UNDEFINED);
         GridLayout.LayoutParams iconLayoutParams = new GridLayout.LayoutParams(rowSpec, colSpec);
         iconLayoutParams.height = mDeviceProfile.hotseatCellHeightPx;
-        iconLayoutParams.width = mDeviceProfile.cellWidthPx;
+        iconLayoutParams.width = mDeviceProfile.hotseatCellWidthPx;
         iconLayoutParams.setGravity(Gravity.CENTER);
         view.setLayoutParams(iconLayoutParams);
         view.setWithText(false);
@@ -2019,69 +1949,53 @@ public class LauncherActivity extends AppCompatActivity
 
     private void showLauncherItemOptions(final LauncherItem launcherItem, final BlissFrameLayout iconView,
             final View anchor) {
-        List<CharSequence> options = new ArrayList<>();
-        List<Runnable> actions = new ArrayList<>();
-
-        options.add(getString(R.string.launcher_option_open));
-        actions.add(() -> openLauncherItem(launcherItem, iconView, anchor));
-
-        options.add(getString(R.string.launcher_option_edit_home_screen));
-        actions.add(() -> handleWobbling(true));
-
-        if (launcherItem.itemType != Constants.ITEM_TYPE_FOLDER) {
-            options.add(getString(R.string.launcher_option_app_info));
-            actions.add(() -> openLauncherItemInfo(launcherItem));
-
-            if (canShowUninstallOption(launcherItem)) {
-                options.add(getString(R.string.launcher_option_uninstall));
-                actions.add(() -> uninstallLauncherItem(launcherItem, iconView));
-            }
-        }
-
-        showLauncherOptionsPopup(anchor, options, actions);
+        showLauncherOptionsPopup(anchor, launcherItem, iconView);
     }
 
     private void showWorkspaceOptions(View anchor) {
-        List<CharSequence> options = new ArrayList<>();
-        List<Runnable> actions = new ArrayList<>();
-
-        options.add(getString(R.string.launcher_option_edit_home_screen));
-        actions.add(() -> handleWobbling(true));
-
-        options.add(getString(R.string.widgets));
-        actions.add(() -> startActivity(new Intent(this, WidgetsActivity.class)));
-
-        showLauncherOptionsPopup(anchor, options, actions);
+        handleWobbling(true);
     }
 
-    private void showLauncherOptionsPopup(View anchor, List<CharSequence> options, List<Runnable> actions) {
+    private void showLauncherOptionsPopup(View anchor, LauncherItem launcherItem, BlissFrameLayout iconView) {
         dismissLauncherOptionsPopup();
 
-        LinearLayout menu = new LinearLayout(this);
-        menu.setOrientation(LinearLayout.VERTICAL);
-        menu.setBackgroundResource(R.drawable.ios17_context_menu_background);
-        menu.setPadding(0, dp(2), 0, dp(2));
-        menu.setElevation(dp(12));
+        View menu = getLayoutInflater().inflate(R.layout.popup_launcher_app_options, null);
 
-        for (int i = 0; i < options.size(); i++) {
-            final int index = i;
-            TextView row = new TextView(this);
-            row.setText(options.get(i));
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setTextColor(Color.rgb(17, 17, 17));
-            row.setTextSize(14);
-            row.setPadding(dp(12), 0, dp(12), 0);
-            row.setOnClickListener(v -> {
+        View appInfoButton = menu.findViewById(R.id.appInfoButton);
+        if (appInfoButton != null) {
+            appInfoButton.setOnClickListener(v -> {
                 dismissLauncherOptionsPopup();
-                actions.get(index).run();
+                if (launcherItem.itemType == Constants.ITEM_TYPE_FOLDER) {
+                    openLauncherItem(launcherItem, iconView, anchor);
+                } else {
+                    openLauncherItemInfo(launcherItem);
+                }
             });
-            menu.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
+        }
 
-            if (i < options.size() - 1) {
-                View divider = new View(this);
-                divider.setBackgroundColor(Color.argb(46, 60, 60, 67));
-                menu.addView(divider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
-            }
+        View hideButton = menu.findViewById(R.id.hideButton);
+        if (hideButton != null) {
+            hideButton.setOnClickListener(v -> dismissLauncherOptionsPopup());
+        }
+
+        View editHomeButton = menu.findViewById(R.id.editHomeButton);
+        if (editHomeButton != null) {
+            editHomeButton.setOnClickListener(v -> {
+                dismissLauncherOptionsPopup();
+                handleWobbling(true);
+            });
+        }
+
+        View deleteButton = menu.findViewById(R.id.deleteButton);
+        if (deleteButton != null) {
+            deleteButton.setOnClickListener(v -> {
+                dismissLauncherOptionsPopup();
+                if (canShowUninstallOption(launcherItem)) {
+                    uninstallLauncherItem(launcherItem, iconView);
+                } else {
+                    handleWobbling(true);
+                }
+            });
         }
 
         launcherOptionsPopup = new PopupWindow(menu, dp(262), ViewGroup.LayoutParams.WRAP_CONTENT, true);
@@ -2089,8 +2003,12 @@ public class LauncherActivity extends AppCompatActivity
         launcherOptionsPopup.setOutsideTouchable(true);
         launcherOptionsPopup.setElevation(dp(12));
         launcherOptionsPopup.setOnDismissListener(() -> {
+            hideSelectedIconPreview();
             if (contextOverlay != null) {
-                contextOverlay.setVisibility(GONE);
+                contextOverlay.animate().alpha(0f).setDuration(120L).withEndAction(() -> {
+                    contextOverlay.setVisibility(GONE);
+                    contextOverlay.setAlpha(1f);
+                }).start();
             }
             launcherOptionsPopup = null;
         });
@@ -2100,9 +2018,13 @@ public class LauncherActivity extends AppCompatActivity
                 View.MeasureSpec.makeMeasureSpec(getResources().getDisplayMetrics().heightPixels, View.MeasureSpec.AT_MOST));
 
         if (contextOverlay != null) {
+            contextOverlay.animate().cancel();
+            contextOverlay.setAlpha(0f);
             contextOverlay.setVisibility(VISIBLE);
             contextOverlay.bringToFront();
+            contextOverlay.animate().alpha(1f).setDuration(120L).start();
         }
+        showSelectedIconPreview(launcherItem, anchor);
         launcherOptionsPopup.showAtLocation(mLauncherView, Gravity.NO_GRAVITY,
                 popupX(anchor, dp(262)),
                 popupY(anchor, menu.getMeasuredHeight()));
@@ -2113,9 +2035,78 @@ public class LauncherActivity extends AppCompatActivity
             PopupWindow popup = launcherOptionsPopup;
             launcherOptionsPopup = null;
             popup.dismiss();
-        } else if (contextOverlay != null) {
-            contextOverlay.setVisibility(GONE);
+        } else {
+            hideSelectedIconPreview();
+            if (contextOverlay != null) {
+                contextOverlay.setVisibility(GONE);
+                contextOverlay.setAlpha(1f);
+            }
         }
+    }
+
+    private void showSelectedIconPreview(LauncherItem launcherItem, View anchor) {
+        View preview = mLauncherView.findViewById(R.id.selectedIconPreview);
+        if (preview == null || anchor == null || anchor == mLauncherView) {
+            return;
+        }
+
+        ImageView image = preview.findViewById(R.id.selectedIconImage);
+        TextView label = preview.findViewById(R.id.selectedIconLabel);
+        if (image != null) {
+            image.setImageDrawable(launcherItem.icon);
+        }
+        if (label != null) {
+            label.setText(launcherItem.title);
+        }
+
+        int[] anchorLocation = new int[2];
+        int[] rootLocation = new int[2];
+        anchor.getLocationOnScreen(anchorLocation);
+        mLauncherView.getLocationOnScreen(rootLocation);
+
+        int previewWidth = preview.getWidth() > 0 ? preview.getWidth() : dp(94);
+        int previewHeight = preview.getHeight() > 0 ? preview.getHeight() : dp(118);
+        int rootWidth = mLauncherView.getWidth() > 0 ? mLauncherView.getWidth() : getResources().getDisplayMetrics().widthPixels;
+        int rootHeight = mLauncherView.getHeight() > 0 ? mLauncherView.getHeight() : getResources().getDisplayMetrics().heightPixels;
+        int minMargin = dp(4);
+        int topMargin = dp(12);
+        int left = anchorLocation[0] - rootLocation[0] + anchor.getWidth() / 2 - previewWidth / 2;
+        int top = anchorLocation[1] - rootLocation[1] - dp(2);
+        int maxLeft = Math.max(minMargin, rootWidth - previewWidth - minMargin);
+        int maxTop = Math.max(topMargin, rootHeight - previewHeight - topMargin);
+
+        preview.setX(Math.max(minMargin, Math.min(left, maxLeft)));
+        preview.setY(Math.max(topMargin, Math.min(top, maxTop)));
+        preview.bringToFront();
+        preview.animate().cancel();
+        preview.setAlpha(0f);
+        preview.setScaleX(1.03f);
+        preview.setScaleY(1.03f);
+        preview.setVisibility(VISIBLE);
+        preview.animate()
+                .alpha(1f)
+                .scaleX(1.08f)
+                .scaleY(1.08f)
+                .setDuration(120L)
+                .start();
+    }
+
+    private void hideSelectedIconPreview() {
+        View preview = mLauncherView.findViewById(R.id.selectedIconPreview);
+        if (preview == null || preview.getVisibility() != VISIBLE) {
+            return;
+        }
+        preview.animate().cancel();
+        preview.animate()
+                .alpha(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(110L)
+                .withEndAction(() -> {
+                    preview.setVisibility(GONE);
+                    preview.setAlpha(1f);
+                })
+                .start();
     }
 
     private int popupX(View anchor, int popupWidth) {
@@ -3428,6 +3419,7 @@ public class LauncherActivity extends AppCompatActivity
 
     private void setUpSwipeSearchContainer() {
         BlissInput searchEditText = swipeSearchContainer.findViewById(R.id.search_input);
+        mSearchInput = searchEditText;
         ImageView clearSuggestions = swipeSearchContainer.findViewById(R.id.clearSuggestionImageView);
         clearSuggestions.setOnClickListener(v -> {
             searchEditText.setText("");
