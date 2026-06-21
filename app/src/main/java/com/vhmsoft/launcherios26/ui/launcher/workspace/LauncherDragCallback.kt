@@ -54,6 +54,7 @@ class LauncherDragCallback(
     private var touchToCenterOffsetY = 0f
     private var externalDragActive = false
     private var edgeReordered = false
+    private var dragBaseItems: List<LauncherHomeItemUiModel> = emptyList()
     private var lastHoverTarget: HoverTarget? = null
     private var lastHoverStartedAt = 0L
     private var lastReorderAt = 0L
@@ -99,6 +100,7 @@ class LauncherDragCallback(
             cancelDropPreviewAnimation()
             draggedStableId = viewHolder?.bindingAdapterPosition
                 ?.let { position -> adapter.stableIdAt(position) }
+            dragBaseItems = adapter.itemsSnapshot()
             draggingOutside = false
             externalDragActive = false
             edgeReordered = false
@@ -195,6 +197,11 @@ class LauncherDragCallback(
         if (!allowFolderDrop) return
 
         hideHomeDraggedViewHolder(viewHolder)
+        if (!LauncherDragMutationGuard.canMutateDuringActiveDrag(allowFolderDrop, reorderOnMove)) {
+            applyHomeDragMovementPreview(recyclerView, viewHolder, dX, dY)
+            resetHoverState()
+            return
+        }
         if (!canMutateDragItems(recyclerView)) {
             resetHoverState()
             return
@@ -204,10 +211,12 @@ class LauncherDragCallback(
         when (hoverTarget?.action) {
             HoverAction.INSERT_BEFORE -> {
                 adapter.clearPendingDropTarget()
-                val moved = adapter.moveItemByStableIdBesideTarget(
+                val moved = adapter.moveItemByStableIdWithPlusRule(
                     draggedStableId = draggedStableId,
-                    targetStableId = hoverTarget.targetStableId,
-                    insertAfterTarget = false
+                    baseItems = dragBaseItems,
+                    targetPosition = hoverTarget.targetPosition,
+                    columns = gridColumns(recyclerView),
+                    rows = gridRows()
                 )
                 edgeReordered = moved || edgeReordered
                 if (moved) resetHoverState()
@@ -215,10 +224,12 @@ class LauncherDragCallback(
 
             HoverAction.INSERT_AFTER -> {
                 adapter.clearPendingDropTarget()
-                val moved = adapter.moveItemByStableIdBesideTarget(
+                val moved = adapter.moveItemByStableIdWithPlusRule(
                     draggedStableId = draggedStableId,
-                    targetStableId = hoverTarget.targetStableId,
-                    insertAfterTarget = true
+                    baseItems = dragBaseItems,
+                    targetPosition = hoverTarget.targetPosition,
+                    columns = gridColumns(recyclerView),
+                    rows = gridRows()
                 )
                 edgeReordered = moved || edgeReordered
                 if (moved) resetHoverState()
@@ -310,6 +321,119 @@ class LauncherDragCallback(
         lastHoverStartedAt = 0L
     }
 
+    private fun applyHomeDragMovementPreview(
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder,
+        dX: Float,
+        dY: Float
+    ) {
+        val hoverTarget = findHomeHoverTarget(recyclerView, viewHolder, dX, dY)
+        when (hoverTarget?.action) {
+            HoverAction.FOLDER -> {
+                clearHomeIconMovementPreview(recyclerView, animate = true)
+                adapter.rememberDropTargetByTargetStableId(draggedStableId, hoverTarget.targetStableId)
+            }
+
+            HoverAction.INSERT_BEFORE,
+            HoverAction.INSERT_AFTER -> {
+                adapter.clearPendingDropTarget()
+                val previewItems = LauncherHomeIconMovePolicy.moveExistingItem(
+                    items = dragBaseItems,
+                    draggedStableId = draggedStableId ?: return clearHomeIconMovementPreview(
+                        recyclerView,
+                        animate = true
+                    ),
+                    targetIndex = hoverTarget.targetPosition,
+                    columns = gridColumns(recyclerView),
+                    rows = gridRows()
+                )
+                if (previewItems == null) {
+                    clearHomeIconMovementPreview(recyclerView, animate = true)
+                } else {
+                    applyHomeIconMovementPreview(recyclerView, previewItems)
+                }
+            }
+
+            null -> {
+                adapter.clearPendingDropTarget()
+                clearHomeIconMovementPreview(recyclerView, animate = true)
+            }
+        }
+    }
+
+    private fun applyHomeIconMovementPreview(
+        recyclerView: RecyclerView,
+        previewItems: List<LauncherHomeItemUiModel>
+    ) {
+        val width = recyclerView.width.takeIf { it > 0 } ?: return
+        val height = recyclerView.height.takeIf { it > 0 } ?: return
+        val columns = gridColumns(recyclerView).coerceAtLeast(1)
+        val rows = gridRows().coerceAtLeast(1)
+        val cellWidth = width / columns.toFloat()
+        val cellHeight = height / rows.toFloat()
+        val movesByStableId = LauncherHomeDragPreviewPlanner
+            .moves(dragBaseItems, previewItems)
+            .filter { move -> move.stableId != draggedStableId }
+            .associateBy { move -> move.stableId }
+
+        for (index in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(index)
+            val holder = recyclerView.getChildViewHolder(child)
+            val adapterPosition = holder.bindingAdapterPosition
+            val item = adapter.itemAt(adapterPosition)
+            val move = item?.stableId?.let { stableId -> movesByStableId[stableId] }
+            val targetTranslation = move?.translation(
+                columns = columns,
+                cellWidth = cellWidth,
+                cellHeight = cellHeight
+            )
+            child.animate().cancel()
+            child.animate()
+                .translationX(targetTranslation?.first ?: 0f)
+                .translationY(targetTranslation?.second ?: 0f)
+                .setDuration(HOME_ICON_REORDER_PREVIEW_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+    }
+
+    private fun clearHomeIconMovementPreview(
+        recyclerView: RecyclerView,
+        animate: Boolean
+    ) {
+        for (index in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(index)
+            child.animate().cancel()
+            if (animate) {
+                child.animate()
+                    .translationX(0f)
+                    .translationY(0f)
+                    .setDuration(HOME_ICON_REORDER_PREVIEW_MS)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            } else {
+                child.translationX = 0f
+                child.translationY = 0f
+            }
+        }
+    }
+
+    private fun LauncherHomeDragPreviewPlanner.Move.translation(
+        columns: Int,
+        cellWidth: Float,
+        cellHeight: Float
+    ): Pair<Float, Float> {
+        val boundedColumns = columns.coerceAtLeast(1)
+        val fromColumn = fromIndex % boundedColumns
+        val fromRow = fromIndex / boundedColumns
+        val toColumn = toIndex % boundedColumns
+        val toRow = toIndex / boundedColumns
+        return Pair(
+            (toColumn - fromColumn) * cellWidth,
+            (toRow - fromRow) * cellHeight
+        )
+    }
+
     private fun settleHomeDraggedView(viewHolder: RecyclerView.ViewHolder) {
         viewHolder.itemView.animate().cancel()
         viewHolder.itemView.animate()
@@ -329,6 +453,9 @@ class LauncherDragCallback(
     override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
         val draggedItem = adapter.itemByStableId(draggedStableId)
         val (callbackCenterX, callbackCenterY) = dragCallbackCenter()
+        if (allowFolderDrop) {
+            clearHomeIconMovementPreview(recyclerView, animate = false)
+        }
         if (onDragEnded(draggedItem, viewHolder, callbackCenterX, callbackCenterY)) {
             super.clearView(recyclerView, viewHolder)
             if (externalDragActive || draggingOutside) {
@@ -337,6 +464,7 @@ class LauncherDragCallback(
                 resetDraggedView(viewHolder)
             }
             draggedStableId = null
+            dragBaseItems = emptyList()
             draggingOutside = false
             externalDragActive = false
             edgeReordered = false
@@ -354,6 +482,7 @@ class LauncherDragCallback(
                 adapter.removeItemByStableId(stableId, notifyOrder = false)
             }
             draggedStableId = null
+            dragBaseItems = emptyList()
             draggingOutside = false
             externalDragActive = false
             edgeReordered = false
@@ -379,6 +508,7 @@ class LauncherDragCallback(
                 )
             }
             draggedStableId = null
+            dragBaseItems = emptyList()
             draggingOutside = false
             externalDragActive = false
             edgeReordered = false
@@ -392,19 +522,9 @@ class LauncherDragCallback(
         val folderTargetStableId = findFolderDropTargetStableId(recyclerView, viewHolder)
         if (folderTargetStableId != null) {
             adapter.rememberDropTargetByTargetStableId(draggedStableId, folderTargetStableId)
-        } else if (!adapter.hasPendingDropTarget()) {
-            val targetPosition = findDropTargetPosition(
-                recyclerView = recyclerView,
-                viewHolder = viewHolder,
-                dX = viewHolder.itemView.translationX,
-                dY = viewHolder.itemView.translationY
-            )
-            val targetItem = adapter.itemAt(targetPosition)
-            if (targetPosition != RecyclerView.NO_POSITION &&
-                (!edgeReordered || targetItem is LauncherHomeItemUiModel.Folder)
-            ) {
-                adapter.rememberDropTargetByStableId(draggedStableId, targetPosition)
-            }
+        } else {
+            adapter.clearPendingDropTarget()
+            commitHomeDropOnRelease(recyclerView, viewHolder)
         }
 
         if (adapter.hasPendingDropTarget()) {
@@ -440,10 +560,44 @@ class LauncherDragCallback(
             adapter.notifyOrderChanged()
         }
         draggedStableId = null
+        dragBaseItems = emptyList()
         draggingOutside = false
         externalDragActive = false
         edgeReordered = false
         resetHoverState()
+    }
+
+    private fun commitHomeDropOnRelease(
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder
+    ): Boolean {
+        val blankCellPosition = findBlankGridDropPosition(recyclerView)
+        if (blankCellPosition != RecyclerView.NO_POSITION) {
+            return adapter.moveItemByStableIdToPosition(
+                draggedStableId = draggedStableId,
+                finalPosition = blankCellPosition
+            )
+        }
+
+        val targetPosition = findDropTargetPosition(
+            recyclerView = recyclerView,
+            viewHolder = viewHolder,
+            dX = viewHolder.itemView.translationX,
+            dY = viewHolder.itemView.translationY
+        )
+        if (targetPosition == RecyclerView.NO_POSITION) return false
+        val targetItem = adapter.itemAt(targetPosition)
+        if (targetItem == null || targetItem is LauncherHomeItemUiModel.Placeholder) {
+            return false
+        }
+
+        return adapter.moveItemByStableIdWithPlusRule(
+            draggedStableId = draggedStableId,
+            baseItems = dragBaseItems,
+            targetPosition = targetPosition,
+            columns = gridColumns(recyclerView),
+            rows = gridRows()
+        )
     }
 
     private fun dragCallbackCenter(): Pair<Float, Float> {
@@ -838,6 +992,7 @@ class LauncherDragCallback(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder
     ): Long? {
+        val draggedItem = adapter.itemByStableId(draggedStableId)
         val draggedView = viewHolder.itemView
         val (draggedCenterX, draggedCenterY) = dragCenterInRecycler(recyclerView)
         val hitSlop = dp(recyclerView, FOLDER_DROP_HIT_SLOP_DP)
@@ -851,7 +1006,7 @@ class LauncherDragCallback(
             val holder = recyclerView.getChildViewHolder(child)
             val position = holder.bindingAdapterPosition
             if (position == RecyclerView.NO_POSITION) continue
-            val item = adapter.itemAt(position) as? LauncherHomeItemUiModel.Folder ?: continue
+            val item = adapter.itemAt(position) ?: continue
             if (item.stableId == draggedStableId) continue
 
             val iconPlate = child.findViewById<android.view.View>(R.id.iconPlate) ?: child
@@ -862,6 +1017,21 @@ class LauncherDragCallback(
             if (draggedCenterX < left || draggedCenterX > right || draggedCenterY < top || draggedCenterY > bottom) {
                 continue
             }
+
+            if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
+            val plateLeft = child.left + iconPlate.left
+            val plateTop = child.top + iconPlate.top
+            val localX = ((draggedCenterX - plateLeft) / iconPlate.width).coerceIn(0f, 1f)
+            val localY = ((draggedCenterY - plateTop) / iconPlate.height).coerceIn(0f, 1f)
+            val action = LauncherHomeHoverDropPolicy.resolveAction(
+                draggedItem = draggedItem,
+                targetItem = item,
+                localXInCell = localX,
+                localYInCell = localY,
+                edgeInsertFraction = EDGE_INSERT_FRACTION,
+                edgeInsertVerticalFraction = EDGE_INSERT_VERTICAL_FRACTION
+            )
+            if (action != LauncherHomeHoverDropAction.FOLDER) continue
 
             val targetCenterX = child.left + iconPlate.left + iconPlate.width / 2f
             val targetCenterY = child.top + iconPlate.top + iconPlate.height / 2f
@@ -880,6 +1050,7 @@ class LauncherDragCallback(
         dX: Float,
         dY: Float
     ): HoverTarget? {
+        val draggedItem = adapter.itemByStableId(draggedStableId)
         val draggedView = viewHolder.itemView
         val (draggedCenterX, draggedCenterY) = dragCenterInRecycler(recyclerView)
         val hitSlop = dp(recyclerView, EDGE_INSERT_HIT_SLOP_DP)
@@ -907,24 +1078,32 @@ class LauncherDragCallback(
                 continue
             }
 
+            if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
             val plateLeft = child.left + iconPlate.left
             val plateTop = child.top + iconPlate.top
             val localX = ((draggedCenterX - plateLeft) / iconPlate.width).coerceIn(0f, 1f)
             val localY = ((draggedCenterY - plateTop) / iconPlate.height).coerceIn(0f, 1f)
-            val action = when {
-                localX <= EDGE_INSERT_FRACTION -> HoverAction.INSERT_BEFORE
-                localX >= 1f - EDGE_INSERT_FRACTION -> HoverAction.INSERT_AFTER
-                localY <= EDGE_INSERT_VERTICAL_FRACTION -> HoverAction.INSERT_BEFORE
-                localY >= 1f - EDGE_INSERT_VERTICAL_FRACTION -> HoverAction.INSERT_AFTER
-                else -> HoverAction.FOLDER
-            }
+            val hoverAction = LauncherHomeHoverDropPolicy.resolveAction(
+                draggedItem = draggedItem,
+                targetItem = targetItem,
+                localXInCell = localX,
+                localYInCell = localY,
+                edgeInsertFraction = EDGE_INSERT_FRACTION,
+                edgeInsertVerticalFraction = EDGE_INSERT_VERTICAL_FRACTION
+            )
+            val action = when (hoverAction) {
+                LauncherHomeHoverDropAction.INSERT_BEFORE -> HoverAction.INSERT_BEFORE
+                LauncherHomeHoverDropAction.INSERT_AFTER -> HoverAction.INSERT_AFTER
+                LauncherHomeHoverDropAction.FOLDER -> HoverAction.FOLDER
+                null -> null
+            } ?: continue
 
             val targetCenterX = child.left + iconPlate.left + iconPlate.width / 2f
             val targetCenterY = child.top + iconPlate.top + iconPlate.height / 2f
             val distance = (draggedCenterX - targetCenterX).pow(2) + (draggedCenterY - targetCenterY).pow(2)
             if (distance < bestDistance) {
                 bestDistance = distance
-                bestTarget = HoverTarget(targetStableId, action)
+                bestTarget = HoverTarget(targetStableId, position, action)
             }
         }
         return bestTarget
@@ -932,19 +1111,22 @@ class LauncherDragCallback(
 
     private fun findBlankGridDropPosition(recyclerView: RecyclerView): Int {
         val (draggedCenterX, draggedCenterY) = dragCenterInRecycler(recyclerView)
-        val spanCount = (recyclerView.layoutManager as? GridLayoutManager)?.spanCount ?: DEFAULT_GRID_COLUMNS
         return LauncherHomeScreenGridPolicy.blankDropPosition(
             draggedCenterX = draggedCenterX,
             draggedCenterY = draggedCenterY,
             gridWidth = recyclerView.width,
             gridHeight = recyclerView.height,
             rows = gridRows(),
-            columns = spanCount,
+            columns = gridColumns(recyclerView),
             itemCount = adapter.itemCount,
             isBlankAtPosition = { position ->
                 adapter.itemAt(position) is LauncherHomeItemUiModel.Placeholder
             }
         )
+    }
+
+    private fun gridColumns(recyclerView: RecyclerView): Int {
+        return (recyclerView.layoutManager as? GridLayoutManager)?.spanCount ?: DEFAULT_GRID_COLUMNS
     }
 
     private fun dragCenterInRecycler(recyclerView: RecyclerView): Pair<Float, Float> {
@@ -975,6 +1157,7 @@ class LauncherDragCallback(
         const val DROP_FADE_START_PROGRESS = 0.68f
         const val HOME_HOVER_SETTLE_MS = 45L
         const val HOME_REORDER_THROTTLE_MS = 95L
+        const val HOME_ICON_REORDER_PREVIEW_MS = 95L
         const val HOME_DROP_SETTLE_MS = 120L
         const val DRAGGED_HOME_ELEVATION_DP = 18
         const val DEFAULT_GRID_COLUMNS = 4
@@ -983,6 +1166,7 @@ class LauncherDragCallback(
 
     private data class HoverTarget(
         val targetStableId: Long,
+        val targetPosition: Int,
         val action: HoverAction
     )
 

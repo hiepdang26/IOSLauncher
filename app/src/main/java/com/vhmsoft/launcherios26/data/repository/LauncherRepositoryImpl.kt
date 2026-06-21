@@ -3,6 +3,7 @@ package com.vhmsoft.launcherios26.data.repository
 import android.graphics.drawable.Drawable
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
+import com.vhmsoft.launcherios26.data.model.LauncherAppCustomizationPolicy
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
 import com.vhmsoft.launcherios26.data.source.local.LauncherLocalDataSource
 import com.vhmsoft.launcherios26.data.source.remote.LauncherRemoteDataSource
@@ -11,11 +12,25 @@ class LauncherRepositoryImpl(
     private val localDataSource: LauncherLocalDataSource,
     private val remoteDataSource: LauncherRemoteDataSource
 ) : LauncherRepository {
+    override suspend fun getAllInstalledApps(): List<LauncherApp> {
+        return remoteDataSource.getInstalledApps()
+            .withCustomLabels(localDataSource.getCustomLabels())
+            .sortedBySavedOrder(localDataSource.getAppOrder())
+    }
+
     override suspend fun getInstalledApps(): List<LauncherApp> {
-        return remoteDataSource.getInstalledApps().sortedBySavedOrder(localDataSource.getAppOrder())
+        return LauncherAppCustomizationPolicy.apply(
+            apps = remoteDataSource.getInstalledApps(),
+            hiddenIconKeys = localDataSource.getHiddenIconKeys(),
+            customLabels = localDataSource.getCustomLabels()
+        ).sortedBySavedOrder(localDataSource.getAppOrder())
     }
 
     override suspend fun getAppIcon(app: LauncherApp): Drawable {
+        localDataSource.getCustomIcon(app.iconKey)?.let { customIcon ->
+            return customIcon
+        }
+
         localDataSource.getCachedIcon(app.iconKey)?.let { cachedIcon ->
             return cachedIcon
         }
@@ -69,6 +84,30 @@ class LauncherRepositoryImpl(
 
     override fun saveAppCategory(app: LauncherApp, category: LauncherAppCategory) {
         localDataSource.saveAppCategory(app.iconKey, category.code)
+    }
+
+    override fun saveCustomLabel(app: LauncherApp, label: String) {
+        localDataSource.saveCustomLabel(app.iconKey, label)
+    }
+
+    override fun getHiddenIconKeys(): Set<String> {
+        return localDataSource.getHiddenIconKeys()
+    }
+
+    override fun setAppHidden(app: LauncherApp, hidden: Boolean) {
+        localDataSource.setAppHidden(app.iconKey, hidden)
+    }
+
+    override fun saveCustomIconUri(app: LauncherApp, uri: String?) {
+        localDataSource.saveCustomIconUri(app.iconKey, uri)
+    }
+
+    private fun List<LauncherApp>.withCustomLabels(customLabels: Map<String, String>): List<LauncherApp> {
+        return LauncherAppCustomizationPolicy.apply(
+            apps = this,
+            hiddenIconKeys = emptySet(),
+            customLabels = customLabels
+        )
     }
 
     private fun List<LauncherApp>.sortedBySavedOrder(savedOrder: List<String>): List<LauncherApp> {

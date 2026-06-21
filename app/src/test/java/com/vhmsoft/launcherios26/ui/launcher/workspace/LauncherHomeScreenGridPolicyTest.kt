@@ -7,6 +7,7 @@ import android.graphics.drawable.Drawable
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LauncherHomeScreenGridPolicyTest {
@@ -65,6 +66,72 @@ class LauncherHomeScreenGridPolicyTest {
     }
 
     @Test
+    fun padToFullPages_keepsEveryVisiblePageAtGridCapacity() {
+        val photos = LauncherHomeItemUiModel.App(appItem("Photos"))
+
+        val padded = LauncherHomeScreenGridPolicy.padToFullPages(
+            items = listOf(photos),
+            pageSize = 24
+        )
+
+        assertEquals(24, padded.size)
+        assertEquals(photos, padded[0])
+        assertTrue(padded.drop(1).all { item -> item is LauncherHomeItemUiModel.Placeholder })
+    }
+
+    @Test
+    fun padToFullPages_removesEmptyPagesBeforeLaterIconPages() {
+        val firstPage = (0 until 24).map { index ->
+            if (index == 0) LauncherHomeItemUiModel.App(appItem("Photos")) else placeholder(index)
+        }
+        val emptyPage = (24 until 48).map { index -> placeholder(index) }
+        val thirdPage = (48 until 72).map { index ->
+            if (index == 50) LauncherHomeItemUiModel.App(appItem("Maps")) else placeholder(index)
+        }
+
+        val padded = LauncherHomeScreenGridPolicy.padToFullPages(
+            items = firstPage + emptyPage + thirdPage,
+            pageSize = 24
+        )
+
+        assertEquals(48, padded.size)
+        assertEquals("Photos", padded[0].label)
+        assertEquals("Maps", padded[26].label)
+    }
+
+    @Test
+    fun padToFullPages_canPreserveTemporaryEmptyPagesForDragPreview() {
+        val firstPage = (0 until 24).map { index ->
+            if (index == 0) LauncherHomeItemUiModel.App(appItem("Photos")) else placeholder(index)
+        }
+        val emptyPage = (24 until 48).map { index -> placeholder(index) }
+
+        val padded = LauncherHomeScreenGridPolicy.padToFullPages(
+            items = firstPage + emptyPage,
+            pageSize = 24,
+            preserveEmptyPages = true
+        )
+
+        assertEquals(48, padded.size)
+        assertTrue(padded.drop(24).all { item -> item is LauncherHomeItemUiModel.Placeholder })
+    }
+
+    @Test
+    fun ensurePageExists_createsFullBlankPageForTheRequestedPage() {
+        val photos = LauncherHomeItemUiModel.App(appItem("Photos"))
+
+        val padded = LauncherHomeScreenGridPolicy.ensurePageExists(
+            items = listOf(photos),
+            page = 1,
+            pageSize = 24
+        )
+
+        assertEquals(48, padded.size)
+        assertEquals(photos, padded[0])
+        assertTrue(padded.drop(1).all { item -> item is LauncherHomeItemUiModel.Placeholder })
+    }
+
+    @Test
     fun blankDropPosition_capsFinalPositionToLastSlotInSelectedGridRows() {
         val position = LauncherHomeScreenGridPolicy.blankDropPosition(
             draggedCenterX = 390f,
@@ -109,6 +176,21 @@ class LauncherHomeScreenGridPolicyTest {
         )
 
         assertEquals(LauncherHomeScreenGridPolicy.NO_POSITION, position)
+    }
+
+    @Test
+    fun blankDropPosition_returnsDeepBlankCellPastCurrentItemCountWithinGridCapacity() {
+        val position = LauncherHomeScreenGridPolicy.blankDropPosition(
+            draggedCenterX = 250f,
+            draggedCenterY = 550f,
+            gridWidth = 400,
+            gridHeight = 600,
+            rows = 6,
+            columns = 4,
+            itemCount = 10
+        )
+
+        assertEquals(22, position)
     }
 
     private fun placeholder(index: Int): LauncherHomeItemUiModel.Placeholder {

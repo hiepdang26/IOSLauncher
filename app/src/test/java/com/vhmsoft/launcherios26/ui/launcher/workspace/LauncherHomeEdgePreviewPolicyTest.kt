@@ -11,6 +11,7 @@ class LauncherHomeEdgePreviewPolicyTest {
             LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
                 dragActive = true,
                 pageSwitching = false,
+                edgeDirection = 0,
                 dragPage = 0,
                 sourcePage = 0,
                 hasLeftSourcePage = false
@@ -24,6 +25,7 @@ class LauncherHomeEdgePreviewPolicyTest {
             LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
                 dragActive = true,
                 pageSwitching = false,
+                edgeDirection = 0,
                 dragPage = 0,
                 sourcePage = 0,
                 hasLeftSourcePage = true
@@ -37,6 +39,7 @@ class LauncherHomeEdgePreviewPolicyTest {
             LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
                 dragActive = true,
                 pageSwitching = false,
+                edgeDirection = 0,
                 dragPage = 1,
                 sourcePage = 0,
                 hasLeftSourcePage = false
@@ -50,6 +53,21 @@ class LauncherHomeEdgePreviewPolicyTest {
             LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
                 dragActive = true,
                 pageSwitching = true,
+                edgeDirection = 0,
+                dragPage = 1,
+                sourcePage = 0,
+                hasLeftSourcePage = true
+            )
+        )
+    }
+
+    @Test
+    fun shouldUpdatePreview_skipsWhileFingerIsInPageSwitchEdgeZone() {
+        assertFalse(
+            LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
+                dragActive = true,
+                pageSwitching = false,
+                edgeDirection = 1,
                 dragPage = 1,
                 sourcePage = 0,
                 hasLeftSourcePage = true

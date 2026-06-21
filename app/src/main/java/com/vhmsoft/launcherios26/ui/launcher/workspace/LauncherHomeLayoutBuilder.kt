@@ -1,6 +1,7 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
+import java.util.Locale
 
 object LauncherHomeLayoutBuilder {
     fun build(
@@ -8,7 +9,7 @@ object LauncherHomeLayoutBuilder {
         folders: List<LauncherFolder>
     ): List<LauncherHomeItemUiModel> {
         if (folders.isEmpty()) {
-            return apps.map { LauncherHomeItemUiModel.App(it) }
+            return buildIosCloneDefaultLayout(apps)
         }
 
         val appByKey = apps.associateBy { it.app.iconKey }
@@ -41,10 +42,47 @@ object LauncherHomeLayoutBuilder {
         }
     }
 
+    private fun buildIosCloneDefaultLayout(
+        apps: List<LauncherIconUiModel>
+    ): List<LauncherHomeItemUiModel> {
+        val pinnedItems = listOfNotNull(
+            apps.firstOrNull { app -> app.isWeatherApp() },
+            apps.firstOrNull { app -> app.isIosLauncherApp() },
+            apps.firstOrNull { app -> app.isPlayStoreApp() }
+        ).distinctBy { app -> app.app.iconKey }
+        val pinnedKeys = pinnedItems.map { app -> app.app.iconKey }.toSet()
+        val googleApps = apps
+            .filterNot { app -> app.app.iconKey in pinnedKeys }
+            .filter { app -> app.isGoogleFolderApp() }
+        val googleKeys = googleApps.map { app -> app.app.iconKey }.toSet()
+        val remainingApps = apps.filterNot { app ->
+            app.app.iconKey in pinnedKeys || app.app.iconKey in googleKeys
+        }
+
+        return buildList {
+            addAll(pinnedItems.map { app -> LauncherHomeItemUiModel.App(app) })
+            if (googleApps.isNotEmpty()) {
+                add(
+                    LauncherHomeItemUiModel.Folder(
+                        id = DEFAULT_GOOGLE_FOLDER_ID,
+                        title = DEFAULT_FOLDER_TITLE,
+                        apps = googleApps
+                    )
+                )
+            }
+            while (isNotEmpty() && size < IOS_CLONE_DEFAULT_FIRST_PAGE_SIZE) {
+                add(LauncherHomeItemUiModel.Placeholder.forGridIndex(size))
+            }
+            addAll(remainingApps.map { app -> LauncherHomeItemUiModel.App(app) })
+        }
+    }
+
     fun extractFolders(items: List<LauncherHomeItemUiModel>): List<LauncherFolder> {
         return normalize(items).mapNotNull { item ->
             val folder = item as? LauncherHomeItemUiModel.Folder ?: return@mapNotNull null
-            if (folder.apps.size < MIN_FOLDER_SIZE) return@mapNotNull null
+            if (folder.apps.size < MIN_FOLDER_SIZE && !folder.shouldPersistSingleAppFolder()) {
+                return@mapNotNull null
+            }
 
             LauncherFolder(
                 id = folder.id,
@@ -65,7 +103,11 @@ object LauncherHomeLayoutBuilder {
                 is LauncherHomeItemUiModel.Placeholder -> listOf(item)
                 is LauncherHomeItemUiModel.Folder -> when (item.apps.size) {
                     0 -> emptyList()
-                    1 -> listOf(LauncherHomeItemUiModel.App(item.apps.first()))
+                    1 -> if (item.shouldPersistSingleAppFolder()) {
+                        listOf(item)
+                    } else {
+                        listOf(LauncherHomeItemUiModel.App(item.apps.first()))
+                    }
                     else -> listOf(item)
                 }
             }
@@ -83,5 +125,50 @@ object LauncherHomeLayoutBuilder {
             .filterNot { item -> item is LauncherHomeItemUiModel.Placeholder }
     }
 
+    private fun LauncherHomeItemUiModel.Folder.shouldPersistSingleAppFolder(): Boolean {
+        return id == DEFAULT_GOOGLE_FOLDER_ID
+    }
+
     private const val MIN_FOLDER_SIZE = 2
+    private const val DEFAULT_GOOGLE_FOLDER_ID = "default-google-folder"
+    private const val IOS_CLONE_DEFAULT_FIRST_PAGE_SIZE = 24
+
+    private fun LauncherIconUiModel.normalizedSearchText(): String {
+        return "${app.label} ${app.packageName}".lowercase(Locale.ROOT)
+    }
+
+    private fun LauncherIconUiModel.isWeatherApp(): Boolean {
+        val value = normalizedSearchText()
+        return value.contains("thời tiết") || value.contains("weather")
+    }
+
+    private fun LauncherIconUiModel.isIosLauncherApp(): Boolean {
+        val value = normalizedSearchText()
+        return value.contains("ios launcher") ||
+            value.contains("launcherios") ||
+            value.contains("launcher ios")
+    }
+
+    private fun LauncherIconUiModel.isPlayStoreApp(): Boolean {
+        val value = normalizedSearchText()
+        return app.packageName == "com.android.vending" ||
+            value.contains("cửa hàng play") ||
+            value.contains("play store") ||
+            value.contains("google play")
+    }
+
+    private fun LauncherIconUiModel.isGoogleFolderApp(): Boolean {
+        val packageName = app.packageName.lowercase(Locale.ROOT)
+        val value = normalizedSearchText()
+        if (isPlayStoreApp()) return false
+        return packageName.startsWith("com.google.") ||
+            packageName == "com.android.chrome" ||
+            value.contains("chrome") ||
+            value.contains("gmail") ||
+            value.contains("maps") ||
+            value.contains("youtube") ||
+            value.contains("drive") ||
+            value.contains("photos") ||
+            value.contains("google")
+    }
 }

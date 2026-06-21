@@ -6,7 +6,7 @@ import org.junit.Test
 
 class LauncherEditModePagerUpdatePolicyTest {
     @Test
-    fun plan_updatesAttachedPagesWithoutRefreshingWholePagerWhenEditingChanges() {
+    fun plan_updatesHomePagesWithoutRefreshingWholePagerWhenEditingCompletes() {
         val update = LauncherEditModePagerUpdatePolicy.plan(
             currentEditing = true,
             nextEditing = false
@@ -15,6 +15,20 @@ class LauncherEditModePagerUpdatePolicyTest {
         assertFalse(update.refreshWholePager)
         assertTrue(update.updateBoundHomePages)
         assertTrue(update.updateAttachedWidgetPage)
+        assertTrue(update.refreshAllHomePages)
+    }
+
+    @Test
+    fun plan_updatesAttachedPagesWithoutRefreshingWholePagerWhenEditingStarts() {
+        val update = LauncherEditModePagerUpdatePolicy.plan(
+            currentEditing = false,
+            nextEditing = true
+        )
+
+        assertFalse(update.refreshWholePager)
+        assertTrue(update.updateBoundHomePages)
+        assertTrue(update.updateAttachedWidgetPage)
+        assertFalse(update.refreshAllHomePages)
     }
 
     @Test
@@ -27,5 +41,6 @@ class LauncherEditModePagerUpdatePolicyTest {
         assertFalse(update.refreshWholePager)
         assertFalse(update.updateBoundHomePages)
         assertFalse(update.updateAttachedWidgetPage)
+        assertFalse(update.refreshAllHomePages)
     }
 }

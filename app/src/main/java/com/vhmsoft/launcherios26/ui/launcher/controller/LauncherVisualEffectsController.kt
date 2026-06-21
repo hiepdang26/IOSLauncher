@@ -8,7 +8,41 @@ import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 class LauncherVisualEffectsController(
     private val binding: ActivityIosLauncherBinding
 ) {
+    private var blurSettings = LauncherBlurSettings()
+
+    fun setBlurEnabled(enabled: Boolean) {
+        setBlurSettings(blurSettings.copy(enabled = enabled))
+    }
+
+    fun setBlurSettings(settings: LauncherBlurSettings) {
+        blurSettings = settings
+        if (!settings.enabled) {
+            clearHomeBlur()
+        }
+    }
+
     fun applyHomeBlur() {
+        applyHomeBlur(enabled = blurSettings.enabled)
+    }
+
+    fun applyFolderBlur() {
+        applyHomeBlur(enabled = blurSettings.folderBlurActive)
+    }
+
+    fun applyWidgetBlur() {
+        applyHomeBlur(enabled = blurSettings.widgetBlurActive)
+    }
+
+    fun applySearchBlur() {
+        applyHomeBlur(enabled = blurSettings.searchBlurActive)
+    }
+
+    private fun applyHomeBlur(enabled: Boolean) {
+        if (!enabled) {
+            clearHomeBlur()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             binding.workspace.homeContent.setRenderEffect(
                 RenderEffect.createBlurEffect(HOME_BLUR_RADIUS, HOME_BLUR_RADIUS, Shader.TileMode.CLAMP)

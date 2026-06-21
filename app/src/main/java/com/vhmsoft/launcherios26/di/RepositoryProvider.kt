@@ -13,7 +13,8 @@ object RepositoryProvider {
         val appContext = context.applicationContext
         val localDataSource = LauncherLocalDataSourceImpl(
             iconCache = AppIconCache(),
-            preferences = LauncherPreferences(appContext)
+            preferences = LauncherPreferences(appContext),
+            context = appContext
         )
         val remoteDataSource = PackageManagerRemoteDataSource(
             packageManager = appContext.packageManager,

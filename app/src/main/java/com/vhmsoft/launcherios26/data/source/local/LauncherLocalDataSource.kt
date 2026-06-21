@@ -18,4 +18,10 @@ interface LauncherLocalDataSource {
     fun getAppCategory(iconKey: String): String?
     fun getAppCategories(): Map<String, String>
     fun saveAppCategory(iconKey: String, categoryCode: String)
+    fun getCustomLabels(): Map<String, String>
+    fun saveCustomLabel(iconKey: String, label: String)
+    fun getHiddenIconKeys(): Set<String>
+    fun setAppHidden(iconKey: String, hidden: Boolean)
+    fun getCustomIcon(iconKey: String): Drawable?
+    fun saveCustomIconUri(iconKey: String, uri: String?)
 }

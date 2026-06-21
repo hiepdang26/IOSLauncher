@@ -834,6 +834,182 @@
             </LinearLayout>
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/blurSettingsPanel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/settings_background"
+            android:elevation="24dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:id="@+id/blurSettingsToolbar"
+                android:layout_width="match_parent"
+                android:layout_height="106dp"
+                android:background="@color/settings_card"
+                android:paddingTop="36dp">
+
+                <TextView
+                    android:id="@+id/blurBackButton"
+                    style="@style/IOSLauncherTextListLabel"
+                    android:layout_width="112dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="start|bottom"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:paddingStart="6dp"
+                    android:text="@string/layout_back_settings"
+                    android:textColor="@color/layout_ios_blue"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/blurTitle"
+                    style="@style/IOSLauncherTextAppLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center_horizontal|bottom"
+                    android:gravity="center"
+                    android:text="@string/settings_blur_effect"
+                    android:textColor="@color/launcher_text_primary"
+                    android:textSize="20sp" />
+            </FrameLayout>
+
+            <ScrollView
+                android:id="@+id/blurSettingsScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:overScrollMode="never">
+
+                <LinearLayout
+                    android:id="@+id/blurSettingsContent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@color/settings_background"
+                    android:orientation="vertical">
+
+                    <View
+                        android:id="@+id/blurTopSpacer"
+                        android:layout_width="match_parent"
+                        android:layout_height="32dp"
+                        android:background="@color/settings_background" />
+
+                    <LinearLayout
+                        android:id="@+id/blurOptionsCard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@color/settings_card"
+                        android:orientation="vertical">
+
+                        <include
+                            android:id="@+id/blurMasterRow"
+                            layout="@layout/view_launcher_blur_switch_row" />
+
+                        <include
+                            android:id="@+id/blurFolderRow"
+                            layout="@layout/view_launcher_blur_switch_row" />
+
+                        <include
+                            android:id="@+id/blurWidgetRow"
+                            layout="@layout/view_launcher_blur_switch_row" />
+
+                        <include
+                            android:id="@+id/blurSearchRow"
+                            layout="@layout/view_launcher_blur_switch_row" />
+                    </LinearLayout>
+                </LinearLayout>
+            </ScrollView>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/animationSettingsPanel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/settings_background"
+            android:elevation="24dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:id="@+id/animationSettingsToolbar"
+                android:layout_width="match_parent"
+                android:layout_height="106dp"
+                android:background="@color/settings_card"
+                android:paddingTop="36dp">
+
+                <TextView
+                    android:id="@+id/animationBackButton"
+                    style="@style/IOSLauncherTextListLabel"
+                    android:layout_width="112dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="start|bottom"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:paddingStart="6dp"
+                    android:text="@string/layout_back_settings"
+                    android:textColor="@color/layout_ios_blue"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/animationTitle"
+                    style="@style/IOSLauncherTextAppLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center_horizontal|bottom"
+                    android:gravity="center"
+                    android:text="@string/settings_motion_wallpaper"
+                    android:textColor="@color/launcher_text_primary"
+                    android:textSize="20sp" />
+            </FrameLayout>
+
+            <ScrollView
+                android:id="@+id/animationSettingsScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:overScrollMode="never">
+
+                <LinearLayout
+                    android:id="@+id/animationSettingsContent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@color/settings_background"
+                    android:orientation="vertical">
+
+                    <View
+                        android:id="@+id/animationTopSpacer"
+                        android:layout_width="match_parent"
+                        android:layout_height="32dp"
+                        android:background="@color/settings_background" />
+
+                    <LinearLayout
+                        android:id="@+id/animationOptionsCard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@color/settings_card"
+                        android:orientation="vertical">
+
+                        <include
+                            android:id="@+id/animationUnlockRow"
+                            layout="@layout/view_launcher_plain_switch_row" />
+
+                        <include
+                            android:id="@+id/animationOpenCloseRow"
+                            layout="@layout/view_launcher_plain_switch_row" />
+
+                        <include
+                            android:id="@+id/animationParallaxRow"
+                            layout="@layout/view_launcher_plain_switch_row" />
+                    </LinearLayout>
+                </LinearLayout>
+            </ScrollView>
+        </LinearLayout>
+
         <FrameLayout
             android:id="@+id/settingsFab"
             android:layout_width="58dp"

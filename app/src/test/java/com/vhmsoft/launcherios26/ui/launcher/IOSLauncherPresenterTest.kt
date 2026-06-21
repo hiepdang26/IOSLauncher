@@ -77,9 +77,13 @@ class IOSLauncherPresenterTest {
         override fun showSettingsDrawer() {
             showedSettingsDrawer = true
         }
+        override fun showRenameAppDialog(app: LauncherApp) = Unit
+        override fun showChangeIconDialog(app: LauncherApp) = Unit
+        override fun showHideAppDialog(app: LauncherApp) = Unit
     }
 
     private object FakeRepository : LauncherRepository {
+        override suspend fun getAllInstalledApps(): List<LauncherApp> = emptyList()
         override suspend fun getInstalledApps(): List<LauncherApp> = emptyList()
         override suspend fun getAppIcon(app: LauncherApp): Drawable {
             error("Not used")
@@ -94,5 +98,9 @@ class IOSLauncherPresenterTest {
         override fun saveDockFolders(folders: List<LauncherFolder>) = Unit
         override fun getAppCategory(app: LauncherApp): LauncherAppCategory = LauncherAppCategory.OTHER
         override fun saveAppCategory(app: LauncherApp, category: LauncherAppCategory) = Unit
+        override fun saveCustomLabel(app: LauncherApp, label: String) = Unit
+        override fun getHiddenIconKeys(): Set<String> = emptySet()
+        override fun setAppHidden(app: LauncherApp, hidden: Boolean) = Unit
+        override fun saveCustomIconUri(app: LauncherApp, uri: String?) = Unit
     }
 }

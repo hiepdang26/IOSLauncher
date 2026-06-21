@@ -134,6 +134,7 @@ class LauncherDockDragCallback(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder
     ): Long? {
+        val draggedItem = adapter.itemByStableId(draggedStableId)
         val draggedView = viewHolder.itemView
         val recyclerLocation = IntArray(2)
         recyclerView.getLocationOnScreen(recyclerLocation)
@@ -152,6 +153,7 @@ class LauncherDockDragCallback(
             if (position == RecyclerView.NO_POSITION) continue
             val stableId = adapter.stableIdAt(position) ?: continue
             if (stableId == draggedStableId) continue
+            val targetItem = adapter.itemAt(position) ?: continue
 
             val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
             val left = child.left + iconPlate.left - hitSlop
@@ -165,6 +167,19 @@ class LauncherDockDragCallback(
             ) {
                 continue
             }
+
+            if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
+            val plateLeft = child.left + iconPlate.left
+            val plateTop = child.top + iconPlate.top
+            val localX = ((draggedCenterX - plateLeft) / iconPlate.width).coerceIn(0f, 1f)
+            val localY = ((draggedCenterY - plateTop) / iconPlate.height).coerceIn(0f, 1f)
+            val action = LauncherHomeHoverDropPolicy.resolveAction(
+                draggedItem = draggedItem,
+                targetItem = targetItem,
+                localXInCell = localX,
+                localYInCell = localY
+            )
+            if (action != LauncherHomeHoverDropAction.FOLDER) continue
 
             val targetCenterX = child.left + iconPlate.left + iconPlate.width / 2f
             val targetCenterY = child.top + iconPlate.top + iconPlate.height / 2f

@@ -159,6 +159,10 @@ class LauncherIconAdapter(
         return items.firstOrNull { item -> item.stableId == stableId }
     }
 
+    fun itemsSnapshot(): List<LauncherHomeItemUiModel> {
+        return items.toList()
+    }
+
     fun updateActiveTouch(rawX: Float, rawY: Float) {
         activeTouchRawX = rawX
         activeTouchRawY = rawY
@@ -240,6 +244,36 @@ class LauncherIconAdapter(
         items.add(boundedFinalPosition, movedItem)
         pendingDropTarget = null
         notifyItemMoved(fromPosition, boundedFinalPosition)
+        return true
+    }
+
+    fun moveItemByStableIdWithPlusRule(
+        draggedStableId: Long?,
+        baseItems: List<LauncherHomeItemUiModel>,
+        targetPosition: Int,
+        columns: Int,
+        rows: Int
+    ): Boolean {
+        val stableId = draggedStableId ?: return false
+        val movedItems = LauncherHomeIconMovePolicy.moveExistingItem(
+            items = baseItems,
+            draggedStableId = stableId,
+            targetIndex = targetPosition,
+            columns = columns,
+            rows = rows
+        ) ?: return false
+
+        if (items.map { item -> item.stableId } == movedItems.map { item -> item.stableId }) {
+            return false
+        }
+        val changedPositions = items.indices
+            .filter { index -> items[index].stableId != movedItems[index].stableId }
+        items.clear()
+        items.addAll(movedItems)
+        pendingDropTarget = null
+        changedPositions.forEach { position ->
+            notifyItemChanged(position)
+        }
         return true
     }
 

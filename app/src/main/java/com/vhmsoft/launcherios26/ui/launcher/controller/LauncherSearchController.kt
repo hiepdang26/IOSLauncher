@@ -107,7 +107,7 @@ class LauncherSearchController(
         binding.workspace.searchPill.visibility = View.GONE
         binding.workspace.searchEditText.setText("")
         updateSearchResults("")
-        visualEffectsController.applyHomeBlur()
+        visualEffectsController.applySearchBlur()
 
         binding.workspace.searchOverlay.apply {
             animate().cancel()

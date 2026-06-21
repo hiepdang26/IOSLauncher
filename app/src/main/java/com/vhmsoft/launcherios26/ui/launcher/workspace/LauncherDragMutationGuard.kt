@@ -12,4 +12,11 @@ internal object LauncherDragMutationGuard {
             !hasPendingAdapterUpdates &&
             isScrollIdle
     }
+
+    fun canMutateDuringActiveDrag(
+        allowFolderDrop: Boolean,
+        reorderOnMove: Boolean
+    ): Boolean {
+        return reorderOnMove && !allowFolderDrop
+    }
 }

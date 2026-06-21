@@ -8,6 +8,7 @@ import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 class LauncherWidgetSheetController(
     private val activity: AppCompatActivity,
     private val binding: ActivityIosLauncherBinding,
+    private val visualEffectsController: LauncherVisualEffectsController,
     private val applySystemUi: () -> Unit
 ) {
     private var sheetDownY = 0f
@@ -39,6 +40,7 @@ class LauncherWidgetSheetController(
     }
 
     fun showWidgetSheet() {
+        visualEffectsController.applyWidgetBlur()
         binding.workspace.widgetSheetOverlay.apply {
             animate().cancel()
             alpha = 0f
@@ -72,6 +74,7 @@ class LauncherWidgetSheetController(
                 binding.workspace.widgetSheetOverlay.visibility = View.GONE
                 binding.workspace.widgetSheetOverlay.alpha = 1f
                 binding.workspace.widgetSheet.translationY = 0f
+                visualEffectsController.clearHomeBlur()
                 applySystemUi()
             }
             .start()

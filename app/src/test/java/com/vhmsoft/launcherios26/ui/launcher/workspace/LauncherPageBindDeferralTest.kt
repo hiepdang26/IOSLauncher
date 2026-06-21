@@ -43,6 +43,18 @@ class LauncherPageBindDeferralTest {
     }
 
     @Test
+    fun shouldDeferChildAdapterUpdate_returnsTrueWhileParentPagerIsSettling() {
+        assertTrue(
+            LauncherPageBindDeferral.shouldDeferChildAdapterUpdate(
+                childComputingLayout = false,
+                childItemAnimatorRunning = false,
+                parentComputingLayout = false,
+                parentScrollState = RecyclerView.SCROLL_STATE_SETTLING
+            )
+        )
+    }
+
+    @Test
     fun shouldDefer_returnsFalseWhenRecyclerViewsAreIdle() {
         assertFalse(
             LauncherPageBindDeferral.shouldDefer(

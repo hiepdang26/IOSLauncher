@@ -16,6 +16,34 @@ internal object LauncherHomeScreenGridPolicy {
             .let { visiblePages -> LauncherHomeLayoutBuilder.normalize(visiblePages) }
     }
 
+    fun padToFullPages(
+        items: List<LauncherHomeItemUiModel>,
+        pageSize: Int,
+        preserveEmptyPages: Boolean = false
+    ): List<LauncherHomeItemUiModel> {
+        val capacity = pageSize.coerceAtLeast(1)
+        val normalized = if (preserveEmptyPages) {
+            LauncherHomeLayoutBuilder.normalize(items)
+        } else {
+            removeEmptyPages(items, capacity)
+        }
+        if (normalized.isEmpty()) return emptyList()
+
+        val requiredSize = ((normalized.size + capacity - 1) / capacity) * capacity
+        return normalized.withPlaceholdersUntil(requiredSize)
+    }
+
+    fun ensurePageExists(
+        items: List<LauncherHomeItemUiModel>,
+        page: Int,
+        pageSize: Int
+    ): List<LauncherHomeItemUiModel> {
+        val capacity = pageSize.coerceAtLeast(1)
+        val requiredSize = (page.coerceAtLeast(0) + 1) * capacity
+        return LauncherHomeLayoutBuilder.normalize(items)
+            .withPlaceholdersUntil(requiredSize)
+    }
+
     fun <T> replacePage(
         pages: List<List<T>>,
         pagePosition: Int,
@@ -78,10 +106,22 @@ internal object LauncherHomeScreenGridPolicy {
             return if (isBlankAtPosition(gridIndex)) gridIndex else NO_POSITION
         }
 
-        return (itemCount - 1).coerceIn(0, capacity - 1)
+        return gridIndex.coerceIn(0, capacity - 1)
     }
 
     const val NO_POSITION = -1
+
+    private fun List<LauncherHomeItemUiModel>.withPlaceholdersUntil(
+        targetSize: Int
+    ): List<LauncherHomeItemUiModel> {
+        if (size >= targetSize) return this
+
+        return toMutableList().apply {
+            while (size < targetSize) {
+                add(LauncherHomeItemUiModel.Placeholder.forGridIndex(size))
+            }
+        }
+    }
 
     private fun LauncherHomeItemUiModel.hasHomeIcon(): Boolean {
         return when (this) {

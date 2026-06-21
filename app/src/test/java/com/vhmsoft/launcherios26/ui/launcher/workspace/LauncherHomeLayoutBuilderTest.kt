@@ -35,6 +35,70 @@ class LauncherHomeLayoutBuilderTest {
     }
 
     @Test
+    fun build_createsIosCloneDefaultFirstPageWithGoogleFolderWhenNoSavedFoldersExist() {
+        val weather = appItem("Thời tiết", packageName = "com.vhmsoft.weather")
+        val launcher = appItem("iOS Launcher", packageName = "com.vhmsoft.launcherios26")
+        val playStore = appItem("Cửa hàng Play", packageName = "com.android.vending")
+        val chrome = appItem("Chrome", packageName = "com.android.chrome")
+        val gmail = appItem("Gmail", packageName = "com.google.android.gm")
+        val maps = appItem("Maps", packageName = "com.google.android.apps.maps")
+        val youtube = appItem("YouTube", packageName = "com.google.android.youtube")
+        val zalo = appItem("Zalo", packageName = "com.zing.zalo")
+
+        val items = LauncherHomeLayoutBuilder.build(
+            apps = listOf(zalo, gmail, weather, maps, launcher, chrome, playStore, youtube),
+            folders = emptyList()
+        )
+
+        assertEquals(listOf(weather), items[0].containedApps())
+        assertEquals(listOf(launcher), items[1].containedApps())
+        assertEquals(listOf(playStore), items[2].containedApps())
+        val googleFolder = items[3] as LauncherHomeItemUiModel.Folder
+        assertEquals(LauncherHomeLayoutBuilder.DEFAULT_FOLDER_TITLE, googleFolder.title)
+        assertEquals(listOf(gmail, maps, chrome, youtube), googleFolder.apps)
+        assertTrue(items.slice(4 until 24).all { item -> item is LauncherHomeItemUiModel.Placeholder })
+        assertEquals(listOf(zalo), items[24].containedApps())
+    }
+
+    @Test
+    fun build_wrapsEveryGoogleAppInDefaultFolderEvenWhenOnlyOneGoogleAppExists() {
+        val weather = appItem("Thời tiết", packageName = "com.vhmsoft.weather")
+        val launcher = appItem("iOS Launcher", packageName = "com.vhmsoft.launcherios26")
+        val playStore = appItem("Cửa hàng Play", packageName = "com.android.vending")
+        val gmail = appItem("Gmail", packageName = "com.google.android.gm")
+        val zalo = appItem("Zalo", packageName = "com.zing.zalo")
+
+        val items = LauncherHomeLayoutBuilder.build(
+            apps = listOf(zalo, weather, gmail, launcher, playStore),
+            folders = emptyList()
+        )
+
+        val googleFolder = items[3] as LauncherHomeItemUiModel.Folder
+        assertEquals(listOf(gmail), googleFolder.apps)
+        assertTrue(items.slice(4 until 24).all { item -> item is LauncherHomeItemUiModel.Placeholder })
+        assertEquals(listOf(zalo), items[24].containedApps())
+    }
+
+    @Test
+    fun normalizeAndExtractFolders_keepSingleAppDefaultGoogleFolderForPersistence() {
+        val weather = appItem("Thời tiết", packageName = "com.vhmsoft.weather")
+        val launcher = appItem("iOS Launcher", packageName = "com.vhmsoft.launcherios26")
+        val playStore = appItem("Cửa hàng Play", packageName = "com.android.vending")
+        val gmail = appItem("Gmail", packageName = "com.google.android.gm")
+
+        val items = LauncherHomeLayoutBuilder.build(
+            apps = listOf(weather, launcher, playStore, gmail),
+            folders = emptyList()
+        )
+
+        assertTrue(LauncherHomeLayoutBuilder.normalize(items)[3] is LauncherHomeItemUiModel.Folder)
+        assertEquals(
+            listOf(gmail.app.iconKey),
+            LauncherHomeLayoutBuilder.extractFolders(items).single().appIconKeys
+        )
+    }
+
+    @Test
     fun extractFolders_keepsFolderAppIconKeysForPersistence() {
         val photos = appItem("Photos")
         val camera = appItem("Camera")
@@ -105,10 +169,13 @@ class LauncherHomeLayoutBuilderTest {
         )
     }
 
-    private fun appItem(label: String): LauncherIconUiModel {
+    private fun appItem(
+        label: String,
+        packageName: String = "test.${label.lowercase()}"
+    ): LauncherIconUiModel {
         val app = LauncherApp(
             label = label,
-            packageName = "test.${label.lowercase()}",
+            packageName = packageName,
             className = "MainActivity",
             iconKey = label
         )

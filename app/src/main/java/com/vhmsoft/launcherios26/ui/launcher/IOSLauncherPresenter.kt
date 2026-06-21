@@ -92,15 +92,15 @@ class IOSLauncherPresenter(
     }
 
     override fun onRenameAppOptionClicked(app: LauncherApp) {
-        view?.showError("Đổi tên: ${app.label}")
+        view?.showRenameAppDialog(app)
     }
 
     override fun onChangeIconOptionClicked(app: LauncherApp) {
-        view?.showError("Thay biểu tượng: ${app.label}")
+        view?.showChangeIconDialog(app)
     }
 
     override fun onHideAppOptionClicked(app: LauncherApp) {
-        view?.showError("Ẩn ứng dụng: ${app.label}")
+        view?.showHideAppDialog(app)
     }
 
     override fun onAppInfoOptionClicked(app: LauncherApp) {

@@ -202,33 +202,67 @@ class LauncherPageAdapter(
         }
     }
 
+    fun applyTemporaryHomeDragPreview(
+        baseItems: List<LauncherHomeItemUiModel>,
+        previewItems: List<LauncherHomeItemUiModel>,
+        focusPage: Int
+    ) {
+        val basePageItems = baseItems.pageItems(focusPage)
+        val previewPageItems = previewItems.pageItems(focusPage)
+        attachedHomePageHolders[focusPage]?.applyTemporaryDragPreview(
+            basePageItems = basePageItems,
+            previewPageItems = previewPageItems
+        )
+    }
+
+    fun clearTemporaryHomeDragPreview() {
+        attachedHomePageHolders.values.forEach { holder ->
+            holder.clearTemporaryDragPreview(animate = false)
+        }
+    }
+
+    fun ensureTemporaryHomePage(page: Int) {
+        val targetPage = page.coerceAtLeast(0)
+        parentAdapterUpdateGate.run {
+            applyEnsureTemporaryHomePage(targetPage)
+        }
+    }
+
+    private fun applyEnsureTemporaryHomePage(page: Int) {
+        if (page < pages.size) return
+
+        val oldPageCount = pages.size
+        while (pages.size <= page) {
+            pages += placeholderPage(pages.size)
+        }
+        notifyItemRangeInserted(
+            adapterPositionForHomePage(oldPageCount),
+            pages.size - oldPageCount
+        )
+    }
+
     private fun applyDragPreviewItems(
         items: List<LauncherHomeItemUiModel>,
         focusPage: Int
     ) {
-        val newPages = items.chunked(pageSize())
-        val diff = LauncherPageDiff.between(pages, newPages)
+        val oldPages = pages.toList()
+        val newPages = LauncherHomeScreenGridPolicy
+            .padToFullPages(
+                items = items,
+                pageSize = pageSize(),
+                preserveEmptyPages = true
+            )
+            .chunked(pageSize())
+        val diff = LauncherPageDiff.between(oldPages, newPages)
 
         pages.clear()
         pages.addAll(newPages)
-        if (diff.pageCountChanged) {
-            attachedHomePageHolders.clear()
-            boundHomePageHolders.clear()
-            notifyDataSetChanged()
-            return
-        }
-
-        (diff.changedIndices + focusPage)
-            .filter { index -> index in pages.indices }
-            .distinct()
-            .forEach { index ->
-                val holder = attachedHomePageHolders[index]
-                if (holder != null) {
-                    holder.bindPageItems(pages[index])
-                } else {
-                    notifyItemChanged(adapterPositionForHomePage(index))
-                }
-            }
+        dispatchHomePageUpdates(
+            oldPages = oldPages,
+            newPages = newPages,
+            diff = diff,
+            focusedPage = focusPage
+        )
     }
 
     private fun shouldDeferParentAdapterUpdate(): Boolean {
@@ -287,30 +321,54 @@ class LauncherPageAdapter(
     }
 
     private fun rebuildHomePages(refreshAllWhenPageCountUnchanged: Boolean) {
-        val newPages = sourceItems.chunked(pageSize())
-        val diff = LauncherPageDiff.between(pages, newPages)
+        val oldPages = pages.toList()
+        val newPages = LauncherHomeScreenGridPolicy
+            .padToFullPages(sourceItems, pageSize())
+            .chunked(pageSize())
+        val diff = LauncherPageDiff.between(oldPages, newPages)
 
         pages.clear()
         pages.addAll(newPages)
-        if (diff.pageCountChanged || refreshAllWhenPageCountUnchanged) {
+        if (refreshAllWhenPageCountUnchanged && !diff.pageCountChanged) {
             attachedHomePageHolders.clear()
             boundHomePageHolders.clear()
             notifyDataSetChanged()
             return
         }
 
-        diff.changedIndices.forEach { index ->
-            val holder = attachedHomePageHolders[index]
-            if (holder != null) {
-                holder.bindPageItems(pages[index])
-            } else {
-                notifyItemChanged(adapterPositionForHomePage(index))
-            }
-        }
+        dispatchHomePageUpdates(
+            oldPages = oldPages,
+            newPages = newPages,
+            diff = diff
+        )
     }
 
     private fun pageSize(): Int {
         return LauncherHomeScreenGridPolicy.pageSize(pageRows, PAGE_COLUMNS)
+    }
+
+    private fun List<LauncherHomeItemUiModel>.pageItems(page: Int): List<LauncherHomeItemUiModel> {
+        val startIndex = page.coerceAtLeast(0) * pageSize()
+        return drop(startIndex)
+            .take(pageSize())
+            .let { items ->
+                if (items.size >= pageSize()) {
+                    items
+                } else {
+                    items.toMutableList().apply {
+                        while (size < pageSize()) {
+                            add(LauncherHomeItemUiModel.Placeholder.forGridIndex(startIndex + size))
+                        }
+                    }
+                }
+            }
+    }
+
+    private fun placeholderPage(page: Int): List<LauncherHomeItemUiModel.Placeholder> {
+        val startIndex = page.coerceAtLeast(0) * pageSize()
+        return List(pageSize()) { offset ->
+            LauncherHomeItemUiModel.Placeholder.forGridIndex(startIndex + offset)
+        }
     }
 
     fun submitApps(apps: List<LauncherIconUiModel>) {
@@ -324,13 +382,20 @@ class LauncherPageAdapter(
     }
 
     fun setEditing(enabled: Boolean) {
+        parentAdapterUpdateGate.run {
+            applyEditing(enabled)
+        }
+    }
+
+    private fun applyEditing(enabled: Boolean) {
         val update = LauncherEditModePagerUpdatePolicy.plan(
             currentEditing = editing,
             nextEditing = enabled
         )
         if (!update.refreshWholePager &&
             !update.updateBoundHomePages &&
-            !update.updateAttachedWidgetPage
+            !update.updateAttachedWidgetPage &&
+            !update.refreshAllHomePages
         ) {
             return
         }
@@ -348,6 +413,9 @@ class LauncherPageAdapter(
             boundHomePageHolders.values.toList().forEach { holder ->
                 holder.setEditing(enabled)
             }
+        }
+        if (update.refreshAllHomePages && pages.isNotEmpty()) {
+            notifyItemRangeChanged(firstHomeAdapterPosition(), pages.size)
         }
     }
 
@@ -1173,6 +1241,7 @@ class LauncherPageAdapter(
         }
 
         private fun applyPageItems(pageItems: List<LauncherHomeItemUiModel>) {
+            clearTemporaryDragPreview(animate = false)
             pageAdapter.setEditing(editing)
             pageAdapter.setDarkMode(darkMode)
             pageAdapter.setLiquidGlassEnabled(liquidGlassEnabled)
@@ -1183,10 +1252,62 @@ class LauncherPageAdapter(
             }
         }
 
+        fun applyTemporaryDragPreview(
+            basePageItems: List<LauncherHomeItemUiModel>,
+            previewPageItems: List<LauncherHomeItemUiModel>
+        ) {
+            val recyclerView = binding.pageRecyclerView
+            val width = recyclerView.width.takeIf { it > 0 } ?: return
+            val height = recyclerView.height.takeIf { it > 0 } ?: return
+            val cellWidth = width / PAGE_COLUMNS.toFloat()
+            val cellHeight = height / pageRows.coerceAtLeast(1).toFloat()
+            val movesByStableId = LauncherHomeDragPreviewPlanner
+                .moves(basePageItems, previewPageItems)
+                .associateBy { move -> move.stableId }
+
+            for (index in 0 until recyclerView.childCount) {
+                val child = recyclerView.getChildAt(index)
+                val holder = recyclerView.getChildViewHolder(child)
+                val adapterPosition = holder.bindingAdapterPosition
+                val item = pageAdapter.itemAt(adapterPosition)
+                val move = item?.stableId?.let { stableId -> movesByStableId[stableId] }
+                val targetTranslation = move?.translation(
+                    cellWidth = cellWidth,
+                    cellHeight = cellHeight
+                )
+                child.animate().cancel()
+                child.animate()
+                    .translationX(targetTranslation?.first ?: 0f)
+                    .translationY(targetTranslation?.second ?: 0f)
+                    .setDuration(HOME_ICON_REORDER_MOVE_MS)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
+
+        fun clearTemporaryDragPreview(animate: Boolean) {
+            val recyclerView = binding.pageRecyclerView
+            for (index in 0 until recyclerView.childCount) {
+                val child = recyclerView.getChildAt(index)
+                child.animate().cancel()
+                if (animate) {
+                    child.animate()
+                        .translationX(0f)
+                        .translationY(0f)
+                        .setDuration(HOME_ICON_REORDER_MOVE_MS)
+                        .setInterpolator(DecelerateInterpolator())
+                        .start()
+                } else {
+                    child.translationX = 0f
+                    child.translationY = 0f
+                }
+            }
+        }
+
         private fun shouldDeferPageBind(): Boolean {
             val recyclerView = binding.pageRecyclerView
             val parent = parentRecyclerView
-            return LauncherPageBindDeferral.shouldDefer(
+            return LauncherPageBindDeferral.shouldDeferChildAdapterUpdate(
                 childComputingLayout = recyclerView.isComputingLayout,
                 childItemAnimatorRunning = recyclerView.itemAnimator?.isRunning == true,
                 parentComputingLayout = parent?.isComputingLayout == true,
@@ -1203,18 +1324,37 @@ class LauncherPageAdapter(
         }
 
         fun setEditing(enabled: Boolean) {
-            pageAdapter.setEditing(enabled)
+            pageBindGate.run {
+                pageAdapter.setEditing(enabled)
+            }
         }
 
         fun setIconSizeDp(sizeDp: Int) {
-            pageAdapter.setIconSizeDp(sizeDp)
+            pageBindGate.run {
+                pageAdapter.setIconSizeDp(sizeDp)
+            }
         }
 
         fun cancelPendingPageBind() {
             pageBindGate.cancelPendingUpdate()
+            clearTemporaryDragPreview(animate = false)
         }
 
         fun boundPagePosition(): Int = boundPagePosition
+
+        private fun LauncherHomeDragPreviewPlanner.Move.translation(
+            cellWidth: Float,
+            cellHeight: Float
+        ): Pair<Float, Float> {
+            val fromColumn = fromIndex % PAGE_COLUMNS
+            val fromRow = fromIndex / PAGE_COLUMNS
+            val toColumn = toIndex % PAGE_COLUMNS
+            val toRow = toIndex / PAGE_COLUMNS
+            return Pair(
+                (toColumn - fromColumn) * cellWidth,
+                (toRow - fromRow) * cellHeight
+            )
+        }
     }
 
     private fun handlePageItemsChanged(pagePosition: Int, pageItems: List<LauncherHomeItemUiModel>) {
@@ -1229,25 +1369,81 @@ class LauncherPageAdapter(
         sourceItems.clear()
         sourceItems.addAll(updatedItems)
         val oldPages = pages.toList()
-        val updatedPages = updatedItems.chunked(pageSize())
+        val updatedPages = LauncherHomeScreenGridPolicy
+            .padToFullPages(updatedItems, pageSize())
+            .chunked(pageSize())
         val diff = LauncherPageDiff.between(oldPages, updatedPages)
         pages.clear()
         pages.addAll(updatedPages)
-        if (diff.pageCountChanged) {
-            attachedHomePageHolders.clear()
-            boundHomePageHolders.clear()
-            notifyDataSetChanged()
-        } else {
-            diff.changedIndices.forEach { index ->
-                val holder = attachedHomePageHolders[index]
-                if (holder != null) {
-                    holder.bindPageItems(pages[index])
-                } else {
-                    notifyItemChanged(adapterPositionForHomePage(index))
-                }
-            }
-        }
+        dispatchHomePageUpdates(
+            oldPages = oldPages,
+            newPages = updatedPages,
+            diff = diff
+        )
         onHomeItemsChanged(updatedItems)
+    }
+
+    private fun dispatchHomePageUpdates(
+        oldPages: List<List<LauncherHomeItemUiModel>>,
+        newPages: List<List<LauncherHomeItemUiModel>>,
+        diff: LauncherPageDiff.Result,
+        focusedPage: Int? = null
+    ) {
+        if (diff.pageCountChanged) {
+            dispatchHomePageCountChanged(oldPages, newPages, focusedPage)
+            return
+        }
+
+        ((diff.changedIndices + listOfNotNull(focusedPage))
+            .filter { index -> index in pages.indices }
+            .distinct()
+        ).forEach { index ->
+            bindOrNotifyHomePage(index)
+        }
+    }
+
+    private fun dispatchHomePageCountChanged(
+        oldPages: List<List<LauncherHomeItemUiModel>>,
+        newPages: List<List<LauncherHomeItemUiModel>>,
+        focusedPage: Int?
+    ) {
+        val update = LauncherHomePageCountUpdatePolicy.plan(
+            oldPages = oldPages,
+            newPages = newPages,
+            focusedPage = focusedPage
+        )
+
+        update.removedPageStart?.let { start ->
+            attachedHomePageHolders.keys
+                .filter { page -> page >= start }
+                .toList()
+                .forEach { page ->
+                    attachedHomePageHolders.remove(page)
+                    boundHomePageHolders.remove(page)
+                }
+            notifyItemRangeRemoved(
+                adapterPositionForHomePage(start),
+                update.removedPageCount
+            )
+        }
+        update.insertedPageStart?.let { start ->
+            notifyItemRangeInserted(
+                adapterPositionForHomePage(start),
+                update.insertedPageCount
+            )
+        }
+        update.changedPages.forEach { index ->
+            bindOrNotifyHomePage(index)
+        }
+    }
+
+    private fun bindOrNotifyHomePage(index: Int) {
+        val holder = attachedHomePageHolders[index]
+        if (holder != null) {
+            holder.bindPageItems(pages[index])
+        } else {
+            notifyItemChanged(adapterPositionForHomePage(index))
+        }
     }
 
     inner class AppLibraryViewHolder(

@@ -6,6 +6,7 @@ import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
 
 interface LauncherRepository {
+    suspend fun getAllInstalledApps(): List<LauncherApp>
     suspend fun getInstalledApps(): List<LauncherApp>
     suspend fun getAppIcon(app: LauncherApp): Drawable
     fun clearIconCache()
@@ -18,4 +19,8 @@ interface LauncherRepository {
     fun saveDockFolders(folders: List<LauncherFolder>)
     fun getAppCategory(app: LauncherApp): LauncherAppCategory
     fun saveAppCategory(app: LauncherApp, category: LauncherAppCategory)
+    fun saveCustomLabel(app: LauncherApp, label: String)
+    fun getHiddenIconKeys(): Set<String>
+    fun setAppHidden(app: LauncherApp, hidden: Boolean)
+    fun saveCustomIconUri(app: LauncherApp, uri: String?)
 }

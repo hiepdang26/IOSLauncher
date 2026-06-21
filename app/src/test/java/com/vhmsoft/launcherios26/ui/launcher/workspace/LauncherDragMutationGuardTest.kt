@@ -64,4 +64,24 @@ class LauncherDragMutationGuardTest {
             )
         )
     }
+
+    @Test
+    fun canMutateDuringActiveDrag_returnsFalseForHomeScreenDrag() {
+        assertFalse(
+            LauncherDragMutationGuard.canMutateDuringActiveDrag(
+                allowFolderDrop = true,
+                reorderOnMove = false
+            )
+        )
+    }
+
+    @Test
+    fun canMutateDuringActiveDrag_returnsTrueForExplicitReorderDrag() {
+        assertTrue(
+            LauncherDragMutationGuard.canMutateDuringActiveDrag(
+                allowFolderDrop = false,
+                reorderOnMove = true
+            )
+        )
+    }
 }

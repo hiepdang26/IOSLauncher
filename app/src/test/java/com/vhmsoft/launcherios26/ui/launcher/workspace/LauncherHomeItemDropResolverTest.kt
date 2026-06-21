@@ -12,6 +12,91 @@ import org.junit.Test
 
 class LauncherHomeItemDropResolverTest {
     @Test
+    fun resolveDrop_shiftsOnlySourceRowWhenTargetIsInsideHorizontalPlusLine() {
+        val baseItems = appItems("A", "B", "C", "D", "E", "F", "G", "H")
+
+        val resolved = LauncherHomeItemDropResolver.resolveDrop(
+            baseItems = baseItems,
+            draggedItem = baseItems[0],
+            dropIndex = 2
+        )
+
+        assertEquals(listOf("B", "C", "A", "D", "E", "F", "G", "H"), labels(resolved))
+    }
+
+    @Test
+    fun resolveDrop_shiftsOnlySourceColumnWhenTargetIsInsideVerticalPlusLine() {
+        val baseItems = appItems("A", "B", "C", "D", "E", "F", "G", "H", "I")
+
+        val resolved = LauncherHomeItemDropResolver.resolveDrop(
+            baseItems = baseItems,
+            draggedItem = baseItems[0],
+            dropIndex = 8
+        )
+
+        assertEquals(listOf("E", "B", "C", "D", "I", "F", "G", "H", "A"), labels(resolved))
+    }
+
+    @Test
+    fun resolveDrop_swapsDraggedAndTargetWhenTargetIsOutsidePlusLine() {
+        val baseItems = appItems("A", "B", "C", "D", "E", "F", "G", "H")
+
+        val resolved = LauncherHomeItemDropResolver.resolveDrop(
+            baseItems = baseItems,
+            draggedItem = baseItems[0],
+            dropIndex = 5
+        )
+
+        assertEquals(listOf("F", "B", "C", "D", "E", "A", "G", "H"), labels(resolved))
+    }
+
+    @Test
+    fun resolveDrop_movesDragPlaceholderWithoutChangingPageSize() {
+        val dragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+        val camera = LauncherHomeItemUiModel.App(appItem("Camera"))
+        val maps = LauncherHomeItemUiModel.App(appItem("Maps"))
+        val baseItems = listOf(
+            dragPlaceholder,
+            camera,
+            maps,
+            LauncherHomeItemUiModel.Placeholder.forGridIndex(3)
+        )
+
+        val resolved = LauncherHomeItemDropResolver.resolveDrop(
+            baseItems = baseItems,
+            draggedItem = dragPlaceholder,
+            dropIndex = 2
+        )
+
+        assertEquals(baseItems.size, resolved.size)
+        assertEquals(listOf("Maps", "Camera", ""), resolved.take(3).map { item -> item.label })
+        assertEquals(dragPlaceholder.stableId, resolved[2].stableId)
+        assertEquals(1, resolved.count { item -> item.stableId == dragPlaceholder.stableId })
+    }
+
+    @Test
+    fun resolveDrop_swapsDraggedItemWithTargetWhenSourcePlaceholderExists() {
+        val sourcePlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+        val camera = LauncherHomeItemUiModel.App(appItem("Camera"))
+        val maps = LauncherHomeItemUiModel.App(appItem("Maps"))
+        val music = LauncherHomeItemUiModel.App(appItem("Music"))
+        val baseItems = listOf(
+            sourcePlaceholder,
+            maps,
+            music
+        )
+
+        val resolved = LauncherHomeItemDropResolver.resolveDrop(
+            baseItems = baseItems,
+            draggedItem = camera,
+            dropIndex = 1,
+            sourcePlaceholderStableId = sourcePlaceholder.stableId
+        )
+
+        assertEquals(listOf("Maps", "Camera", "Music"), labels(resolved))
+    }
+
+    @Test
     fun resolveDrop_movesFolderToDropIndexWithoutLeavingDuplicateFolder() {
         val folder = LauncherHomeItemUiModel.Folder(
             id = "folder-1",
@@ -46,6 +131,14 @@ class LauncherHomeItemDropResolverTest {
             iconKey = label
         )
         return LauncherIconUiModel(app, TestDrawable, LauncherAppCategory.OTHER)
+    }
+
+    private fun appItems(vararg labels: String): List<LauncherHomeItemUiModel.App> {
+        return labels.map { label -> LauncherHomeItemUiModel.App(appItem(label)) }
+    }
+
+    private fun labels(items: List<LauncherHomeItemUiModel>): List<String> {
+        return items.map { item -> item.label }
     }
 
     @Suppress("OVERRIDE_DEPRECATION")

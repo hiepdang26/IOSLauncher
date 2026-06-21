@@ -30,6 +30,9 @@ interface IOSLauncherContract {
         fun applyLayoutDarkMode(enabled: Boolean)
         fun showExternalFeatureDownloadPrompt(featureCode: LauncherExternalFeatureCode)
         fun showSettingsDrawer()
+        fun showRenameAppDialog(app: LauncherApp)
+        fun showChangeIconDialog(app: LauncherApp)
+        fun showHideAppDialog(app: LauncherApp)
     }
 
     interface Presenter {

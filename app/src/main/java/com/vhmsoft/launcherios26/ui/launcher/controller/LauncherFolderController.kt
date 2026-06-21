@@ -29,7 +29,8 @@ class LauncherFolderController(
         binding.workspace.folderTitle.text = folderTitle(folder)
         folderContentAdapter.setEditing(isEditingHome())
         folderContentAdapter.submitApps(folder.apps)
-        visualEffectsController.applyHomeBlur()
+        binding.workspace.folderRecyclerView.scrollToPosition(0)
+        visualEffectsController.applyFolderBlur()
 
         binding.workspace.folderOverlay.apply {
             animate().cancel()

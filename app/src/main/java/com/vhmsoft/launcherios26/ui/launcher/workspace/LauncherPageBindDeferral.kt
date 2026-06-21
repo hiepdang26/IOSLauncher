@@ -14,4 +14,18 @@ internal object LauncherPageBindDeferral {
             parentComputingLayout ||
             parentScrollState != RecyclerView.SCROLL_STATE_IDLE
     }
+
+    fun shouldDeferChildAdapterUpdate(
+        childComputingLayout: Boolean,
+        childItemAnimatorRunning: Boolean,
+        parentComputingLayout: Boolean,
+        parentScrollState: Int
+    ): Boolean {
+        return shouldDefer(
+            childComputingLayout = childComputingLayout,
+            childItemAnimatorRunning = childItemAnimatorRunning,
+            parentComputingLayout = parentComputingLayout,
+            parentScrollState = parentScrollState
+        )
+    }
 }

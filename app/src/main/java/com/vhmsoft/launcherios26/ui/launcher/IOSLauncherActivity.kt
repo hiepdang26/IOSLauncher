@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.SearchManager
 import android.app.role.RoleManager
 import android.app.Dialog
+import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.res.ColorStateList
 import android.content.Intent
@@ -11,6 +12,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
@@ -28,14 +30,20 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.SeekBar
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -46,13 +54,18 @@ import androidx.viewpager2.widget.ViewPager2
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
+import com.vhmsoft.launcherios26.data.repository.LauncherRepository
 import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 import com.vhmsoft.launcherios26.databinding.DialogFeatureDownloadBinding
 import com.vhmsoft.launcherios26.databinding.DialogRatingPromptBinding
+import com.vhmsoft.launcherios26.databinding.ViewLauncherBlurSwitchRowBinding
+import com.vhmsoft.launcherios26.databinding.ViewLauncherPlainSwitchRowBinding
 import com.vhmsoft.launcherios26.databinding.ViewLauncherSettingRowBinding
 import com.vhmsoft.launcherios26.di.RepositoryProvider
 import com.vhmsoft.launcherios26.ui.applibrary.AppLibraryActivity
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherAppOptionsController
+import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherAnimationSettings
+import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherBlurSettings
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherCategoryDetailController
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherFolderController
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherKeyboardController
@@ -66,12 +79,15 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockDragCallback
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockHomeDropResolver
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragCallback
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragPreviewPositioner
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDropCommitRenderGate
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherFolderExitDropResolver
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeDragBaseBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeEdgePreviewPolicy
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeHoverDropAction
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeHoverDropPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemDropResolver
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutBuilder
@@ -79,6 +95,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePo
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPagedFolderGridLayoutManager
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWindowPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWheelView
@@ -90,11 +107,13 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.WidgetAppAdapter
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeature
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCatalog
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCode
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private lateinit var binding: ActivityIosLauncherBinding
     private lateinit var presenter: IOSLauncherPresenter
+    private lateinit var launcherRepository: LauncherRepository
     private lateinit var systemUiController: LauncherSystemUiController
     private lateinit var keyboardController: LauncherKeyboardController
     private lateinit var visualEffectsController: LauncherVisualEffectsController
@@ -146,6 +165,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var forceSettingsPanel = false
     private var skipNextResumeReload = true
     private var waitingForLauncherSelection = false
+    private var defaultWelcomeOverlay: View? = null
     private var hasPositionedInitialHomePage = false
     private var lastWorkspacePagePosition = RecyclerView.NO_POSITION
     private var layoutDarkMode = false
@@ -200,6 +220,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var homeEdgePageSwitching = false
     private var homeDockDragActive = false
     private var homeDockDraggedApp: LauncherIconUiModel? = null
+    private var pendingIconChangeApp: LauncherApp? = null
     private var openFolderSource = FolderSource.HOME
     private var indicatorMode = IndicatorMode.SEARCH
     private var indicatorWheelView: LauncherPageIndicatorWheelView? = null
@@ -210,17 +231,40 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             presenter.refreshApps()
         }
     }
+    private val customIconImageLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val app = pendingIconChangeApp
+        pendingIconChangeApp = null
+        if (uri == null || app == null || !::launcherRepository.isInitialized) return@registerForActivityResult
+
+        takePersistableReadPermission(uri)
+        launcherRepository.saveCustomIconUri(app, uri.toString())
+        presenter.clearIconCache()
+        presenter.refreshApps()
+        showError(getString(R.string.settings_change_icon_done, app.label))
+    }
+    private val wallpaperImageLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+
+        takePersistableReadPermission(uri)
+        layoutPreferences.edit()
+            .putString(KEY_CUSTOM_WALLPAPER_URI, uri.toString())
+            .apply()
+        applyLauncherRootBackground(state.launcherMode)
+        showError(getString(R.string.settings_wallpaper_applied))
+    }
     private val homeRoleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        waitingForLauncherSelection = false
-        if (isCurrentDefaultLauncher()) {
-            forceSettingsPanel = false
-        }
-        updateLauncherMode(forceAnimate = true)
-        if (!isCurrentDefaultLauncher()) {
-            Toast.makeText(this, R.string.launcher_default_not_selected, Toast.LENGTH_SHORT).show()
-        }
+        handleDefaultLauncherSelectionReturn(showNotSelectedToast = true)
+    }
+    private val homeSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        handleDefaultLauncherSelectionReturn(showNotSelectedToast = true)
     }
     private val weatherLocationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -250,6 +294,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         systemUiController = LauncherSystemUiController(this, binding)
         keyboardController = LauncherKeyboardController(this)
         visualEffectsController = LauncherVisualEffectsController(binding)
+        visualEffectsController.setBlurSettings(currentBlurSettings())
         removeAppController = LauncherRemoveAppController(
             activity = this,
             showError = { message -> showError(message) }
@@ -266,6 +311,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         widgetSheetController = LauncherWidgetSheetController(
             activity = this,
             binding = binding,
+            visualEffectsController = visualEffectsController,
             applySystemUi = { applyLauncherSystemUi() }
         )
         searchController = LauncherSearchController(
@@ -290,12 +336,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         installBackHandling()
         installSystemInsetHandling()
         setupWorkspaceViews()
-        presenter = IOSLauncherPresenter(
-            RepositoryProvider.provideLauncherRepository(applicationContext)
-        )
+        launcherRepository = RepositoryProvider.provideLauncherRepository(applicationContext)
+        presenter = IOSLauncherPresenter(launcherRepository)
         setupSettingsRows()
         setupLayoutSettingsPage()
         setupLiquidGlassSettingsPage()
+        setupBlurEffectSettingsPage()
+        setupAnimationSettingsPage()
         setupSettingsDrawer()
         updateLauncherContentDescription()
         applyLayoutAppearance()
@@ -309,6 +356,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         super.onResume()
         updateLauncherMode()
         applyLauncherSystemUi()
+        if (waitingForLauncherSelection && isCurrentDefaultLauncher()) {
+            handleDefaultLauncherSelectionReturn(showNotSelectedToast = false)
+        } else {
+            showDefaultWelcomeIfNeeded()
+        }
         updateWidgetWeatherPermissionState()
         if (skipNextResumeReload) {
             skipNextResumeReload = false
@@ -326,6 +378,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         updateLauncherMode(forceAnimate = true)
         applyLauncherSystemUi()
+        showDefaultWelcomeIfNeeded()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -413,16 +466,46 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             showDivider = true,
             onClick = { showLiquidGlassSettingsPage() }
         )
-        bindSettingsRow(binding.blurEffectRow, R.string.settings_blur_effect, R.drawable.ic_dots_24, R.color.icon_blur)
         bindSettingsRow(
-            binding.motionWallpaperRow,
-            R.string.settings_motion_wallpaper,
-            R.drawable.ic_moon_24,
-            R.color.icon_motion
+            row = binding.blurEffectRow,
+            titleRes = R.string.settings_blur_effect,
+            iconRes = R.drawable.ic_dots_24,
+            iconColorRes = R.color.icon_blur,
+            showDivider = true,
+            onClick = { showBlurEffectSettingsPage() }
         )
-        bindSettingsRow(binding.wallpaperRow, R.string.settings_wallpaper, R.drawable.ic_wallpaper_24, R.color.icon_wallpaper)
-        bindSettingsRow(binding.changeIconRow, R.string.settings_change_icon, R.drawable.ic_icon_change_24, R.color.icon_change)
-        bindSettingsRow(binding.renameRow, R.string.settings_rename, R.drawable.ic_text_ab_24, R.color.icon_rename)
+        bindSettingsRow(
+            row = binding.motionWallpaperRow,
+            titleRes = R.string.settings_motion_wallpaper,
+            iconRes = R.drawable.ic_moon_24,
+            iconColorRes = R.color.icon_motion,
+            showDivider = true,
+            onClick = { showAnimationSettingsPage() }
+        )
+        bindSettingsRow(
+            row = binding.wallpaperRow,
+            titleRes = R.string.settings_wallpaper,
+            iconRes = R.drawable.ic_wallpaper_24,
+            iconColorRes = R.color.icon_wallpaper,
+            showDivider = true,
+            onClick = { showWallpaperSettingsDialog() }
+        )
+        bindSettingsRow(
+            row = binding.changeIconRow,
+            titleRes = R.string.settings_change_icon,
+            iconRes = R.drawable.ic_icon_change_24,
+            iconColorRes = R.color.icon_change,
+            showDivider = true,
+            onClick = { showChangeIconAppPicker() }
+        )
+        bindSettingsRow(
+            row = binding.renameRow,
+            titleRes = R.string.settings_rename,
+            iconRes = R.drawable.ic_text_ab_24,
+            iconColorRes = R.color.icon_rename,
+            showDivider = true,
+            onClick = { showRenameAppPicker() }
+        )
         bindSettingsRow(
             row = binding.appLibraryRow,
             titleRes = R.string.settings_app_library,
@@ -431,12 +514,21 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             showDivider = true,
             onClick = { presenter.onAppLibraryClicked() }
         )
-        bindSettingsRow(binding.hiddenAppsRow, R.string.settings_hidden_apps, R.drawable.ic_eye_off_20, R.color.icon_hidden)
         bindSettingsRow(
-            binding.notificationsRow,
-            R.string.settings_notifications,
-            R.drawable.ic_notification_badge_24,
-            R.color.icon_notification
+            row = binding.hiddenAppsRow,
+            titleRes = R.string.settings_hidden_apps,
+            iconRes = R.drawable.ic_eye_off_20,
+            iconColorRes = R.color.icon_hidden,
+            showDivider = true,
+            onClick = { showHiddenAppsSettingsDialog() }
+        )
+        bindSettingsRow(
+            row = binding.notificationsRow,
+            titleRes = R.string.settings_notifications,
+            iconRes = R.drawable.ic_notification_badge_24,
+            iconColorRes = R.color.icon_notification,
+            showDivider = true,
+            onClick = { openNotificationAccessSettings() }
         )
         bindSettingsRow(
             row = binding.makeDefaultLauncherRow,
@@ -444,10 +536,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             iconRes = R.drawable.ic_circle_outline_24,
             iconColorRes = R.color.icon_make_default,
             showDivider = false,
-            onClick = {
-                resetFoldersForDefaultLauncher()
-                presenter.onSetDefaultLauncherClicked()
-            }
+            onClick = { showDefaultLauncherPrompt() }
         )
         bindSettingsRow(
             row = binding.rateRow,
@@ -553,6 +642,22 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         applyLiquidGlassSettingsAppearance()
     }
 
+    private fun setupBlurEffectSettingsPage() {
+        binding.blurBackButton.setOnClickListener {
+            hideBlurEffectSettingsPage()
+        }
+        applyBlurSettingsUi()
+        applyBlurSettingsAppearance()
+    }
+
+    private fun setupAnimationSettingsPage() {
+        binding.animationBackButton.setOnClickListener {
+            hideAnimationSettingsPage()
+        }
+        applyAnimationSettingsUi()
+        applyAnimationSettingsAppearance()
+    }
+
     private fun setupSettingsDrawer() {
         binding.settingsDrawerDim.setOnClickListener {
             hideSettingsDrawer()
@@ -583,12 +688,24 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    defaultWelcomeOverlay != null -> {
+                        dismissDefaultWelcomeOverlay()
+                    }
+
                     binding.layoutSettingsPanel.visibility == View.VISIBLE -> {
                         hideLayoutSettingsPage()
                     }
 
                     binding.liquidGlassSettingsPanel.visibility == View.VISIBLE -> {
                         hideLiquidGlassSettingsPage()
+                    }
+
+                    binding.blurSettingsPanel.visibility == View.VISIBLE -> {
+                        hideBlurEffectSettingsPage()
+                    }
+
+                    binding.animationSettingsPanel.visibility == View.VISIBLE -> {
+                        hideAnimationSettingsPage()
                     }
 
                     binding.settingsDrawerOverlay.visibility == View.VISIBLE -> {
@@ -682,6 +799,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         applyWorkspaceAppearance()
         updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
         updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
+        showDefaultWelcomeIfNeeded()
     }
 
     private fun handleHomeItemsChanged(
@@ -924,7 +1042,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.workspacePager.isUserInputEnabled = true
 
         val preview = binding.workspace.selectedIconPreview
-        val target = dockDropPreviewTarget(centerXOnScreen, centerYOnScreen)
+        val target = dockDropPreviewTarget(item, centerXOnScreen, centerYOnScreen)
         preview.animate().cancel()
         binding.workspace.selectedIconLabel.animate().cancel()
         preview.pivotX = preview.width / 2f
@@ -956,12 +1074,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             .start()
     }
 
-    private fun dockDropPreviewTarget(centerXOnScreen: Float, centerYOnScreen: Float): DockDropPreviewTarget {
+    private fun dockDropPreviewTarget(
+        item: LauncherIconUiModel,
+        centerXOnScreen: Float,
+        centerYOnScreen: Float
+    ): DockDropPreviewTarget {
         val rootLocation = IntArray(2)
         binding.workspace.root.getLocationOnScreen(rootLocation)
         val previewWidth = binding.workspace.selectedIconPreview.width.takeIf { it > 0 }
             ?: dp(DRAG_PREVIEW_WIDTH_DP)
-        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen)
+        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen, item)
         val targetCenter = if (folderTargetIndex != NO_PREVIEW_INDEX) {
             dockChildCenterOnScreen(folderTargetIndex) ?: dockSlotCenterOnScreen(centerXOnScreen)
         } else {
@@ -1025,7 +1147,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         centerYOnScreen: Float
     ) {
         val currentDockItems = removeAppFromItems(dockAdapter.itemsSnapshot(), item).toMutableList()
-        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen)
+        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen, item)
         if (folderTargetIndex in currentDockItems.indices) {
             currentDockItems[folderTargetIndex] = mergeAppIntoDockTarget(currentDockItems[folderTargetIndex], item)
             handleDockItemsChanged(currentDockItems)
@@ -1110,21 +1232,31 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     ) {
         val updatedDockItems = dockAdapter.itemsSnapshot()
             .filterNot { dockItem -> dockItem.stableId == item.stableId }
-        handleDockItemsChanged(updatedDockItems)
-
         val baseItems = item.containedApps().fold(homeItems) { currentItems, app ->
             removeAppFromHomeItems(currentItems, app)
+        }
+        val folderTargetIndex = if (item is LauncherHomeItemUiModel.App) {
+            homeFolderDropIndexForPoint(
+                centerXOnScreen = centerXOnScreen,
+                centerYOnScreen = centerYOnScreen,
+                items = baseItems
+            )
+        } else {
+            NO_PREVIEW_INDEX
         }
         val dropIndex = homeDropIndexForPoint(
             centerXOnScreen = centerXOnScreen,
             centerYOnScreen = centerYOnScreen,
-            itemCountAfterRemoval = baseItems.size
+            itemCountAfterRemoval = baseItems.size,
+            items = baseItems
         )
-        val updatedItems = insertItemAtHomeIndex(
+        val updatedItems = LauncherDockHomeDropResolver.resolveDrop(
             baseItems = baseItems,
-            index = dropIndex,
-            item = item
+            dockItem = item,
+            dropIndex = dropIndex,
+            folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
         )
+        handleDockItemsChanged(updatedDockItems)
         handleHomeItemsChanged(updatedItems)
     }
 
@@ -1169,28 +1301,47 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun dockDropTargetIndexForPoint(centerXOnScreen: Float, centerYOnScreen: Float): Int {
+    private fun dockDropTargetIndexForPoint(
+        centerXOnScreen: Float,
+        centerYOnScreen: Float,
+        draggedApp: LauncherIconUiModel
+    ): Int {
         val recyclerView = binding.workspace.dockRecyclerView
         val recyclerLocation = IntArray(2)
         recyclerView.getLocationOnScreen(recyclerLocation)
         val localX = centerXOnScreen - recyclerLocation[0]
         val localY = centerYOnScreen - recyclerLocation[1]
         val hitSlop = dp(DOCK_FOLDER_DROP_HIT_SLOP_DP)
+        val draggedItem = LauncherHomeItemUiModel.App(draggedApp)
 
         for (childIndex in 0 until recyclerView.childCount) {
             val child = recyclerView.getChildAt(childIndex)
             val holder = recyclerView.getChildViewHolder(child)
             val position = holder.bindingAdapterPosition
             if (position == RecyclerView.NO_POSITION) continue
+            val targetItem = dockAdapter.itemAt(position) ?: continue
 
             val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
             val left = child.left + iconPlate.left - hitSlop
             val top = child.top + iconPlate.top - hitSlop
             val right = child.left + iconPlate.right + hitSlop
             val bottom = child.top + iconPlate.bottom + hitSlop
-            if (localX in left.toFloat()..right.toFloat() &&
-                localY in top.toFloat()..bottom.toFloat()
+            if (localX !in left.toFloat()..right.toFloat() ||
+                localY !in top.toFloat()..bottom.toFloat()
             ) {
+                continue
+            }
+            if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
+
+            val plateLeft = child.left + iconPlate.left
+            val plateTop = child.top + iconPlate.top
+            val action = LauncherHomeHoverDropPolicy.resolveAction(
+                draggedItem = draggedItem,
+                targetItem = targetItem,
+                localXInCell = ((localX - plateLeft) / iconPlate.width).coerceIn(0f, 1f),
+                localYInCell = ((localY - plateTop) / iconPlate.height).coerceIn(0f, 1f)
+            )
+            if (action == LauncherHomeHoverDropAction.FOLDER) {
                 return position
             }
         }
@@ -1210,7 +1361,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun homeDropIndexForPoint(
         centerXOnScreen: Float,
         centerYOnScreen: Float,
-        itemCountAfterRemoval: Int
+        itemCountAfterRemoval: Int,
+        items: List<LauncherHomeItemUiModel> = homeItems
     ): Int {
         val pager = binding.workspace.workspacePager
         val pagerWidth = pager.width.takeIf { width -> width > 0 } ?: return itemCountAfterRemoval
@@ -1228,10 +1380,53 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val pageCount = homePageCountForItemCount(itemCountAfterRemoval + 1)
         val page = currentHomePageIndex().coerceIn(0, pageCount - 1)
         val targetIndex = page * homePageSize + row * HOME_PAGE_COLUMNS + column
-        if (homeItems.getOrNull(targetIndex) is LauncherHomeItemUiModel.Placeholder) {
-            return targetIndex.coerceIn(0, itemCountAfterRemoval)
+        val targetItem = items.getOrNull(targetIndex)
+        if (targetItem == null || targetItem is LauncherHomeItemUiModel.Placeholder) {
+            return targetIndex
         }
         return (targetIndex + if (insertAfterTarget) 1 else 0).coerceIn(0, itemCountAfterRemoval)
+    }
+
+    private fun homeFolderDropIndexForPoint(
+        centerXOnScreen: Float,
+        centerYOnScreen: Float,
+        items: List<LauncherHomeItemUiModel>
+    ): Int {
+        val target = homeTargetCellForPoint(centerXOnScreen, centerYOnScreen, items)
+            ?: return NO_PREVIEW_INDEX
+        val item = items.getOrNull(target.index) ?: return NO_PREVIEW_INDEX
+        if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
+            return NO_PREVIEW_INDEX
+        }
+        val overTargetCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
+            target.localYInCell in HOME_FOLDER_DROP_MIN_Y..HOME_FOLDER_DROP_MAX_Y
+        return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
+    }
+
+    private fun homeTargetCellForPoint(
+        centerXOnScreen: Float,
+        centerYOnScreen: Float,
+        items: List<LauncherHomeItemUiModel>
+    ): HomeEdgeTargetCell? {
+        val pager = binding.workspace.workspacePager
+        val pagerWidth = pager.width.takeIf { width -> width > 0 } ?: return null
+        val pagerHeight = pager.height.takeIf { height -> height > 0 } ?: return null
+        val pagerLocation = IntArray(2)
+        pager.getLocationOnScreen(pagerLocation)
+
+        val localX = (centerXOnScreen - pagerLocation[0]).coerceIn(0f, (pagerWidth - 1).toFloat())
+        val localY = (centerYOnScreen - pagerLocation[1]).coerceIn(0f, (pagerHeight - 1).toFloat())
+        val cellWidth = pagerWidth / HOME_PAGE_COLUMNS.toFloat()
+        val cellHeight = pagerHeight / effectiveHomeGridRows.toFloat()
+        val column = (localX / cellWidth).toInt().coerceIn(0, HOME_PAGE_COLUMNS - 1)
+        val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
+        val pageCount = homePageCountForItemCount(items.size + 1)
+        val page = currentHomePageIndex().coerceIn(0, pageCount - 1)
+        return HomeEdgeTargetCell(
+            index = page * homePageSize + row * HOME_PAGE_COLUMNS + column,
+            localXInCell = ((localX - column * cellWidth) / cellWidth).coerceIn(0f, 1f),
+            localYInCell = ((localY - row * cellHeight) / cellHeight).coerceIn(0f, 1f)
+        )
     }
 
     private fun dockDropFallbackHomeY(): Float {
@@ -1273,7 +1468,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             LauncherHomeItemDropResolver.resolveDrop(
                 baseItems = homeEdgeBaseItems,
                 draggedItem = draggedItem,
-                dropIndex = dropIndex
+                dropIndex = dropIndex,
+                sourcePlaceholderStableId = homeEdgeDragPlaceholder?.stableId,
+                columns = HOME_PAGE_COLUMNS,
+                rows = effectiveHomeGridRows
             )
         }
         val committedPage = homeEdgeDragPage
@@ -1421,6 +1619,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (!LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
                 dragActive = homeEdgeDragActive,
                 pageSwitching = homeEdgePageSwitching,
+                edgeDirection = currentHomeEdgeDirection(),
                 dragPage = homeEdgeDragPage,
                 sourcePage = homeEdgeSourcePage,
                 hasLeftSourcePage = homeEdgeHasLeftSourcePage
@@ -1428,6 +1627,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         ) {
             homeEdgePreviewIndex = NO_PREVIEW_INDEX
             homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
+            workspacePageAdapter.clearTemporaryHomeDragPreview()
             return
         }
 
@@ -1450,26 +1650,24 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 folderTargetIndex = folderTargetIndex
             )
         } else {
-            insertItemAtHomeIndex(
+            LauncherHomeItemDropResolver.resolveDrop(
                 baseItems = homeEdgeBaseItems,
-                index = insertIndex,
-                item = homeEdgeDragPlaceholder
-                    ?: LauncherHomeItemUiModel.Placeholder.forGridIndex(insertIndex)
+                draggedItem = homeEdgeDragPlaceholder
+                    ?: LauncherHomeItemUiModel.Placeholder.forGridIndex(insertIndex),
+                dropIndex = insertIndex,
+                columns = HOME_PAGE_COLUMNS,
+                rows = effectiveHomeGridRows
             )
         }
-        workspacePageAdapter.submitDragPreviewItems(
-            items = previewItems,
+        workspacePageAdapter.applyTemporaryHomeDragPreview(
+            baseItems = homeEdgeBaseItems,
+            previewItems = previewItems,
             focusPage = homeEdgeDragPage
         )
     }
 
     private fun updateHomeEdgeState(rootCenterX: Float, rootWidth: Int) {
-        val edgeZone = dp(HOME_EDGE_SWITCH_ZONE_DP)
-        val direction = when {
-            rootCenterX <= edgeZone -> -1
-            rootCenterX >= rootWidth - edgeZone -> 1
-            else -> 0
-        }
+        val direction = homeEdgeDirectionForCenter(rootCenterX, rootWidth)
 
         binding.workspace.folderDragLeftEdgeGlow.visibility = if (direction < 0) View.VISIBLE else View.GONE
         binding.workspace.folderDragRightEdgeGlow.visibility = if (direction > 0) View.VISIBLE else View.GONE
@@ -1490,6 +1688,21 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
         homeEdgeDirection = direction
         homeEdgeSwitchHandler.postDelayed(homeEdgeSwitchRunnable, HOME_EDGE_SWITCH_DELAY_MS)
+    }
+
+    private fun currentHomeEdgeDirection(): Int {
+        val rootWidth = binding.workspace.root.width
+        if (rootWidth <= 0) return 0
+        return homeEdgeDirectionForCenter(homeEdgeDragCenterX, rootWidth)
+    }
+
+    private fun homeEdgeDirectionForCenter(rootCenterX: Float, rootWidth: Int): Int {
+        val edgeZone = dp(HOME_EDGE_SWITCH_ZONE_DP)
+        return when {
+            rootCenterX <= edgeZone -> -1
+            rootCenterX >= rootWidth - edgeZone -> 1
+            else -> 0
+        }
     }
 
     private fun performHomeEdgeSwitch() {
@@ -1514,11 +1727,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         homeEdgePreviewIndex = NO_PREVIEW_INDEX
         homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
+        workspacePageAdapter.clearTemporaryHomeDragPreview()
         if (baseChanged) {
-            workspacePageAdapter.submitDragPreviewItems(
-                items = homeEdgeBaseItems,
-                focusPage = homeEdgeDragPage
-            )
+            workspacePageAdapter.ensureTemporaryHomePage(homeEdgeDragPage)
         }
         binding.workspace.workspacePager.postDelayed({
             if (homeEdgeDragActive) {
@@ -1579,14 +1790,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         items: List<LauncherHomeItemUiModel>,
         page: Int
     ): List<LauncherHomeItemUiModel> {
-        val requiredSize = page * homePageSize + 1
-        if (items.size >= requiredSize) return items
-
-        return items.toMutableList().apply {
-            while (size < requiredSize) {
-                add(LauncherHomeItemUiModel.Placeholder.forGridIndex(size))
-            }
-        }
+        return LauncherHomeScreenGridPolicy.ensurePageExists(
+            items = items,
+            page = page,
+            pageSize = homePageSize
+        )
     }
 
     private fun homeEdgeHomeDropIndex(): Int {
@@ -1619,10 +1827,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun homeEdgeFolderDropIndex(): Int {
         val target = homeEdgeTargetCell() ?: return NO_PREVIEW_INDEX
         val item = homeEdgeBaseItems.getOrNull(target.index) ?: return NO_PREVIEW_INDEX
-        if (item !is LauncherHomeItemUiModel.Folder) return NO_PREVIEW_INDEX
-        val overFolderCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
+        if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
+            return NO_PREVIEW_INDEX
+        }
+        val overTargetCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
             target.localYInCell in HOME_FOLDER_DROP_MIN_Y..HOME_FOLDER_DROP_MAX_Y
-        return if (overFolderCenter) target.index else NO_PREVIEW_INDEX
+        return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
     }
 
     private fun homeEdgeTargetCell(): HomeEdgeTargetCell? {
@@ -1671,6 +1881,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun hideHomeEdgeDragPreview(restoreWorkspace: Boolean) {
+        workspacePageAdapter.clearTemporaryHomeDragPreview()
         if (restoreWorkspace) {
             workspacePageAdapter.submitItems(homeItems)
             updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
@@ -2222,7 +2433,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         folderExitDragCollapsed = false
         binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
-        visualEffectsController.applyHomeBlur()
+        visualEffectsController.applyFolderBlur()
         binding.workspace.folderContentPanel.animate().cancel()
         binding.workspace.folderContentPanel.animate()
             .alpha(1f)
@@ -2285,10 +2496,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun folderExitFolderDropIndex(baseItems: List<LauncherHomeItemUiModel>): Int {
         val target = folderExitTargetCell() ?: return NO_PREVIEW_INDEX
         val item = baseItems.getOrNull(target.index) ?: return NO_PREVIEW_INDEX
-        if (item !is LauncherHomeItemUiModel.Folder) return NO_PREVIEW_INDEX
-        val overFolderCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
+        if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
+            return NO_PREVIEW_INDEX
+        }
+        val overTargetCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
             target.localYInCell in HOME_FOLDER_DROP_MIN_Y..HOME_FOLDER_DROP_MAX_Y
-        return if (overFolderCenter) target.index else NO_PREVIEW_INDEX
+        return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
     }
 
     private fun folderExitTargetCell(): HomeEdgeTargetCell? {
@@ -2388,6 +2601,44 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             .start()
     }
 
+    private fun hideBlurEffectSettingsPage() {
+        if (binding.blurSettingsPanel.visibility != View.VISIBLE) return
+
+        binding.blurSettingsPanel.animate()
+            .alpha(0f)
+            .translationX(dp(28).toFloat())
+            .setDuration(150L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.blurSettingsPanel.visibility = View.GONE
+                binding.blurSettingsPanel.alpha = 1f
+                binding.blurSettingsPanel.translationX = 0f
+                if (!state.launcherMode) {
+                    binding.settingsFab.visibility = View.VISIBLE
+                }
+            }
+            .start()
+    }
+
+    private fun hideAnimationSettingsPage() {
+        if (binding.animationSettingsPanel.visibility != View.VISIBLE) return
+
+        binding.animationSettingsPanel.animate()
+            .alpha(0f)
+            .translationX(dp(28).toFloat())
+            .setDuration(150L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                binding.animationSettingsPanel.visibility = View.GONE
+                binding.animationSettingsPanel.alpha = 1f
+                binding.animationSettingsPanel.translationX = 0f
+                if (!state.launcherMode) {
+                    binding.settingsFab.visibility = View.VISIBLE
+                }
+            }
+            .start()
+    }
+
     private fun hideSettingsDrawer() {
         val overlay = binding.settingsDrawerOverlay
         if (overlay.visibility != View.VISIBLE) {
@@ -2417,6 +2668,370 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun showDrawerComingSoon(titleRes: Int) {
         hideSettingsDrawer()
         showError(getString(R.string.app_option_coming_soon, getString(titleRes)))
+    }
+
+    private fun currentBlurSettings(): LauncherBlurSettings {
+        return LauncherBlurSettings(
+            enabled = layoutPreferences.getBoolean(KEY_BLUR_EFFECT_ENABLED, true),
+            folderEnabled = layoutPreferences.getBoolean(KEY_BLUR_FOLDER_ENABLED, true),
+            widgetEnabled = layoutPreferences.getBoolean(KEY_BLUR_WIDGET_ENABLED, true),
+            searchEnabled = layoutPreferences.getBoolean(KEY_BLUR_SEARCH_ENABLED, true)
+        )
+    }
+
+    private fun applyBlurSettings(settings: LauncherBlurSettings, persist: Boolean) {
+        if (persist) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_BLUR_EFFECT_ENABLED, settings.enabled)
+                .putBoolean(KEY_BLUR_FOLDER_ENABLED, settings.folderEnabled)
+                .putBoolean(KEY_BLUR_WIDGET_ENABLED, settings.widgetEnabled)
+                .putBoolean(KEY_BLUR_SEARCH_ENABLED, settings.searchEnabled)
+                .apply()
+        }
+        visualEffectsController.setBlurSettings(settings)
+        applyBlurSettingsUi()
+    }
+
+    private fun applyBlurSettingsUi() {
+        val settings = currentBlurSettings()
+        bindBlurSwitchRow(
+            row = binding.blurMasterRow,
+            titleRes = R.string.settings_blur_master,
+            checked = settings.enabled,
+            enabled = true
+        ) { checked ->
+            applyBlurSettings(settings.copy(enabled = checked), persist = true)
+        }
+        bindBlurSwitchRow(
+            row = binding.blurFolderRow,
+            titleRes = R.string.settings_blur_folder,
+            checked = settings.folderEnabled,
+            enabled = settings.enabled
+        ) { checked ->
+            applyBlurSettings(currentBlurSettings().copy(folderEnabled = checked), persist = true)
+        }
+        bindBlurSwitchRow(
+            row = binding.blurWidgetRow,
+            titleRes = R.string.settings_blur_widget,
+            checked = settings.widgetEnabled,
+            enabled = settings.enabled
+        ) { checked ->
+            applyBlurSettings(currentBlurSettings().copy(widgetEnabled = checked), persist = true)
+        }
+        bindBlurSwitchRow(
+            row = binding.blurSearchRow,
+            titleRes = R.string.settings_blur_search,
+            checked = settings.searchEnabled,
+            enabled = settings.enabled
+        ) { checked ->
+            applyBlurSettings(currentBlurSettings().copy(searchEnabled = checked), persist = true)
+        }
+    }
+
+    private fun bindBlurSwitchRow(
+        row: ViewLauncherBlurSwitchRowBinding,
+        titleRes: Int,
+        checked: Boolean,
+        enabled: Boolean,
+        onCheckedChanged: (Boolean) -> Unit
+    ) {
+        row.rowTitle.setText(titleRes)
+        row.iconContainer.backgroundTintList = ColorStateList.valueOf(getColor(R.color.icon_blur))
+        row.rowSwitch.setOnCheckedChangeListener(null)
+        row.rowSwitch.isChecked = checked
+        row.rowSwitch.isEnabled = enabled
+        row.rowSwitch.setOnCheckedChangeListener { _, isChecked ->
+            onCheckedChanged(isChecked)
+        }
+        row.root.alpha = if (enabled) 1f else 0.45f
+        row.root.isClickable = enabled
+        row.root.isFocusable = enabled
+        row.root.setOnClickListener(if (enabled) {
+            View.OnClickListener {
+                row.rowSwitch.isChecked = !row.rowSwitch.isChecked
+            }
+        } else {
+            null
+        })
+    }
+
+    private fun currentAnimationSettings(): LauncherAnimationSettings {
+        return LauncherAnimationSettings(
+            unlockEnabled = layoutPreferences.getBoolean(
+                KEY_ANIMATION_UNLOCK_ENABLED,
+                DEFAULT_ANIMATION_UNLOCK_ENABLED
+            ),
+            openCloseEnabled = layoutPreferences.getBoolean(
+                KEY_ANIMATION_OPEN_CLOSE_ENABLED,
+                DEFAULT_ANIMATION_OPEN_CLOSE_ENABLED
+            ),
+            parallaxZoomEnabled = layoutPreferences.getBoolean(
+                KEY_ANIMATION_PARALLAX_ZOOM_ENABLED,
+                DEFAULT_ANIMATION_PARALLAX_ZOOM_ENABLED
+            )
+        )
+    }
+
+    private fun applyAnimationSettings(settings: LauncherAnimationSettings, persist: Boolean) {
+        if (persist) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_ANIMATION_UNLOCK_ENABLED, settings.unlockEnabled)
+                .putBoolean(KEY_ANIMATION_OPEN_CLOSE_ENABLED, settings.openCloseEnabled)
+                .putBoolean(KEY_ANIMATION_PARALLAX_ZOOM_ENABLED, settings.parallaxZoomEnabled)
+                .apply()
+        }
+        applyAnimationSettingsUi()
+    }
+
+    private fun applyAnimationSettingsUi() {
+        val settings = currentAnimationSettings()
+        bindPlainSwitchRow(
+            row = binding.animationUnlockRow,
+            titleRes = R.string.settings_animation_unlock,
+            checked = settings.unlockEnabled,
+            showDivider = true
+        ) { checked ->
+            applyAnimationSettings(currentAnimationSettings().copy(unlockEnabled = checked), persist = true)
+        }
+        bindPlainSwitchRow(
+            row = binding.animationOpenCloseRow,
+            titleRes = R.string.settings_animation_open_close,
+            checked = settings.openCloseEnabled,
+            showDivider = true
+        ) { checked ->
+            applyAnimationSettings(currentAnimationSettings().copy(openCloseEnabled = checked), persist = true)
+        }
+        bindPlainSwitchRow(
+            row = binding.animationParallaxRow,
+            titleRes = R.string.settings_animation_parallax_zoom,
+            checked = settings.parallaxZoomEnabled,
+            showDivider = false
+        ) { checked ->
+            applyAnimationSettings(currentAnimationSettings().copy(parallaxZoomEnabled = checked), persist = true)
+            if (checked && !openLiveWallpaperChooser()) {
+                applyAnimationSettings(currentAnimationSettings().copy(parallaxZoomEnabled = false), persist = true)
+            }
+        }
+    }
+
+    private fun bindPlainSwitchRow(
+        row: ViewLauncherPlainSwitchRowBinding,
+        titleRes: Int,
+        checked: Boolean,
+        showDivider: Boolean,
+        onCheckedChanged: (Boolean) -> Unit
+    ) {
+        row.rowTitle.setText(titleRes)
+        row.rowDivider.visibility = if (showDivider) View.VISIBLE else View.GONE
+        row.rowSwitch.setOnCheckedChangeListener(null)
+        row.rowSwitch.isChecked = checked
+        row.rowSwitch.setOnCheckedChangeListener { _, isChecked ->
+            onCheckedChanged(isChecked)
+        }
+        row.root.setOnClickListener {
+            row.rowSwitch.isChecked = !row.rowSwitch.isChecked
+        }
+    }
+
+    private fun openLiveWallpaperChooser(): Boolean {
+        return runCatching {
+            startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
+            true
+        }.onFailure {
+            showError(getString(R.string.settings_live_wallpaper_failed))
+        }.getOrDefault(false)
+    }
+
+    private fun showWallpaperSettingsDialog() {
+        val actions = arrayOf(
+            getString(R.string.settings_wallpaper_choose_image),
+            getString(R.string.settings_wallpaper_system),
+            getString(R.string.settings_wallpaper_reset)
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_wallpaper)
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> wallpaperImageLauncher.launch(arrayOf("image/*"))
+                    1 -> openSystemWallpaperPicker()
+                    2 -> resetCustomWallpaper()
+                }
+            }
+            .show()
+    }
+
+    private fun openSystemWallpaperPicker() {
+        runCatching {
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), getString(R.string.settings_wallpaper)))
+        }.onFailure {
+            showError(getString(R.string.launcher_default_prompt_failed))
+        }
+    }
+
+    private fun resetCustomWallpaper() {
+        layoutPreferences.edit()
+            .remove(KEY_CUSTOM_WALLPAPER_URI)
+            .apply()
+        applyLauncherRootBackground(state.launcherMode)
+        showError(getString(R.string.settings_wallpaper_reset_done))
+    }
+
+    private fun showRenameAppPicker() {
+        showAppSelectionDialog(getString(R.string.settings_rename)) { app ->
+            showRenameAppDialog(app)
+        }
+    }
+
+    private fun showChangeIconAppPicker() {
+        showAppSelectionDialog(getString(R.string.settings_change_icon)) { app ->
+            showChangeIconDialog(app)
+        }
+    }
+
+    private fun showAppSelectionDialog(
+        title: String,
+        onAppSelected: (LauncherApp) -> Unit
+    ) {
+        if (!::launcherRepository.isInitialized) return
+
+        lifecycleScope.launch {
+            val apps = runCatching {
+                launcherRepository.getAllInstalledApps()
+                    .filterNot { app -> app.packageName == packageName }
+                    .sortedBy { app -> app.label.lowercase() }
+            }.getOrElse { error ->
+                showError(error.message ?: getString(R.string.settings_no_apps_found))
+                return@launch
+            }
+            if (apps.isEmpty()) {
+                showError(getString(R.string.settings_no_apps_found))
+                return@launch
+            }
+
+            AlertDialog.Builder(this@IOSLauncherActivity)
+                .setTitle(title)
+                .setItems(apps.map { app -> app.label }.toTypedArray()) { _, which ->
+                    onAppSelected(apps[which])
+                }
+                .show()
+        }
+    }
+
+    override fun showRenameAppDialog(app: LauncherApp) {
+        val input = EditText(this).apply {
+            setSingleLine(true)
+            hint = getString(R.string.settings_rename_hint)
+            setText(app.label)
+            selectAll()
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_rename)
+            .setView(container)
+            .setPositiveButton(R.string.dialog_ok) { _, _ ->
+                launcherRepository.saveCustomLabel(app, input.text?.toString().orEmpty())
+                presenter.refreshApps()
+                showError(getString(R.string.settings_rename_done, app.label))
+            }
+            .setNeutralButton(R.string.dialog_reset) { _, _ ->
+                launcherRepository.saveCustomLabel(app, "")
+                presenter.refreshApps()
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    override fun showChangeIconDialog(app: LauncherApp) {
+        val actions = arrayOf(
+            getString(R.string.settings_change_icon_choose_image),
+            getString(R.string.settings_change_icon_reset)
+        )
+        AlertDialog.Builder(this)
+            .setTitle(app.label)
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> {
+                        pendingIconChangeApp = app
+                        customIconImageLauncher.launch(arrayOf("image/*"))
+                    }
+                    1 -> {
+                        launcherRepository.saveCustomIconUri(app, null)
+                        presenter.clearIconCache()
+                        presenter.refreshApps()
+                        showError(getString(R.string.settings_change_icon_reset_done, app.label))
+                    }
+                }
+            }
+            .show()
+    }
+
+    override fun showHideAppDialog(app: LauncherApp) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_hidden_apps)
+            .setMessage(getString(R.string.settings_hide_app_confirm, app.label))
+            .setPositiveButton(R.string.dialog_hide) { _, _ ->
+                launcherRepository.setAppHidden(app, true)
+                presenter.refreshApps()
+                showError(getString(R.string.settings_hide_app_done, app.label))
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun showHiddenAppsSettingsDialog() {
+        if (!::launcherRepository.isInitialized) return
+
+        lifecycleScope.launch {
+            val apps = runCatching {
+                launcherRepository.getAllInstalledApps()
+                    .filterNot { app -> app.packageName == packageName }
+                    .sortedBy { app -> app.label.lowercase() }
+            }.getOrElse { error ->
+                showError(error.message ?: getString(R.string.settings_no_apps_found))
+                return@launch
+            }
+            if (apps.isEmpty()) {
+                showError(getString(R.string.settings_no_apps_found))
+                return@launch
+            }
+
+            val hiddenKeys = launcherRepository.getHiddenIconKeys().toMutableSet()
+            val checked = apps.map { app -> app.iconKey in hiddenKeys }.toBooleanArray()
+            AlertDialog.Builder(this@IOSLauncherActivity)
+                .setTitle(R.string.settings_hidden_apps)
+                .setMultiChoiceItems(apps.map { app -> app.label }.toTypedArray(), checked) { _, which, isChecked ->
+                    checked[which] = isChecked
+                }
+                .setPositiveButton(R.string.dialog_done) { _, _ ->
+                    apps.forEachIndexed { index, app ->
+                        launcherRepository.setAppHidden(app, checked[index])
+                    }
+                    presenter.refreshApps()
+                    showError(getString(R.string.settings_hidden_apps_done))
+                }
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show()
+        }
+    }
+
+    private fun openNotificationAccessSettings() {
+        runCatching {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }.onFailure {
+            showError(getString(R.string.settings_notification_access_failed))
+        }
+    }
+
+    private fun takePersistableReadPermission(uri: Uri) {
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
     }
 
     private fun settingsDrawerWidth(): Float {
@@ -2553,20 +3168,140 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         dialog.show()
     }
 
+    private fun showDefaultLauncherPrompt() {
+        if (isCurrentDefaultLauncher()) {
+            forceSettingsPanel = false
+            updateLauncherMode(forceAnimate = true)
+            showAlreadyDefaultLauncher()
+            showDefaultWelcomeIfNeeded()
+            return
+        }
+
+        val dialog = Dialog(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = roundedBackground(Color.WHITE, 26)
+            setPadding(dp(20), dp(30), dp(20), 0)
+        }
+        content.addView(
+            ImageView(this).apply {
+                setImageResource(R.mipmap.ic_launcher)
+                contentDescription = getString(R.string.app_name)
+            },
+            LinearLayout.LayoutParams(dp(72), dp(72)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        )
+        content.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_prompt_title)
+                gravity = Gravity.CENTER
+                setTextColor(Color.BLACK)
+                textSize = 23f
+                typeface = Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(12)
+            }
+        )
+        content.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_prompt_message)
+                gravity = Gravity.CENTER
+                setTextColor(0xFF222222.toInt())
+                textSize = 18f
+                setLineSpacing(dp(2).toFloat(), 1f)
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(18)
+                leftMargin = dp(6)
+                rightMargin = dp(6)
+            }
+        )
+        content.addView(
+            View(this).apply { setBackgroundColor(0xFFE2E2E2.toInt()) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                topMargin = dp(28)
+            }
+        )
+
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        val cancelButton = TextView(this).apply {
+            text = getString(R.string.dialog_cancel)
+            gravity = Gravity.CENTER
+            setTextColor(0xFF168BFF.toInt())
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener { dialog.dismiss() }
+        }
+        val okButton = TextView(this).apply {
+            text = getString(R.string.dialog_ok)
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFF1F2D.toInt())
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener {
+                dialog.dismiss()
+                presenter.onSetDefaultLauncherClicked()
+            }
+        }
+        buttonRow.addView(cancelButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+        buttonRow.addView(
+            View(this).apply { setBackgroundColor(0xFFE2E2E2.toInt()) },
+            LinearLayout.LayoutParams(dp(1), dp(56))
+        )
+        buttonRow.addView(okButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+        content.addView(
+            buttonRow,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56))
+        )
+
+        dialog.setContentView(content)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setDimAmount(0.52f)
+                setLayout((resources.displayMetrics.widthPixels * 0.88f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+        }
+        dialog.show()
+    }
+
     override fun openDefaultLauncherSelection() {
         if (isCurrentDefaultLauncher()) {
             forceSettingsPanel = false
             updateLauncherMode(forceAnimate = true)
             showAlreadyDefaultLauncher()
+            showDefaultWelcomeIfNeeded()
             return
         }
 
         Toast.makeText(this, R.string.launcher_default_opening, Toast.LENGTH_SHORT).show()
+        if (openHomeSettings()) {
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && requestHomeRole()) {
             return
         }
 
-        openHomeSettings()
+        waitingForLauncherSelection = false
+        showError(getString(R.string.launcher_default_prompt_failed))
     }
 
     private fun resetFoldersForDefaultLauncher() {
@@ -2587,16 +3322,184 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun openHomeSettings() {
-        runCatching {
-            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
-        }.onFailure {
-            runCatching {
-                startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
-            }.onFailure {
-                showError(getString(R.string.launcher_default_prompt_failed))
+    private fun openHomeSettings(): Boolean {
+        return runCatching {
+            waitingForLauncherSelection = true
+            homeSettingsLauncher.launch(Intent(Settings.ACTION_HOME_SETTINGS))
+        }.recoverCatching {
+            waitingForLauncherSelection = true
+            homeSettingsLauncher.launch(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+        }.isSuccess.also { opened ->
+            if (!opened) {
+                waitingForLauncherSelection = false
             }
         }
+    }
+
+    private fun handleDefaultLauncherSelectionReturn(showNotSelectedToast: Boolean) {
+        waitingForLauncherSelection = false
+        if (isCurrentDefaultLauncher()) {
+            forceSettingsPanel = false
+            updateLauncherMode(forceAnimate = true)
+            applyLauncherSystemUi()
+            showDefaultWelcomeIfNeeded()
+        } else {
+            updateLauncherMode(forceAnimate = true)
+            if (showNotSelectedToast) {
+                Toast.makeText(this, R.string.launcher_default_not_selected, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showDefaultWelcomeIfNeeded() {
+        if (!::binding.isInitialized || defaultWelcomeOverlay != null) return
+        val shouldShowWelcome = LauncherDefaultWelcomePolicy.shouldShowWelcome(
+            isDefaultLauncher = state.launcherMode && isCurrentDefaultLauncher(),
+            hasShownWelcome = layoutPreferences.getBoolean(KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN, false)
+        )
+        if (!shouldShowWelcome) return
+
+        showDefaultWelcomeOverlay()
+    }
+
+    private fun showDefaultWelcomeOverlay() {
+        if (::workspacePageAdapter.isInitialized && workspacePageAdapter.homePageCount() > 0) {
+            binding.workspace.workspacePager.setCurrentItem(
+                workspacePageAdapter.firstHomeAdapterPosition(),
+                false
+            )
+        }
+        val overlay = FrameLayout(this).apply {
+            isClickable = true
+            isFocusable = true
+            alpha = 0f
+        }
+        overlay.addView(
+            View(this).apply {
+                setBackgroundColor(0x26000000)
+            },
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val panel = FrameLayout(this).apply {
+            setBackgroundColor(0xFF31D3C9.toInt())
+            elevation = dp(20).toFloat()
+        }
+        val copyColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.START
+        }
+        copyColumn.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_welcome_title)
+                setTextColor(Color.BLACK)
+                textSize = 44f
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        copyColumn.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_welcome_subtitle)
+                setTextColor(Color.BLACK)
+                textSize = 28f
+                typeface = Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(22)
+            }
+        )
+        copyColumn.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_welcome_hint)
+                setTextColor(0x99000000.toInt())
+                textSize = 23f
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(10)
+            }
+        )
+        panel.addView(
+            copyColumn,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                leftMargin = dp(40)
+                topMargin = dp(64)
+                rightMargin = dp(40)
+            }
+        )
+        panel.addView(
+            TextView(this).apply {
+                text = getString(R.string.dialog_ok)
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                textSize = 20f
+                typeface = Typeface.DEFAULT_BOLD
+                background = roundedBackground(0x33333333, 4)
+                isClickable = true
+                isFocusable = true
+                foreground = obtainStyledForeground()
+                setOnClickListener { dismissDefaultWelcomeOverlay() }
+            },
+            FrameLayout.LayoutParams(dp(94), dp(58)).apply {
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = dp(142)
+                rightMargin = dp(36)
+            }
+        )
+        overlay.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(280),
+                Gravity.TOP
+            )
+        )
+
+        defaultWelcomeOverlay = overlay
+        binding.launcher.addView(
+            overlay,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        overlay.bringToFront()
+        overlay.animate()
+            .alpha(1f)
+            .setDuration(180L)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+    }
+
+    private fun dismissDefaultWelcomeOverlay() {
+        layoutPreferences.edit()
+            .putBoolean(KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN, true)
+            .apply()
+        val overlay = defaultWelcomeOverlay ?: return
+        defaultWelcomeOverlay = null
+        overlay.animate()
+            .alpha(0f)
+            .setDuration(140L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+            }
+            .start()
     }
 
     override fun showAlreadyDefaultLauncher() {
@@ -2656,6 +3559,42 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun showLiquidGlassSettingsPage() {
         binding.liquidGlassSettingsPanel.apply {
+            animate().cancel()
+            alpha = 0f
+            translationX = dp(28).toFloat()
+            visibility = View.VISIBLE
+            bringToFront()
+            animate()
+                .alpha(1f)
+                .translationX(0f)
+                .setDuration(180L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+        binding.settingsFab.visibility = View.GONE
+    }
+
+    private fun showBlurEffectSettingsPage() {
+        applyBlurSettingsUi()
+        binding.blurSettingsPanel.apply {
+            animate().cancel()
+            alpha = 0f
+            translationX = dp(28).toFloat()
+            visibility = View.VISIBLE
+            bringToFront()
+            animate()
+                .alpha(1f)
+                .translationX(0f)
+                .setDuration(180L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+        binding.settingsFab.visibility = View.GONE
+    }
+
+    private fun showAnimationSettingsPage() {
+        applyAnimationSettingsUi()
+        binding.animationSettingsPanel.apply {
             animate().cancel()
             alpha = 0f
             translationX = dp(28).toFloat()
@@ -2749,7 +3688,44 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         }
 
-        runCatching { startActivity(launchIntent) }.onFailure {
+        if (currentAnimationSettings().shouldAnimateAppOpen) {
+            animateAndStartApp(launchIntent, app)
+        } else {
+            startAppIntent(launchIntent, app, animateTransition = false)
+        }
+    }
+
+    private fun animateAndStartApp(launchIntent: Intent, app: LauncherApp) {
+        val workspaceRoot = binding.workspace.root
+        workspaceRoot.animate().cancel()
+        workspaceRoot.animate()
+            .scaleX(1.018f)
+            .scaleY(1.018f)
+            .alpha(0.9f)
+            .setDuration(APP_OPEN_PREVIEW_ANIMATION_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                workspaceRoot.animate().cancel()
+                workspaceRoot.scaleX = 1f
+                workspaceRoot.scaleY = 1f
+                workspaceRoot.alpha = 1f
+                startAppIntent(launchIntent, app, animateTransition = true)
+            }
+            .start()
+    }
+
+    private fun startAppIntent(
+        launchIntent: Intent,
+        app: LauncherApp,
+        animateTransition: Boolean
+    ) {
+        runCatching {
+            startActivity(launchIntent)
+            if (animateTransition) {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(R.anim.ios_app_open_enter, R.anim.ios_launcher_open_exit)
+            }
+        }.onFailure {
             showError(getString(R.string.launcher_open_app_failed, app.label))
         }
     }
@@ -3003,9 +3979,20 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             // Keep outside-tap dismissal from firing when interacting with the folder contents.
         }
         binding.workspace.folderRecyclerView.apply {
-            layoutManager = GridLayoutManager(this@IOSLauncherActivity, FOLDER_COLUMNS)
+            layoutManager = LauncherPagedFolderGridLayoutManager()
             adapter = folderContentAdapter
             itemAnimator = null
+            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    if (newState != RecyclerView.SCROLL_STATE_IDLE) return
+
+                    val folderLayoutManager = recyclerView.layoutManager as? LauncherPagedFolderGridLayoutManager
+                    val snapDistance = folderLayoutManager?.distanceToNearestPage() ?: 0
+                    if (snapDistance != 0) {
+                        recyclerView.smoothScrollBy(snapDistance, 0)
+                    }
+                }
+            })
             folderItemTouchHelper = ItemTouchHelper(
                 LauncherDragCallback(
                     adapter = folderContentAdapter,
@@ -3599,6 +4586,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         applySettingsAppearance()
         applyLayoutSettingsAppearance()
         applyLiquidGlassSettingsAppearance()
+        applyBlurSettingsAppearance()
+        applyAnimationSettingsAppearance()
         applyWorkspaceAppearance()
         invalidateLauncherArtwork()
         tintLayoutSwitches()
@@ -3702,6 +4691,54 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
             applyLiquidGlass(checked, persist = true)
         }
+    }
+
+    private fun applyBlurSettingsAppearance() {
+        val backgroundColor = themedColor(R.color.settings_background, R.color.dark_settings_background)
+        val cardColor = themedColor(R.color.settings_card, R.color.dark_settings_card)
+        val primaryTextColor = themedColor(R.color.launcher_text_primary, R.color.dark_settings_text_primary)
+
+        binding.blurSettingsPanel.setBackgroundColor(backgroundColor)
+        binding.blurSettingsToolbar.setBackgroundColor(cardColor)
+        binding.blurSettingsScroll.setBackgroundColor(backgroundColor)
+        binding.blurSettingsContent.setBackgroundColor(backgroundColor)
+        binding.blurTopSpacer.setBackgroundColor(backgroundColor)
+        binding.blurOptionsCard.setBackgroundColor(cardColor)
+        binding.blurTitle.setTextColor(primaryTextColor)
+        listOf(
+            binding.blurMasterRow,
+            binding.blurFolderRow,
+            binding.blurWidgetRow,
+            binding.blurSearchRow
+        ).forEach { row ->
+            row.rowTitle.setTextColor(primaryTextColor)
+            row.iconContainer.backgroundTintList = ColorStateList.valueOf(getColor(R.color.icon_blur))
+        }
+        applyBlurSettingsUi()
+    }
+
+    private fun applyAnimationSettingsAppearance() {
+        val backgroundColor = themedColor(R.color.settings_background, R.color.dark_settings_background)
+        val cardColor = themedColor(R.color.settings_card, R.color.dark_settings_card)
+        val primaryTextColor = themedColor(R.color.launcher_text_primary, R.color.dark_settings_text_primary)
+        val dividerColor = themedColor(R.color.settings_divider, R.color.dark_settings_divider)
+
+        binding.animationSettingsPanel.setBackgroundColor(backgroundColor)
+        binding.animationSettingsToolbar.setBackgroundColor(cardColor)
+        binding.animationSettingsScroll.setBackgroundColor(backgroundColor)
+        binding.animationSettingsContent.setBackgroundColor(backgroundColor)
+        binding.animationTopSpacer.setBackgroundColor(backgroundColor)
+        binding.animationOptionsCard.setBackgroundColor(cardColor)
+        binding.animationTitle.setTextColor(primaryTextColor)
+        listOf(
+            binding.animationUnlockRow,
+            binding.animationOpenCloseRow,
+            binding.animationParallaxRow
+        ).forEach { row ->
+            row.rowTitle.setTextColor(primaryTextColor)
+            row.rowDivider.setBackgroundColor(dividerColor)
+        }
+        applyAnimationSettingsUi()
     }
 
     private fun applyHomeIconSize(sizeDp: Int, persist: Boolean) {
@@ -3930,7 +4967,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             binding.iphone8Switch,
             binding.bottomSpacingSwitch,
             binding.autoArrangeSwitch,
-            binding.liquidGlassSwitch
+            binding.liquidGlassSwitch,
+            binding.blurMasterRow.rowSwitch,
+            binding.blurFolderRow.rowSwitch,
+            binding.blurWidgetRow.rowSwitch,
+            binding.blurSearchRow.rowSwitch,
+            binding.animationUnlockRow.rowSwitch,
+            binding.animationOpenCloseRow.rowSwitch,
+            binding.animationParallaxRow.rowSwitch
         ).forEach { switch ->
             switch.thumbTintList = thumbTint
             switch.trackTintList = trackTint
@@ -3985,14 +5029,36 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
+    private fun obtainStyledForeground(): Drawable? {
+        val attrs = obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+        return attrs.getDrawable(0).also {
+            attrs.recycle()
+        }
+    }
+
     private fun applyLauncherRootBackground(showLauncherWorkspace: Boolean) {
         if (showLauncherWorkspace) {
-            binding.launcher.setBackgroundResource(R.drawable.bg_ios_wallpaper)
+            val customWallpaper = customWallpaperDrawable()
+            if (customWallpaper != null) {
+                binding.launcher.background = customWallpaper
+            } else {
+                binding.launcher.setBackgroundResource(R.drawable.bg_ios_wallpaper)
+            }
         } else {
             binding.launcher.setBackgroundColor(
                 themedColor(R.color.settings_background, R.color.dark_settings_background)
             )
         }
+    }
+
+    private fun customWallpaperDrawable(): Drawable? {
+        val rawUri = layoutPreferences.getString(KEY_CUSTOM_WALLPAPER_URI, null) ?: return null
+        val uri = runCatching { Uri.parse(rawUri) }.getOrNull() ?: return null
+        return runCatching {
+            contentResolver.openInputStream(uri)?.use { input ->
+                Drawable.createFromStream(input, rawUri)
+            }
+        }.getOrNull()
     }
 
     private fun applyLauncherSystemUi() {
@@ -4017,18 +5083,29 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.settingsPanel.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
         binding.layoutSettingsPanel.visibility = View.GONE
         binding.liquidGlassSettingsPanel.visibility = View.GONE
+        binding.blurSettingsPanel.visibility = View.GONE
+        binding.animationSettingsPanel.visibility = View.GONE
         binding.settingsFab.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
         binding.workspace.root.visibility = if (showLauncherWorkspace) View.VISIBLE else View.GONE
         applyLauncherRootBackground(showLauncherWorkspace)
         if (showLauncherWorkspace && (forceAnimate || !lastLauncherMode)) {
-            binding.workspace.root.apply {
-                alpha = 0f
-                translationY = 28f
-                animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(260L)
-                    .start()
+            if (currentAnimationSettings().unlockEnabled) {
+                binding.workspace.root.apply {
+                    alpha = 0f
+                    translationY = 28f
+                    animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .setDuration(260L)
+                        .setInterpolator(DecelerateInterpolator())
+                        .start()
+                }
+            } else {
+                binding.workspace.root.apply {
+                    animate().cancel()
+                    alpha = 1f
+                    translationY = 0f
+                }
             }
         }
         lastLauncherMode = showLauncherWorkspace
@@ -4129,10 +5206,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private companion object {
         const val DOCK_APP_COUNT = 4
         const val SEARCH_COLUMNS = 4
-        const val FOLDER_COLUMNS = 3
         const val SEARCH_ICON_CELL_HEIGHT_DP = 104
         const val FOLDER_ICON_CELL_HEIGHT_DP = 112
-        const val FOLDER_ICON_SIZE_DP = 50
+        const val FOLDER_ICON_SIZE_DP = 58
         const val PAGE_INDICATOR_VISIBLE_MS = 2000L
         const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
         const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
@@ -4180,13 +5256,26 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val DRAWER_OPEN_ANIMATION_MS = 220L
         const val DRAWER_CLOSE_ANIMATION_MS = 180L
         const val DRAWER_DIM_ANIMATION_MS = 160L
+        const val APP_OPEN_PREVIEW_ANIMATION_MS = 95L
         const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
         const val KEY_LAYOUT_DARK_MODE = "layout_dark_mode"
         const val KEY_LAYOUT_IPHONE8_STYLE = "layout_iphone8_style"
         const val KEY_LAYOUT_AUTO_ARRANGE = "layout_auto_arrange"
         const val KEY_LAYOUT_LIQUID_GLASS = "layout_liquid_glass"
+        const val KEY_BLUR_EFFECT_ENABLED = "blur_effect_enabled"
+        const val KEY_BLUR_FOLDER_ENABLED = "blur_folder_enabled"
+        const val KEY_BLUR_WIDGET_ENABLED = "blur_widget_enabled"
+        const val KEY_BLUR_SEARCH_ENABLED = "blur_search_enabled"
+        const val KEY_ANIMATION_UNLOCK_ENABLED = "unlock_animation"
+        const val KEY_ANIMATION_OPEN_CLOSE_ENABLED = "open_close_animation"
+        const val KEY_ANIMATION_PARALLAX_ZOOM_ENABLED = "parallax_zoom_animations"
+        const val KEY_CUSTOM_WALLPAPER_URI = "custom_wallpaper_uri"
         const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
         const val KEY_HOME_GRID_ROWS = "home_grid_rows"
         const val KEY_HOME_LAYOUT_ITEMS = "home_layout_items"
+        const val KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN = "default_launcher_welcome_shown"
+        const val DEFAULT_ANIMATION_UNLOCK_ENABLED = true
+        const val DEFAULT_ANIMATION_OPEN_CLOSE_ENABLED = false
+        const val DEFAULT_ANIMATION_PARALLAX_ZOOM_ENABLED = false
     }
 }

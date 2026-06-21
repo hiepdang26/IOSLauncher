@@ -38,6 +38,27 @@ class LauncherFolderExitDropResolverTest {
     }
 
     @Test
+    fun resolveDrop_createsFolderWhenDroppingDraggedAppOnTargetApp() {
+        val dragged = appItem("Photos")
+        val target = appItem("TikTok")
+        val baseItems = listOf(
+            LauncherHomeItemUiModel.Placeholder.forGridIndex(0),
+            LauncherHomeItemUiModel.App(target)
+        )
+
+        val resolved = LauncherFolderExitDropResolver.resolveDrop(
+            baseItems = baseItems,
+            draggedApp = dragged,
+            dropIndex = 1,
+            folderTargetIndex = 1
+        )
+
+        assertTrue(resolved[0] is LauncherHomeItemUiModel.Placeholder)
+        val folder = resolved[1] as LauncherHomeItemUiModel.Folder
+        assertEquals(listOf(target, dragged), folder.apps)
+    }
+
+    @Test
     fun resolveDrop_insertsDraggedAppAtDropIndexWhenNoFolderTarget() {
         val dragged = appItem("Photos")
         val baseItems = listOf(

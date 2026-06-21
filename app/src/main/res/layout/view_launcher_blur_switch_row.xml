@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="70dp"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="20dp"
+    android:paddingEnd="16dp">
+
+    <FrameLayout
+        android:id="@+id/iconContainer"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:background="@drawable/bg_feature_icon"
+        android:backgroundTint="@color/icon_blur">
+
+        <ImageView
+            android:id="@+id/rowIcon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_dots_24"
+            android:tint="@android:color/white" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/rowTitle"
+        style="@style/IOSLauncherTextListLabel"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="30dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:maxLines="1"
+        android:textColor="@color/launcher_text_primary"
+        android:textSize="18sp" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/rowSwitch"
+        android:layout_width="58dp"
+        android:layout_height="42dp"
+        android:showText="false" />
+</LinearLayout>

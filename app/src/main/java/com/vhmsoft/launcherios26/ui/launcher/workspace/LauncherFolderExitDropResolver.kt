@@ -10,16 +10,32 @@ object LauncherFolderExitDropResolver {
         val sanitizedBaseItems = removeDraggedApp(baseItems, draggedApp)
         val folderIndex = folderTargetIndex
         if (folderIndex != null) {
-            val targetFolder = sanitizedBaseItems.getOrNull(folderIndex) as? LauncherHomeItemUiModel.Folder
-            if (targetFolder != null) {
-                if (targetFolder.apps.any { app -> app.app.iconKey == draggedApp.app.iconKey }) {
-                    return LauncherHomeLayoutBuilder.normalize(sanitizedBaseItems)
+            val targetItem = sanitizedBaseItems.getOrNull(folderIndex)
+            when (targetItem) {
+                is LauncherHomeItemUiModel.App -> {
+                    return LauncherHomeLayoutBuilder.normalize(
+                        sanitizedBaseItems.toMutableList().apply {
+                            this[folderIndex] = LauncherHomeItemUiModel.Folder(
+                                id = "folder_${targetItem.stableId}_${draggedApp.stableId}",
+                                title = LauncherHomeLayoutBuilder.DEFAULT_FOLDER_TITLE,
+                                apps = listOf(targetItem.iconItem, draggedApp)
+                            )
+                        }
+                    )
                 }
-                return LauncherHomeLayoutBuilder.normalize(
-                    sanitizedBaseItems.toMutableList().apply {
-                        this[folderIndex] = targetFolder.copy(apps = targetFolder.apps + draggedApp)
+
+                is LauncherHomeItemUiModel.Folder -> {
+                    if (targetItem.apps.any { app -> app.app.iconKey == draggedApp.app.iconKey }) {
+                        return LauncherHomeLayoutBuilder.normalize(sanitizedBaseItems)
                     }
-                )
+                    return LauncherHomeLayoutBuilder.normalize(
+                        sanitizedBaseItems.toMutableList().apply {
+                            this[folderIndex] = targetItem.copy(apps = targetItem.apps + draggedApp)
+                        }
+                    )
+                }
+
+                else -> Unit
             }
         }
 
