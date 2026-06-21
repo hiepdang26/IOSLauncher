@@ -1,8 +1,7 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
 internal enum class LauncherHomeHoverDropAction {
-    INSERT_BEFORE,
-    INSERT_AFTER,
+    REORDER,
     FOLDER
 }
 
@@ -11,9 +10,7 @@ internal object LauncherHomeHoverDropPolicy {
         draggedItem: LauncherHomeItemUiModel?,
         targetItem: LauncherHomeItemUiModel?,
         localXInCell: Float,
-        localYInCell: Float,
-        edgeInsertFraction: Float = DEFAULT_EDGE_INSERT_FRACTION,
-        edgeInsertVerticalFraction: Float = DEFAULT_EDGE_INSERT_VERTICAL_FRACTION
+        localYInCell: Float
     ): LauncherHomeHoverDropAction? {
         if (draggedItem == null || targetItem == null) return null
         if (targetItem is LauncherHomeItemUiModel.Placeholder) return null
@@ -29,14 +26,7 @@ internal object LauncherHomeHoverDropPolicy {
                 localYInIcon = localY
             ) -> LauncherHomeHoverDropAction.FOLDER
 
-            localX <= edgeInsertFraction -> LauncherHomeHoverDropAction.INSERT_BEFORE
-            localX >= 1f - edgeInsertFraction -> LauncherHomeHoverDropAction.INSERT_AFTER
-            localY <= edgeInsertVerticalFraction -> LauncherHomeHoverDropAction.INSERT_BEFORE
-            localY >= 1f - edgeInsertVerticalFraction -> LauncherHomeHoverDropAction.INSERT_AFTER
-            else -> LauncherHomeHoverDropAction.INSERT_AFTER
+            else -> LauncherHomeHoverDropAction.REORDER
         }
     }
-
-    private const val DEFAULT_EDGE_INSERT_FRACTION = 0.32f
-    private const val DEFAULT_EDGE_INSERT_VERTICAL_FRACTION = 0.22f
 }

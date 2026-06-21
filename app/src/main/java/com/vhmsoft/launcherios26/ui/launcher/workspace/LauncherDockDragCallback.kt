@@ -1,6 +1,7 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
 import android.graphics.Canvas
+import android.os.SystemClock
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -32,6 +33,8 @@ class LauncherDockDragCallback(
     private var touchToCenterOffsetX = 0f
     private var touchToCenterOffsetY = 0f
     private var externalDragActive = false
+    private var lastHoverTargetPosition = RecyclerView.NO_POSITION
+    private var lastHoverStartedAt = 0L
 
     override fun getMovementFlags(
         recyclerView: RecyclerView,
@@ -49,9 +52,7 @@ class LauncherDockDragCallback(
         viewHolder: RecyclerView.ViewHolder,
         target: RecyclerView.ViewHolder
     ): Boolean {
-        if (!isDragCenterInDock(lastDragCenterX, lastDragCenterY)) return false
-        if (adapter.hasPendingDropTarget()) return false
-        return adapter.moveItem(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
+        return false
     }
 
     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
@@ -63,6 +64,7 @@ class LauncherDockDragCallback(
         if (actionState != ItemTouchHelper.ACTION_STATE_DRAG) return
 
         externalDragActive = false
+        resetDockReorderState()
         draggedStableId = viewHolder?.bindingAdapterPosition
             ?.let { position -> adapter.stableIdAt(position) }
         viewHolder?.let { holder ->
@@ -117,7 +119,13 @@ class LauncherDockDragCallback(
             }
             if (targetStableId == null) {
                 adapter.clearPendingDropTarget()
+                if (isDragCenterInDock(lastDragCenterX, lastDragCenterY)) {
+                    updateDockReorder(recyclerView)
+                } else {
+                    resetDockReorderState()
+                }
             } else {
+                resetDockReorderState()
                 adapter.rememberDropTargetByTargetStableId(draggedStableId, targetStableId)
             }
         }
@@ -140,6 +148,7 @@ class LauncherDockDragCallback(
             adapter.commitPendingDropTarget()
             adapter.notifyOrderChanged()
             draggedStableId = null
+            resetDockReorderState()
             adapter.clearActiveTouch()
             return
         }
@@ -156,6 +165,7 @@ class LauncherDockDragCallback(
         }
         draggedStableId = null
         externalDragActive = false
+        resetDockReorderState()
         adapter.clearActiveTouch()
 
         if (!handledOutside) {
@@ -234,6 +244,111 @@ class LauncherDockDragCallback(
         return bestStableId
     }
 
+    private fun updateDockReorder(recyclerView: RecyclerView) {
+        val targetPosition = findDockHoverTargetPosition(recyclerView)
+        if (targetPosition == RecyclerView.NO_POSITION) {
+            resetDockReorderState()
+            return
+        }
+
+        val now = SystemClock.uptimeMillis()
+        if (targetPosition != lastHoverTargetPosition) {
+            lastHoverTargetPosition = targetPosition
+            lastHoverStartedAt = now
+            return
+        }
+
+        val canReorder = LauncherIos17DragDropPolicy.canDockReorder(
+            dockItemCount = adapter.itemCount,
+            maxDockItems = MAX_DOCK_ITEMS,
+            parentPage = LauncherIos17DragDropPolicy.DOCK_PARENT_PAGE
+        )
+        if (!canReorder ||
+            !LauncherIos17DragDropPolicy.shouldFireReorderAlarm(
+                folderInterest = false,
+                targetIndex = targetPosition,
+                hoverElapsedMs = now - lastHoverStartedAt
+            )
+        ) {
+            return
+        }
+
+        val fromPosition = positionOfStableId(draggedStableId)
+        if (fromPosition != RecyclerView.NO_POSITION && fromPosition != targetPosition) {
+            adapter.moveItem(fromPosition, targetPosition)
+        }
+        resetDockReorderState()
+    }
+
+    private fun findDockHoverTargetPosition(recyclerView: RecyclerView): Int {
+        val draggedView = recyclerView.findViewHolderForAdapterPosition(
+            positionOfStableId(draggedStableId)
+        )?.itemView
+        val recyclerLocation = IntArray(2)
+        recyclerView.getLocationOnScreen(recyclerLocation)
+        val draggedCenterX = lastDragCenterX - recyclerLocation[0]
+        val draggedCenterY = lastDragCenterY - recyclerLocation[1]
+        val dragIcon = draggedView?.findViewById<View>(R.id.iconPlate) ?: draggedView
+        val activeDragIcon = dragIcon ?: return RecyclerView.NO_POSITION
+        val dragIconWidth = activeDragIcon.width.toFloat()
+        val dragIconHeight = activeDragIcon.height.toFloat()
+
+        var bestPosition = RecyclerView.NO_POSITION
+        var bestDistance = Float.MAX_VALUE
+        for (index in 0 until recyclerView.childCount) {
+            val child = recyclerView.getChildAt(index)
+            if (child === draggedView) continue
+
+            val holder = recyclerView.getChildViewHolder(child)
+            val position = holder.bindingAdapterPosition
+            if (position == RecyclerView.NO_POSITION) continue
+            if (adapter.stableIdAt(position) == draggedStableId) continue
+
+            val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
+            if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
+            val left = child.left + iconPlate.left.toFloat()
+            val top = child.top + iconPlate.top.toFloat()
+            val right = child.left + iconPlate.right.toFloat()
+            val bottom = child.top + iconPlate.bottom.toFloat()
+            if (!LauncherIos17DragGeometryPolicy.intersectsTargetIcon(
+                    dragCenterX = draggedCenterX,
+                    dragCenterY = draggedCenterY,
+                    dragIconWidth = dragIconWidth,
+                    dragIconHeight = dragIconHeight,
+                    targetLeft = left,
+                    targetTop = top,
+                    targetRight = right,
+                    targetBottom = bottom
+                )
+            ) {
+                continue
+            }
+
+            val targetCenterX = child.left + iconPlate.left + iconPlate.width / 2f
+            val targetCenterY = child.top + iconPlate.top + iconPlate.height / 2f
+            val distance = (draggedCenterX - targetCenterX).pow(2) +
+                (draggedCenterY - targetCenterY).pow(2)
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestPosition = position
+            }
+        }
+        return bestPosition
+    }
+
+    private fun positionOfStableId(stableId: Long?): Int {
+        if (stableId == null) return RecyclerView.NO_POSITION
+        for (position in 0 until adapter.itemCount) {
+            if (adapter.stableIdAt(position) == stableId) return position
+        }
+        return RecyclerView.NO_POSITION
+    }
+
+    private fun resetDockReorderState() {
+        lastHoverTargetPosition = RecyclerView.NO_POSITION
+        lastHoverStartedAt = 0L
+    }
+
     private fun rememberDragStartCenter(viewHolder: RecyclerView.ViewHolder) {
         val draggedView = viewHolder.itemView
         val iconPlate = draggedView.findViewById<View>(R.id.iconPlate) ?: draggedView
@@ -297,5 +412,6 @@ class LauncherDockDragCallback(
         const val DRAG_ALPHA = 0.96f
         const val DRAG_LIFT_DURATION_MS = 120L
         const val DRAG_ELEVATION_DP = 18
+        const val MAX_DOCK_ITEMS = 4
     }
 }

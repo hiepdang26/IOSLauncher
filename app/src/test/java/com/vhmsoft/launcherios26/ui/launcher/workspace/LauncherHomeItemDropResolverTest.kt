@@ -12,7 +12,7 @@ import org.junit.Test
 
 class LauncherHomeItemDropResolverTest {
     @Test
-    fun resolveDrop_shiftsOnlySourceRowWhenTargetIsInsideHorizontalPlusLine() {
+    fun resolveDrop_insertsDraggedItemAtTargetIndexLikeIos17() {
         val baseItems = appItems("A", "B", "C", "D", "E", "F", "G", "H")
 
         val resolved = LauncherHomeItemDropResolver.resolveDrop(
@@ -25,7 +25,7 @@ class LauncherHomeItemDropResolverTest {
     }
 
     @Test
-    fun resolveDrop_shiftsOnlySourceColumnWhenTargetIsInsideVerticalPlusLine() {
+    fun resolveDrop_insertsDraggedItemAtTargetIndexLikeIos17ReorderAlarm() {
         val baseItems = appItems("A", "B", "C", "D", "E", "F", "G", "H", "I")
 
         val resolved = LauncherHomeItemDropResolver.resolveDrop(
@@ -34,11 +34,11 @@ class LauncherHomeItemDropResolverTest {
             dropIndex = 8
         )
 
-        assertEquals(listOf("E", "B", "C", "D", "I", "F", "G", "H", "A"), labels(resolved))
+        assertEquals(listOf("B", "C", "D", "E", "F", "G", "H", "I", "A"), labels(resolved))
     }
 
     @Test
-    fun resolveDrop_swapsDraggedAndTargetWhenTargetIsOutsidePlusLine() {
+    fun resolveDrop_insertsDraggedItemInsteadOfSwappingLikeIos17() {
         val baseItems = appItems("A", "B", "C", "D", "E", "F", "G", "H")
 
         val resolved = LauncherHomeItemDropResolver.resolveDrop(
@@ -47,7 +47,7 @@ class LauncherHomeItemDropResolverTest {
             dropIndex = 5
         )
 
-        assertEquals(listOf("F", "B", "C", "D", "E", "A", "G", "H"), labels(resolved))
+        assertEquals(listOf("B", "C", "D", "E", "F", "A", "G", "H"), labels(resolved))
     }
 
     @Test

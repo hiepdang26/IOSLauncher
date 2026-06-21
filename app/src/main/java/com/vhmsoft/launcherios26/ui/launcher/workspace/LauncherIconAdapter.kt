@@ -247,20 +247,16 @@ class LauncherIconAdapter(
         return true
     }
 
-    fun moveItemByStableIdWithPlusRule(
+    fun moveItemByStableIdWithIos17Rule(
         draggedStableId: Long?,
         baseItems: List<LauncherHomeItemUiModel>,
-        targetPosition: Int,
-        columns: Int,
-        rows: Int
+        targetPosition: Int
     ): Boolean {
         val stableId = draggedStableId ?: return false
-        val movedItems = LauncherHomeIconMovePolicy.moveExistingItem(
+        val movedItems = LauncherIos17HomeReorderPolicy.moveExistingItemToIndex(
             items = baseItems,
             draggedStableId = stableId,
-            targetIndex = targetPosition,
-            columns = columns,
-            rows = rows
+            targetIndex = targetPosition
         ) ?: return false
 
         if (items.map { item -> item.stableId } == movedItems.map { item -> item.stableId }) {

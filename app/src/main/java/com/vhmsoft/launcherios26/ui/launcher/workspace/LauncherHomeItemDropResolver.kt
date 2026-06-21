@@ -17,12 +17,10 @@ object LauncherHomeItemDropResolver {
             )
         }
 
-        LauncherHomeIconMovePolicy.moveExistingItem(
+        LauncherIos17HomeReorderPolicy.moveExistingItemToIndex(
             items = baseItems,
             draggedStableId = draggedItem.stableId,
-            targetIndex = dropIndex,
-            columns = columns,
-            rows = rows
+            targetIndex = dropIndex
         )?.let { movedItems -> return movedItems }
 
         sourcePlaceholderStableId?.let { placeholderStableId ->

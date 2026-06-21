@@ -209,27 +209,12 @@ class LauncherDragCallback(
         val hoverTarget = findHomeHoverTarget(recyclerView, viewHolder, dX, dY)
         if (!isHomeHoverReady(hoverTarget)) return
         when (hoverTarget?.action) {
-            HoverAction.INSERT_BEFORE -> {
+            HoverAction.REORDER -> {
                 adapter.clearPendingDropTarget()
-                val moved = adapter.moveItemByStableIdWithPlusRule(
+                val moved = adapter.moveItemByStableIdWithIos17Rule(
                     draggedStableId = draggedStableId,
                     baseItems = dragBaseItems,
-                    targetPosition = hoverTarget.targetPosition,
-                    columns = gridColumns(recyclerView),
-                    rows = gridRows()
-                )
-                edgeReordered = moved || edgeReordered
-                if (moved) resetHoverState()
-            }
-
-            HoverAction.INSERT_AFTER -> {
-                adapter.clearPendingDropTarget()
-                val moved = adapter.moveItemByStableIdWithPlusRule(
-                    draggedStableId = draggedStableId,
-                    baseItems = dragBaseItems,
-                    targetPosition = hoverTarget.targetPosition,
-                    columns = gridColumns(recyclerView),
-                    rows = gridRows()
+                    targetPosition = hoverTarget.targetPosition
                 )
                 edgeReordered = moved || edgeReordered
                 if (moved) resetHoverState()
@@ -314,7 +299,14 @@ class LauncherDragCallback(
             lastHoverStartedAt = now
             return false
         }
-        if (now - lastHoverStartedAt < HOME_HOVER_SETTLE_MS) return false
+        if (!LauncherIos17DragDropPolicy.shouldFireReorderAlarm(
+                folderInterest = false,
+                targetIndex = hoverTarget.targetPosition,
+                hoverElapsedMs = now - lastHoverStartedAt
+            )
+        ) {
+            return false
+        }
         if (now - lastReorderAt < HOME_REORDER_THROTTLE_MS) return false
 
         lastReorderAt = now
@@ -339,18 +331,15 @@ class LauncherDragCallback(
                 adapter.rememberDropTargetByTargetStableId(draggedStableId, hoverTarget.targetStableId)
             }
 
-            HoverAction.INSERT_BEFORE,
-            HoverAction.INSERT_AFTER -> {
+            HoverAction.REORDER -> {
                 adapter.clearPendingDropTarget()
-                val previewItems = LauncherHomeIconMovePolicy.moveExistingItem(
+                val previewItems = LauncherIos17HomeReorderPolicy.moveExistingItemToIndex(
                     items = dragBaseItems,
                     draggedStableId = draggedStableId ?: return clearHomeIconMovementPreview(
                         recyclerView,
                         animate = true
                     ),
-                    targetIndex = hoverTarget.targetPosition,
-                    columns = gridColumns(recyclerView),
-                    rows = gridRows()
+                    targetIndex = hoverTarget.targetPosition
                 )
                 if (previewItems == null) {
                     clearHomeIconMovementPreview(recyclerView, animate = true)
@@ -596,12 +585,10 @@ class LauncherDragCallback(
             return false
         }
 
-        return adapter.moveItemByStableIdWithPlusRule(
+        return adapter.moveItemByStableIdWithIos17Rule(
             draggedStableId = draggedStableId,
             baseItems = dragBaseItems,
-            targetPosition = targetPosition,
-            columns = gridColumns(recyclerView),
-            rows = gridRows()
+            targetPosition = targetPosition
         )
     }
 
@@ -1056,9 +1043,7 @@ class LauncherDragCallback(
                 draggedItem = draggedItem,
                 targetItem = item,
                 localXInCell = localX,
-                localYInCell = localY,
-                edgeInsertFraction = EDGE_INSERT_FRACTION,
-                edgeInsertVerticalFraction = EDGE_INSERT_VERTICAL_FRACTION
+                localYInCell = localY
             )
             if (action != LauncherHomeHoverDropAction.FOLDER) continue
 
@@ -1128,13 +1113,10 @@ class LauncherDragCallback(
                 draggedItem = draggedItem,
                 targetItem = targetItem,
                 localXInCell = localX,
-                localYInCell = localY,
-                edgeInsertFraction = EDGE_INSERT_FRACTION,
-                edgeInsertVerticalFraction = EDGE_INSERT_VERTICAL_FRACTION
+                localYInCell = localY
             )
             val action = when (hoverAction) {
-                LauncherHomeHoverDropAction.INSERT_BEFORE -> HoverAction.INSERT_BEFORE
-                LauncherHomeHoverDropAction.INSERT_AFTER -> HoverAction.INSERT_AFTER
+                LauncherHomeHoverDropAction.REORDER -> HoverAction.REORDER
                 LauncherHomeHoverDropAction.FOLDER -> HoverAction.FOLDER
                 null -> null
             } ?: continue
@@ -1184,12 +1166,9 @@ class LauncherDragCallback(
     }
 
     private companion object {
-        const val EDGE_INSERT_FRACTION = 0.32f
-        const val EDGE_INSERT_VERTICAL_FRACTION = 0.22f
         const val FOLDER_HOVER_ABSORB_DURATION_MS = 240L
         const val DROP_INTO_FOLDER_DURATION_MS = 420L
         const val DROP_FADE_START_PROGRESS = 0.68f
-        const val HOME_HOVER_SETTLE_MS = 350L
         const val HOME_REORDER_THROTTLE_MS = 0L
         const val HOME_ICON_REORDER_PREVIEW_MS = 95L
         const val HOME_DROP_SETTLE_MS = 120L
@@ -1205,8 +1184,7 @@ class LauncherDragCallback(
     )
 
     private enum class HoverAction {
-        INSERT_BEFORE,
-        INSERT_AFTER,
+        REORDER,
         FOLDER
     }
 

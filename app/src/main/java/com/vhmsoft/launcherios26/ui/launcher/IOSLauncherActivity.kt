@@ -96,6 +96,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePo
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragDropPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragGeometryPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPagedFolderGridLayoutManager
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
@@ -1831,6 +1832,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         } else {
             val targetPage = maxOf(0, homeEdgeDragPage + direction)
             if (targetPage >= homePageCountForItemCount(homeEdgeBaseItems.size + 1)) {
+                if (!LauncherIos17DragDropPolicy.canCreateNextPage(homeEdgePageItemCount(homeEdgeDragPage))) {
+                    homeEdgeDirection = 0
+                    hideFolderEdgeGlows()
+                    return
+                }
                 homeEdgeBaseItems = ensurePageExists(homeEdgeBaseItems, targetPage)
                 baseChanged = true
             }
@@ -1852,6 +1858,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }, if (baseChanged) HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS else HOME_EDGE_SWITCH_START_DELAY_MS)
         showPageIndicator(workspacePageAdapter.adapterPositionForHomePage(homeEdgeDragPage))
         homeEdgeDirection = 0
+    }
+
+    private fun homeEdgePageItemCount(page: Int): Int {
+        val start = page.coerceAtLeast(0) * homePageSize
+        val end = start + homePageSize
+        return homeEdgeBaseItems
+            .subList(start.coerceAtMost(homeEdgeBaseItems.size), end.coerceAtMost(homeEdgeBaseItems.size))
+            .count { item -> item !is LauncherHomeItemUiModel.Placeholder }
     }
 
     private fun smoothScrollHomeEdgeToPage(homePage: Int) {

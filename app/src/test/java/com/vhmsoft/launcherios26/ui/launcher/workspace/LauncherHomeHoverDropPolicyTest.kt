@@ -46,7 +46,7 @@ class LauncherHomeHoverDropPolicyTest {
     }
 
     @Test
-    fun resolveAction_returnsInsertBeforeOnLeftEdge() {
+    fun resolveAction_returnsReorderOnLeftEdgeWhenNotInsideFolderInterest() {
         val dragged = LauncherHomeItemUiModel.App(appItem("Photos"))
         val target = LauncherHomeItemUiModel.App(appItem("Maps"))
 
@@ -57,11 +57,11 @@ class LauncherHomeHoverDropPolicyTest {
             localYInCell = 0.5f
         )
 
-        assertEquals(LauncherHomeHoverDropAction.INSERT_BEFORE, action)
+        assertEquals(LauncherHomeHoverDropAction.REORDER, action)
     }
 
     @Test
-    fun resolveAction_returnsInsertAfterOnRightEdge() {
+    fun resolveAction_returnsReorderOnRightEdgeWhenNotInsideFolderInterest() {
         val dragged = LauncherHomeItemUiModel.App(appItem("Photos"))
         val target = LauncherHomeItemUiModel.App(appItem("Maps"))
 
@@ -72,7 +72,7 @@ class LauncherHomeHoverDropPolicyTest {
             localYInCell = 0.5f
         )
 
-        assertEquals(LauncherHomeHoverDropAction.INSERT_AFTER, action)
+        assertEquals(LauncherHomeHoverDropAction.REORDER, action)
     }
 
     @Test
@@ -106,7 +106,7 @@ class LauncherHomeHoverDropPolicyTest {
             localYInCell = 0.5f
         )
 
-        assertEquals(LauncherHomeHoverDropAction.INSERT_AFTER, action)
+        assertEquals(LauncherHomeHoverDropAction.REORDER, action)
     }
 
     @Test
