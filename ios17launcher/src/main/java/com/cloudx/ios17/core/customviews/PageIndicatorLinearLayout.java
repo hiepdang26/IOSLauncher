@@ -2,6 +2,7 @@ package com.cloudx.ios17.core.customviews;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import androidx.annotation.Nullable;
 
@@ -33,6 +34,10 @@ public class PageIndicatorLinearLayout extends LinearLayout {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        ViewGroup.LayoutParams params = getLayoutParams();
+        if (params != null && params.width != ViewGroup.LayoutParams.MATCH_PARENT) {
+            return;
+        }
         DeviceProfile deviceProfile = BlissLauncher.getApplication(mContext).getDeviceProfile();
         setMeasuredDimension(deviceProfile.getAvailableWidthPx(), deviceProfile.getPageIndicatorHeight());
     }

@@ -2,6 +2,7 @@ package com.cloudx.ios17.core;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Matrix;
@@ -27,11 +28,21 @@ public class DeviceProfile {
     private static final int TYPE_WORKSPACE = 0;
     private static final int TYPE_FOLDER = 1;
     private static final int TYPE_HOTSEAT = 2;
+    private static final String LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences";
+    private static final String KEY_HOME_GRID_ROWS = "home_grid_rows";
+    private static final String KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp";
     private static final float ICON_SIZE_DEFINED_IN_APP_DP = 48;
+    private static final int DEFAULT_HOME_GRID_ROWS = 6;
+    private static final int MIN_HOME_GRID_ROWS = 5;
+    private static final int MAX_HOME_GRID_ROWS = 6;
+    private static final int DEFAULT_HOME_ICON_SIZE_DP = 64;
+    private static final int MIN_HOME_ICON_SIZE_DP = 52;
+    private static final int MAX_HOME_ICON_SIZE_DP = 78;
 
     public static Path path;
     private final float widthCm;
     private final float ratio;
+    private final int preferredHomeIconSizeDp;
     private int statusBarHeight;
     public int cellHeightWithoutPaddingPx;
     public int hotseatCellHeightWithoutPaddingPx;
@@ -182,7 +193,14 @@ public class DeviceProfile {
         pageIndicatorTopPaddingPx = Utilities.pxFromDp(8, dm);
         pageIndicatorBottomPaddingPx = Utilities.pxFromDp(8, dm);
 
+        SharedPreferences layoutPreferences = context.getSharedPreferences(LAYOUT_PREFERENCES_NAME,
+                Context.MODE_PRIVATE);
+
         numColumns = 4;
+        numRows = clamp(layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS),
+                MIN_HOME_GRID_ROWS, MAX_HOME_GRID_ROWS);
+        preferredHomeIconSizeDp = clamp(layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP),
+                MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP);
         numFolderColumns = 3;
         numHotseatIcons = numColumns;
         numFolderRows = numFolderColumns;
@@ -209,34 +227,14 @@ public class DeviceProfile {
 
     private void updateAvailableDimensions(DisplayMetrics dm, Resources res) {
         updateIconSize(1f, res, dm);
-
-        // Check to see if the icons fit within the available height. If not, then scale
-        // down.
-        int usedHeight = (cellHeightPx * numRows);
-
-        int remainHeight = (availableHeightPx - usedHeight - hotseatCellHeightPx - pageIndicatorSizePx
-                - pageIndicatorTopPaddingPx - pageIndicatorBottomPaddingPx);
-        int incrementHeight = remainHeight / (numRows + 1);
-        cellHeightPx = cellHeightPx + incrementHeight;
-        hotseatCellHeightPx = hotseatCellHeightPx + incrementHeight;
         path = getRoundedCornerPath(iconSizePx);
     }
 
     private void updateIconSize(float scale, Resources res, DisplayMetrics dm) {
-        // Workspace
-        /*
-         * if (availableWidthPx < 640) { iconSizePx = 95; } else if (availableWidthPx <
-         * 960) { iconSizePx = 126; } else if (availableWidthPx < 1100) { iconSizePx =
-         * 160; } else if (availableWidthPx < 1200) { iconSizePx = 190; } else {
-         * iconSizePx = 213; }
-         */
-
-        float a = 1.578f;
-        float b = 1.23f;
-
-        iconSizePx = (int) (0.75 * widthPx / widthCm);
+        iconSizePx = Utilities.pxFromDp(preferredHomeIconSizeDp, dm);
         iconTextSizePx = (int) (Utilities.pxFromSp(12, dm) * scale);
-        iconDrawablePaddingPx = (availableWidthPx - iconSizePx * 4) / 5;
+        cellWidthPx = calculateCellWidth(availableWidthPx, numColumns);
+        iconDrawablePaddingPx = Math.max(Utilities.pxFromDp(4, dm), (cellWidthPx - iconSizePx) / 2);
 
         int tempUninstallIconSize = iconSizePx * 72 / 192;
         uninstallIconSizePx = (tempUninstallIconSize > iconDrawablePaddingPx)
@@ -258,15 +256,18 @@ public class DeviceProfile {
         cellHeightWithoutPaddingPx = iconSizePx + Utilities.pxFromDp(4, dm)
                 + Utilities.calculateTextHeight(iconTextSizePx);
 
-        cellHeightPx = cellHeightWithoutPaddingPx + iconDrawablePaddingPx;
-        cellWidthPx = iconSizePx + iconDrawablePaddingPx;
+        int bottomControlsPx = Utilities.pxFromDp(16 + 54 + 8 + 14, dm)
+                + getPageIndicatorHeight()
+                + iconSizePx
+                + Utilities.pxFromDp(28, dm);
+        int topPaddingPx = Utilities.pxFromDp(78, dm);
+        int availableGridHeightPx = Math.max(cellHeightWithoutPaddingPx * numRows,
+                availableHeightPx - topPaddingPx - bottomControlsPx);
+        cellHeightPx = calculateCellHeight(availableGridHeightPx, numRows);
 
         // Hotseat
         hotseatCellHeightWithoutPaddingPx = iconSizePx;
-        hotseatCellHeightPx = hotseatCellHeightWithoutPaddingPx + iconDrawablePaddingPx;
-
-        numRows = (availableHeightPx - Utilities.pxFromDp(8, dm) - pageIndicatorTopPaddingPx
-                - pageIndicatorBottomPaddingPx - pageIndicatorSizePx - hotseatCellHeightPx) / cellHeightPx;
+        hotseatCellHeightPx = iconSizePx + Utilities.pxFromDp(28, dm);
 
         maxAppsPerPage = numColumns * numRows;
 
@@ -396,5 +397,9 @@ public class DeviceProfile {
         }
 
         return density;
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 }

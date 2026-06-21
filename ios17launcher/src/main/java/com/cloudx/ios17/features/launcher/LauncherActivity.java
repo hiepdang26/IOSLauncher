@@ -31,8 +31,10 @@ import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.location.LocationManager;
 import android.net.Uri;
@@ -62,6 +64,7 @@ import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -372,6 +375,10 @@ public class LauncherActivity extends AppCompatActivity
     private LinearLayout widgetContainer;
 
     private FrameLayout widgetsPage;
+    private FrameLayout appLibraryPage;
+    private View contextOverlay;
+    private PopupWindow launcherOptionsPopup;
+    private List<LauncherItem> currentLauncherItems = new ArrayList<>();
     private SearchInputDisposableObserver searchDisposableObserver;
     private AnimatorSet currentAnimator;
     private Rect startBounds;
@@ -439,6 +446,7 @@ public class LauncherActivity extends AppCompatActivity
         };
 
         oldConfig = new Configuration(getResources().getConfiguration());
+        BlissLauncher.getApplication(this).resetDeviceProfile();
         mDeviceProfile = BlissLauncher.getApplication(this).getDeviceProfile();
 
         mAppWidgetManager = BlissLauncher.getApplication(this).getAppWidgetManager();
@@ -516,6 +524,8 @@ public class LauncherActivity extends AppCompatActivity
 
         mDock = mLauncherView.findViewById(R.id.dock);
         mIndicator = mLauncherView.findViewById(R.id.page_indicator);
+        contextOverlay = mLauncherView.findViewById(R.id.context_overlay);
+        contextOverlay.setOnClickListener(v -> dismissLauncherOptionsPopup());
         mFolderWindowContainer = mLauncherView.findViewById(R.id.folder_window_container);
         mFolderAppsViewPager = mLauncherView.findViewById(R.id.folder_apps);
         mFolderTitleInput = mLauncherView.findViewById(R.id.folder_title);
@@ -533,6 +543,14 @@ public class LauncherActivity extends AppCompatActivity
             if (swipeSearchContainer.getVisibility() == VISIBLE) {
                 hideSwipeSearchContainer();
             }
+        });
+        workspace.setOnLongClickListener(v -> {
+            if (!isWobbling && swipeSearchContainer.getVisibility() != VISIBLE
+                    && mFolderWindowContainer.getVisibility() != VISIBLE) {
+                showWorkspaceOptions(v);
+                return true;
+            }
+            return false;
         });
     }
 
@@ -1191,6 +1209,7 @@ public class LauncherActivity extends AppCompatActivity
         createFolderTitleListener();
         createDragListener();
         createWidgetsPage();
+        createAppLibraryPage();
         createIndicator();
         createOrUpdateBadgeCount();
         allAppsDisplayed = true;
@@ -1447,6 +1466,7 @@ public class LauncherActivity extends AppCompatActivity
     private void createUI(List<LauncherItem> launcherItems) {
         mHorizontalPager.setUiCreated(false);
         mDock.setEnabled(false);
+        currentLauncherItems = new ArrayList<>(launcherItems);
 
         pages = new ArrayList<>();
 
@@ -1498,11 +1518,18 @@ public class LauncherActivity extends AppCompatActivity
         GridLayout grid = (GridLayout) getLayoutInflater().inflate(R.layout.apps_page, null);
         grid.setRowCount(mDeviceProfile.numRows);
         grid.setLayoutTransition(getDefaultLayoutTransition());
-        grid.setPadding(mDeviceProfile.iconDrawablePaddingPx / 2, (int) (Utilities.pxFromDp(8, this)),
-                mDeviceProfile.iconDrawablePaddingPx / 2, 0);
+        grid.setPadding(mDeviceProfile.iconDrawablePaddingPx / 2, (int) (Utilities.pxFromDp(78, this)),
+                mDeviceProfile.iconDrawablePaddingPx / 2, (int) (Utilities.pxFromDp(16, this)));
 
         // If a user taps outside (background / space) stop wobbling
         grid.setOnClickListener(view -> handleWobbling(false));
+        grid.setOnLongClickListener(view -> {
+            if (!isWobbling) {
+                showWorkspaceOptions(view);
+                return true;
+            }
+            return false;
+        });
 
         return grid;
     }
@@ -1630,6 +1657,28 @@ public class LauncherActivity extends AppCompatActivity
         // [[END]]
 
         rebindWidgetHost();
+    }
+
+    @SuppressLint("InflateParams")
+    private void createAppLibraryPage() {
+        appLibraryPage = (InsettableFrameLayout) getLayoutInflater().inflate(R.layout.app_library_page,
+                mHorizontalPager, false);
+        GridLayout appLibraryGrid = appLibraryPage.findViewById(R.id.app_library_grid);
+        appLibraryGrid.setColumnCount(mDeviceProfile.numColumns);
+        appLibraryGrid.setPadding(mDeviceProfile.iconDrawablePaddingPx / 2, 0,
+                mDeviceProfile.iconDrawablePaddingPx / 2, 0);
+        appLibraryGrid.removeAllViews();
+
+        for (LauncherItem launcherItem : currentLauncherItems) {
+            if (launcherItem.container == Constants.CONTAINER_HOTSEAT
+                    || launcherItem.itemType == Constants.ITEM_TYPE_FOLDER) {
+                continue;
+            }
+            BlissFrameLayout appView = prepareSuggestedApp(launcherItem);
+            appView.findViewById(R.id.app_label).setVisibility(View.VISIBLE);
+            addAppToGrid(appLibraryGrid, appView);
+        }
+        mHorizontalPager.addView(appLibraryPage);
     }
 
     private void rebindWidgetHost() {
@@ -1828,7 +1877,10 @@ public class LauncherActivity extends AppCompatActivity
     }
 
     private int getCurrentAppsPageNumber() {
-        return currentPageNumber - 1;
+        if (pages == null || pages.isEmpty()) {
+            return 0;
+        }
+        return Math.max(0, Math.min(currentPageNumber - 1, pages.size() - 1));
     }
 
     public void addAppToGrid(GridLayout page, BlissFrameLayout view) {
@@ -1986,15 +2038,108 @@ public class LauncherActivity extends AppCompatActivity
             }
         }
 
-        AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.AlertDialogCustom))
-                .setTitle(launcherItem.title)
-                .setItems(options.toArray(new CharSequence[0]), (dialogInterface, which) -> actions.get(which).run())
-                .setNegativeButton(R.string.cancel, null)
-                .setIcon(launcherItem.icon)
-                .create();
-        dialog.setOnShowListener(arg0 -> dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                .setTextColor(getResources().getColor(R.color.color_blue)));
-        dialog.show();
+        showLauncherOptionsPopup(anchor, options, actions);
+    }
+
+    private void showWorkspaceOptions(View anchor) {
+        List<CharSequence> options = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+
+        options.add(getString(R.string.launcher_option_edit_home_screen));
+        actions.add(() -> handleWobbling(true));
+
+        options.add(getString(R.string.widgets));
+        actions.add(() -> startActivity(new Intent(this, WidgetsActivity.class)));
+
+        showLauncherOptionsPopup(anchor, options, actions);
+    }
+
+    private void showLauncherOptionsPopup(View anchor, List<CharSequence> options, List<Runnable> actions) {
+        dismissLauncherOptionsPopup();
+
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setBackgroundResource(R.drawable.ios17_context_menu_background);
+        menu.setPadding(0, dp(2), 0, dp(2));
+        menu.setElevation(dp(12));
+
+        for (int i = 0; i < options.size(); i++) {
+            final int index = i;
+            TextView row = new TextView(this);
+            row.setText(options.get(i));
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setTextColor(Color.rgb(17, 17, 17));
+            row.setTextSize(14);
+            row.setPadding(dp(12), 0, dp(12), 0);
+            row.setOnClickListener(v -> {
+                dismissLauncherOptionsPopup();
+                actions.get(index).run();
+            });
+            menu.addView(row, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
+
+            if (i < options.size() - 1) {
+                View divider = new View(this);
+                divider.setBackgroundColor(Color.argb(46, 60, 60, 67));
+                menu.addView(divider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
+            }
+        }
+
+        launcherOptionsPopup = new PopupWindow(menu, dp(262), ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        launcherOptionsPopup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        launcherOptionsPopup.setOutsideTouchable(true);
+        launcherOptionsPopup.setElevation(dp(12));
+        launcherOptionsPopup.setOnDismissListener(() -> {
+            if (contextOverlay != null) {
+                contextOverlay.setVisibility(GONE);
+            }
+            launcherOptionsPopup = null;
+        });
+
+        menu.measure(
+                View.MeasureSpec.makeMeasureSpec(getResources().getDisplayMetrics().widthPixels, View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(getResources().getDisplayMetrics().heightPixels, View.MeasureSpec.AT_MOST));
+
+        if (contextOverlay != null) {
+            contextOverlay.setVisibility(VISIBLE);
+            contextOverlay.bringToFront();
+        }
+        launcherOptionsPopup.showAtLocation(mLauncherView, Gravity.NO_GRAVITY,
+                popupX(anchor, dp(262)),
+                popupY(anchor, menu.getMeasuredHeight()));
+    }
+
+    private void dismissLauncherOptionsPopup() {
+        if (launcherOptionsPopup != null) {
+            PopupWindow popup = launcherOptionsPopup;
+            launcherOptionsPopup = null;
+            popup.dismiss();
+        } else if (contextOverlay != null) {
+            contextOverlay.setVisibility(GONE);
+        }
+    }
+
+    private int popupX(View anchor, int popupWidth) {
+        int[] anchorLocation = new int[2];
+        anchor.getLocationOnScreen(anchorLocation);
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int margin = dp(16);
+        return Math.max(margin, Math.min(anchorLocation[0], screenWidth - popupWidth - margin));
+    }
+
+    private int popupY(View anchor, int popupHeight) {
+        int[] anchorLocation = new int[2];
+        anchor.getLocationOnScreen(anchorLocation);
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        int margin = dp(16);
+        int desiredY = anchorLocation[1] + anchor.getHeight() + dp(8);
+        if (desiredY + popupHeight > screenHeight - margin) {
+            return Math.max(margin, anchorLocation[1] - popupHeight - dp(8));
+        }
+        return desiredY;
+    }
+
+    private int dp(int value) {
+        return Utilities.pxFromDp(value, getResources().getDisplayMetrics());
     }
 
     private boolean canShowUninstallOption(LauncherItem launcherItem) {
@@ -2489,8 +2634,11 @@ public class LauncherActivity extends AppCompatActivity
                                     getResources().getDimensionPixelSize(R.dimen.dotSize),
                                     getResources().getDimensionPixelSize(R.dimen.dotSize));
                             dot.setLayoutParams(params);
-                            mIndicator.addView(dot);
-                            mHorizontalPager.addView(layout);
+                            mIndicator.addView(dot, pages.size());
+                            int appLibraryIndex = appLibraryPage == null
+                                    ? mHorizontalPager.getChildCount()
+                                    : Math.max(0, mHorizontalPager.getChildCount() - 1);
+                            mHorizontalPager.addView(layout, appLibraryIndex);
                         }
                     } else if ((cX + mDeviceProfile.iconSizePx / 10) < 2 * scrollCorner) {
                         if (getCurrentAppsPageNumber() == 0) {
@@ -2965,7 +3113,7 @@ public class LauncherActivity extends AppCompatActivity
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(mDeviceProfile.pageIndicatorSizePx,
                 mDeviceProfile.pageIndicatorSizePx);
 
-        for (int i = 0; i < pages.size() + 1; i++) {
+        for (int i = 0; i < pages.size() + 2; i++) {
             ImageView dot = new ImageView(this);
             dot.setImageDrawable(getDrawable(R.drawable.dot_off));
             dot.setLayoutParams(params);

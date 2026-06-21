@@ -6,6 +6,7 @@ import android.graphics.Rect
 import android.util.AttributeSet
 import android.widget.GridLayout
 import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.blur.BlurViewDelegate
 import com.cloudx.ios17.core.blur.BlurWallpaperProvider
 import com.cloudx.ios17.core.utils.OffsetParent
@@ -37,11 +38,13 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         val deviceProfile = com.cloudx.ios17.BlissLauncher.getApplication(mContext).deviceProfile
         val lp = layoutParams as com.cloudx.ios17.core.customviews.InsettableRelativeLayout.LayoutParams
         lp.height = deviceProfile.hotseatCellHeightPx + insets.bottom
+        val horizontalPadding = Utilities.pxFromDp(14f, resources.displayMetrics)
+        val verticalPadding = Utilities.pxFromDp(10f, resources.displayMetrics)
         setPadding(
-            deviceProfile.iconDrawablePaddingPx / 2,
-            0,
-            deviceProfile.iconDrawablePaddingPx / 2,
-            insets.bottom
+            horizontalPadding,
+            verticalPadding,
+            horizontalPadding,
+            insets.bottom + verticalPadding
         )
         layoutParams = lp
     }
