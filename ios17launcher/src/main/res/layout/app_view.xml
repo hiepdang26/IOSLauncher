@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.cloudx.ios17.core.customviews.BlissFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:ignore="MissingPrefix">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <com.cloudx.ios17.core.customviews.SquareFrameLayout
+            android:id="@+id/app_icon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:hapticFeedbackEnabled="false">
+
+            <com.cloudx.ios17.core.customviews.SquareImageView
+                android:id="@+id/icon_image_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter" />
+
+            <com.cloudx.ios17.core.customviews.CustomAnalogClock
+                android:id="@+id/icon_clock"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <include
+                android:id="@+id/icon_calendar"
+                layout="@layout/calendar_icon"
+                android:visibility="gone" />
+
+        </com.cloudx.ios17.core.customviews.SquareFrameLayout>
+
+        <TextView
+            android:id="@+id/app_label"
+            fontPath="Roboto-Regular.ttf"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textColor="?workspaceTextColor"
+            android:textSize="@dimen/labelSize" />
+
+    </LinearLayout>
+
+</com.cloudx.ios17.core.customviews.BlissFrameLayout>

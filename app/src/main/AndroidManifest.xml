@@ -22,7 +22,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.IOSLauncher">
+        android:theme="@style/Theme.IOSLauncher"
+        tools:replace="android:name,android:icon,android:label,android:theme">
         <activity
             android:name=".ui.applibrary.AppLibraryActivity"
             android:exported="false" />
@@ -30,19 +31,17 @@
         <activity
             android:name=".ui.launcher.IOSLauncherActivity"
             android:clearTaskOnLaunch="true"
-            android:exported="true"
+            android:exported="false"
             android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name="com.cloudx.ios17.features.launcher.LauncherActivity"
+            tools:node="merge">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

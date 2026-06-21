@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.cloudx.ios17.core.customviews.SquareLinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/calendar"
+    android:orientation="vertical"
+    tools:ignore="MissingPrefix">
+
+    <TextView
+        android:id="@+id/calendar_month_textview"
+        fontPath="Roboto-Regular.ttf"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/calendar_top"
+        android:gravity="center"
+        android:textAllCaps="true"
+        android:textColor="#FFF" />
+
+    <TextView
+        android:id="@+id/calendar_date_textview"
+        fontPath="Roboto-Regular.ttf"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:fontFamily="sans-serif"
+        android:gravity="center_horizontal"
+        android:textColor="#000" />
+
+</com.cloudx.ios17.core.customviews.SquareLinearLayout>

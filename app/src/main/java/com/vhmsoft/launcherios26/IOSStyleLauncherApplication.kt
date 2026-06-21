@@ -1,5 +1,5 @@
 package com.vhmsoft.launcherios26
 
-import android.app.Application
+import com.cloudx.ios17.BlissLauncher
 
-class IOSStyleLauncherApplication : Application()
+class IOSStyleLauncherApplication : BlissLauncher()

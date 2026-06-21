@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.cloudx.ios17.core.customviews.InsettableFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:animateLayoutChanges="true">
+
+    <com.cloudx.ios17.core.customviews.InsettableScrollLayout
+        android:id="@+id/widgets_scroll_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:animateLayoutChanges="true"
+        android:orientation="vertical"
+        android:scrollbars="none"
+        tools:ignore="ContentDescription">
+
+        <com.cloudx.ios17.core.customviews.InsettableLinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <include layout="@layout/layout_search_suggestion" />
+
+            <FrameLayout
+                android:id="@+id/drag_layer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/widget_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </FrameLayout>
+
+            <com.cloudx.ios17.core.customviews.BlurLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="60dp"
+                app:blurCornerRadius="20dp">
+
+                <Button
+                    android:id="@+id/edit_widgets_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingLeft="24dp"
+                    android:paddingTop="5dp"
+                    android:paddingRight="24dp"
+                    android:paddingBottom="5dp"
+                    android:background="@drawable/btn_rounded_corner"
+                    android:stateListAnimator="@null"
+                    android:fontFamily="sans-serif-medium"
+                    android:textAllCaps="false"
+                    android:textColor="@color/on_surface_high_emphasis"
+                    android:text="@string/edit" />
+            </com.cloudx.ios17.core.customviews.BlurLayout>
+        </com.cloudx.ios17.core.customviews.InsettableLinearLayout>
+    </com.cloudx.ios17.core.customviews.InsettableScrollLayout>
+
+    <RelativeLayout
+        android:id="@+id/widget_resizer_container"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom"
+        android:background="#000"
+        android:clickable="true"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/min_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:drawableTop="@drawable/ic_minus_white_16dp"
+            android:text="Min"
+            android:textColor="@color/white" />
+
+        <SeekBar
+            android:id="@+id/widget_resizer_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="8dp"
+            android:layout_marginRight="8dp"
+            android:layout_toLeftOf="@id/max_label"
+            android:layout_toEndOf="@id/min_label"
+            android:thumbTint="@color/accent_color"
+            android:progressTint="@color/accent_color" />
+
+        <TextView
+            android:id="@+id/max_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:drawableTop="@drawable/ic_add_white_16dp"
+            android:text="Max"
+            android:textColor="@color/white" />
+    </RelativeLayout>
+</com.cloudx.ios17.core.customviews.InsettableFrameLayout>

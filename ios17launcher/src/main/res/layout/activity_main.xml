@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.cloudx.ios17.core.customviews.InsettableRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/workspace"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    tools:context="com.cloudx.ios17.features.launcher.LauncherActivity">
+
+    <com.cloudx.ios17.core.customviews.BlurBackgroundView
+        android:id="@+id/blur_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.cloudx.ios17.core.customviews.HorizontalPager
+        android:id="@+id/pages_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentTop="true" />
+
+    <com.cloudx.ios17.core.customviews.PageIndicatorLinearLayout
+        android:id="@+id/page_indicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/dock"
+        android:divider="@drawable/gap"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:showDividers="middle" />
+
+    <com.cloudx.ios17.core.customviews.DockGridLayout
+        android:id="@+id/dock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:animateLayoutChanges="false"
+        android:columnCount="@integer/col_count"
+        android:rowCount="1"
+        app:blurOverlayColor="@color/dock_background_color" />
+
+    <RelativeLayout
+        android:id="@+id/folder_window_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <com.cloudx.ios17.core.customviews.BlissInput
+            android:id="@+id/folder_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/folder_bg_blur"
+            android:layout_centerHorizontal="true"
+            android:background="@null"
+            android:imeOptions="actionDone"
+            android:inputType="textNoSuggestions|textCapSentences"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
+            android:text="@string/untitled"
+            android:textAlignment="center"
+            android:textColor="?workspaceTextColor"
+            android:textCursorDrawable="@drawable/folder_title_text_cursor"
+            android:textSize="18sp" />
+
+        <com.cloudx.ios17.core.customviews.BlurLayout
+            android:id="@+id/folder_bg_blur"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            app:blurCornerRadius="12dp">
+
+            <LinearLayout
+                android:id="@+id/folder_apps_background"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:background="@drawable/folder_window"
+                android:orientation="vertical">
+
+                <androidx.viewpager.widget.ViewPager
+                    android:id="@+id/folder_apps"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <me.relex.circleindicator.CircleIndicator
+                    android:id="@+id/indicator"
+                    android:layout_width="match_parent"
+                    android:layout_height="24dp"
+                    android:paddingBottom="4dp"
+                    app:ci_drawable="@drawable/dot_on"
+                    app:ci_drawable_unselected="@drawable/dot_off" />
+
+            </LinearLayout>
+        </com.cloudx.ios17.core.customviews.BlurLayout>
+
+    </RelativeLayout>
+
+    <com.cloudx.ios17.core.customviews.SwipeSearchContainer
+        android:id="@+id/swipe_search_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingLeft="8dp"
+        android:paddingTop="40dp"
+        android:paddingRight="8dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
+
+        <include layout="@layout/layout_search_suggestion" />
+    </com.cloudx.ios17.core.customviews.SwipeSearchContainer>
+
+    <ProgressBar
+        android:id="@+id/progressbar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:indeterminateTint="?workspaceTextColor"
+        android:visibility="gone" />
+
+</com.cloudx.ios17.core.customviews.InsettableRelativeLayout>

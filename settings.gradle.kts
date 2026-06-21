@@ -19,9 +19,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://gitlab.e.foundation/api/v4/groups/9/-/packages/maven")
+        maven("https://jitpack.io")
     }
 }
 
 rootProject.name = "IOSLauncher"
 include(":app")
+include(":ios17launcher")
  
