@@ -53,7 +53,7 @@ class LauncherHomeHoverDropPolicyTest {
         val action = LauncherHomeHoverDropPolicy.resolveAction(
             draggedItem = dragged,
             targetItem = target,
-            localXInCell = 0.1f,
+            localXInCell = 0.03f,
             localYInCell = 0.5f
         )
 
@@ -68,11 +68,26 @@ class LauncherHomeHoverDropPolicyTest {
         val action = LauncherHomeHoverDropPolicy.resolveAction(
             draggedItem = dragged,
             targetItem = target,
-            localXInCell = 0.9f,
+            localXInCell = 0.97f,
             localYInCell = 0.5f
         )
 
         assertEquals(LauncherHomeHoverDropAction.INSERT_AFTER, action)
+    }
+
+    @Test
+    fun resolveAction_usesIos17DistanceForFolderInterestNearHorizontalEdge() {
+        val dragged = LauncherHomeItemUiModel.App(appItem("Photos"))
+        val target = LauncherHomeItemUiModel.App(appItem("Maps"))
+
+        val action = LauncherHomeHoverDropPolicy.resolveAction(
+            draggedItem = dragged,
+            targetItem = target,
+            localXInCell = 0.1f,
+            localYInCell = 0.5f
+        )
+
+        assertEquals(LauncherHomeHoverDropAction.FOLDER, action)
     }
 
     @Test

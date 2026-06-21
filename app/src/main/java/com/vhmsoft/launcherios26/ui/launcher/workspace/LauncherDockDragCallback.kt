@@ -173,7 +173,9 @@ class LauncherDockDragCallback(
         recyclerView.getLocationOnScreen(recyclerLocation)
         val draggedCenterX = lastDragCenterX - recyclerLocation[0]
         val draggedCenterY = lastDragCenterY - recyclerLocation[1]
-        val hitSlop = dp(recyclerView, FOLDER_DROP_HIT_SLOP_DP)
+        val draggedIcon = draggedView.findViewById<View>(R.id.iconPlate) ?: draggedView
+        val dragIconWidth = draggedIcon.width.toFloat()
+        val dragIconHeight = draggedIcon.height.toFloat()
 
         var bestStableId: Long? = null
         var bestDistance = Float.MAX_VALUE
@@ -189,14 +191,20 @@ class LauncherDockDragCallback(
             val targetItem = adapter.itemAt(position) ?: continue
 
             val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
-            val left = child.left + iconPlate.left - hitSlop
-            val top = child.top + iconPlate.top - hitSlop
-            val right = child.left + iconPlate.right + hitSlop
-            val bottom = child.top + iconPlate.bottom + hitSlop
-            if (draggedCenterX < left ||
-                draggedCenterX > right ||
-                draggedCenterY < top ||
-                draggedCenterY > bottom
+            val left = child.left + iconPlate.left.toFloat()
+            val top = child.top + iconPlate.top.toFloat()
+            val right = child.left + iconPlate.right.toFloat()
+            val bottom = child.top + iconPlate.bottom.toFloat()
+            if (!LauncherIos17DragGeometryPolicy.intersectsTargetIcon(
+                    dragCenterX = draggedCenterX,
+                    dragCenterY = draggedCenterY,
+                    dragIconWidth = dragIconWidth,
+                    dragIconHeight = dragIconHeight,
+                    targetLeft = left,
+                    targetTop = top,
+                    targetRight = right,
+                    targetBottom = bottom
+                )
             ) {
                 continue
             }
@@ -289,6 +297,5 @@ class LauncherDockDragCallback(
         const val DRAG_ALPHA = 0.96f
         const val DRAG_LIFT_DURATION_MS = 120L
         const val DRAG_ELEVATION_DP = 18
-        const val FOLDER_DROP_HIT_SLOP_DP = 24
     }
 }

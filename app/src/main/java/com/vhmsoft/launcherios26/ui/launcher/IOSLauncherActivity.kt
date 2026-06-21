@@ -96,6 +96,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePo
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragGeometryPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPagedFolderGridLayoutManager
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWindowPolicy
@@ -1355,7 +1356,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         recyclerView.getLocationOnScreen(recyclerLocation)
         val localX = centerXOnScreen - recyclerLocation[0]
         val localY = centerYOnScreen - recyclerLocation[1]
-        val hitSlop = dp(DOCK_FOLDER_DROP_HIT_SLOP_DP)
         val draggedItem = LauncherHomeItemUiModel.App(draggedApp)
 
         for (childIndex in 0 until recyclerView.childCount) {
@@ -1366,19 +1366,25 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             val targetItem = dockAdapter.itemAt(position) ?: continue
 
             val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
-            val left = child.left + iconPlate.left - hitSlop
-            val top = child.top + iconPlate.top - hitSlop
-            val right = child.left + iconPlate.right + hitSlop
-            val bottom = child.top + iconPlate.bottom + hitSlop
-            if (localX !in left.toFloat()..right.toFloat() ||
-                localY !in top.toFloat()..bottom.toFloat()
+            val plateLeft = child.left + iconPlate.left.toFloat()
+            val plateTop = child.top + iconPlate.top.toFloat()
+            val plateRight = child.left + iconPlate.right.toFloat()
+            val plateBottom = child.top + iconPlate.bottom.toFloat()
+            if (!LauncherIos17DragGeometryPolicy.intersectsTargetIcon(
+                    dragCenterX = localX,
+                    dragCenterY = localY,
+                    dragIconWidth = iconPlate.width.toFloat(),
+                    dragIconHeight = iconPlate.height.toFloat(),
+                    targetLeft = plateLeft,
+                    targetTop = plateTop,
+                    targetRight = plateRight,
+                    targetBottom = plateBottom
+                )
             ) {
                 continue
             }
             if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
 
-            val plateLeft = child.left + iconPlate.left
-            val plateTop = child.top + iconPlate.top
             val action = LauncherHomeHoverDropPolicy.resolveAction(
                 draggedItem = draggedItem,
                 targetItem = targetItem,
@@ -1442,8 +1448,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
             return NO_PREVIEW_INDEX
         }
-        val overTargetCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
-            target.localYInCell in HOME_FOLDER_DROP_MIN_Y..HOME_FOLDER_DROP_MAX_Y
+        val overTargetCenter = LauncherIos17DragGeometryPolicy.isFolderInterest(
+            localXInIcon = target.localXInCell,
+            localYInIcon = target.localYInCell
+        )
         return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
     }
 
@@ -1936,8 +1944,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
             return NO_PREVIEW_INDEX
         }
-        val overTargetCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
-            target.localYInCell in HOME_FOLDER_DROP_MIN_Y..HOME_FOLDER_DROP_MAX_Y
+        val overTargetCenter = LauncherIos17DragGeometryPolicy.isFolderInterest(
+            localXInIcon = target.localXInCell,
+            localYInIcon = target.localYInCell
+        )
         return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
     }
 
@@ -2606,8 +2616,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
             return NO_PREVIEW_INDEX
         }
-        val overTargetCenter = target.localXInCell in HOME_FOLDER_DROP_MIN_X..HOME_FOLDER_DROP_MAX_X &&
-            target.localYInCell in HOME_FOLDER_DROP_MIN_Y..HOME_FOLDER_DROP_MAX_Y
+        val overTargetCenter = LauncherIos17DragGeometryPolicy.isFolderInterest(
+            localXInIcon = target.localXInCell,
+            localYInIcon = target.localYInCell
+        )
         return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
     }
 
@@ -5341,10 +5353,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS = 95L
         const val HOME_EDGE_PAGE_SWITCH_ANIMATION_MS = 360L
         const val HOME_EDGE_PAGE_SWITCH_SETTLE_MS = 80L
-        const val HOME_FOLDER_DROP_MIN_X = 0.24f
-        const val HOME_FOLDER_DROP_MAX_X = 0.76f
-        const val HOME_FOLDER_DROP_MIN_Y = 0.08f
-        const val HOME_FOLDER_DROP_MAX_Y = 0.66f
         const val FOLDER_EDGE_SWITCH_ZONE_DP = 30
         const val FOLDER_EDGE_SWITCH_DELAY_MS = 320L
         const val FOLDER_OVERLAY_DIM_COLOR = 0x22000000
@@ -5359,7 +5367,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val HOME_BOTTOM_PADDING_DP = 16
         const val DOCK_VERTICAL_EXTRA_DP = 28
         const val DOCK_IPHONE8_VERTICAL_EXTRA_DP = 58
-        const val DOCK_FOLDER_DROP_HIT_SLOP_DP = 16
         const val NO_PREVIEW_INDEX = -1
         const val EMPTY_LONG_PRESS_MS = 520L
         const val EMPTY_LONG_PRESS_SLOP_DP = 10

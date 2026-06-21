@@ -24,11 +24,10 @@ internal object LauncherHomeHoverDropPolicy {
             (targetItem is LauncherHomeItemUiModel.App || targetItem is LauncherHomeItemUiModel.Folder)
 
         return when {
-            canCreateOrUpdateFolder &&
-                localX > edgeInsertFraction &&
-                localX < 1f - edgeInsertFraction &&
-                localY > edgeInsertVerticalFraction &&
-                localY < 1f - edgeInsertVerticalFraction -> LauncherHomeHoverDropAction.FOLDER
+            canCreateOrUpdateFolder && LauncherIos17DragGeometryPolicy.isFolderInterest(
+                localXInIcon = localX,
+                localYInIcon = localY
+            ) -> LauncherHomeHoverDropAction.FOLDER
 
             localX <= edgeInsertFraction -> LauncherHomeHoverDropAction.INSERT_BEFORE
             localX >= 1f - edgeInsertFraction -> LauncherHomeHoverDropAction.INSERT_AFTER
