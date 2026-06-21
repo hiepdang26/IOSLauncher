@@ -3302,14 +3302,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun showDefaultLauncherPrompt() {
-        if (isCurrentDefaultLauncher()) {
-            forceSettingsPanel = false
-            updateLauncherMode(forceAnimate = true)
-            showAlreadyDefaultLauncher()
-            showDefaultWelcomeIfNeeded()
-            return
-        }
-
         val dialog = Dialog(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -3419,9 +3411,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     override fun openDefaultLauncherSelection() {
         if (isCurrentDefaultLauncher()) {
             forceSettingsPanel = false
-            updateLauncherMode(forceAnimate = true)
             showAlreadyDefaultLauncher()
-            showDefaultWelcomeIfNeeded()
+            openCopiedIos17Launcher()
             return
         }
 
@@ -3488,9 +3479,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         waitingForLauncherSelection = false
         if (isCurrentDefaultLauncher()) {
             forceSettingsPanel = false
-            updateLauncherMode(forceAnimate = true)
-            applyLauncherSystemUi()
-            showDefaultWelcomeIfNeeded()
+            openCopiedIos17Launcher()
         } else {
             updateLauncherMode(forceAnimate = true)
             if (showNotSelectedToast) {

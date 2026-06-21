@@ -56,7 +56,7 @@ class IOSLauncherPresenter(
     }
 
     override fun onSetDefaultLauncherClicked() {
-        view?.openCopiedIos17Launcher()
+        view?.openDefaultLauncherSelection()
     }
 
     override fun onAppLibraryClicked() {
