@@ -3437,6 +3437,21 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         showError(getString(R.string.launcher_default_prompt_failed))
     }
 
+    override fun openCopiedIos17Launcher() {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            component = ComponentName(
+                packageName,
+                "com.cloudx.ios17.features.launcher.LauncherActivity"
+            )
+            addCategory(Intent.CATEGORY_HOME)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+        runCatching { startActivity(intent) }.onFailure {
+            showError(getString(R.string.launcher_default_prompt_failed))
+        }
+    }
+
     private fun resetFoldersForDefaultLauncher() {
         val resetHomeItems = LauncherHomeLayoutStatePolicy.resetFoldersToApps(homeItems)
         if (resetHomeItems != homeItems) {

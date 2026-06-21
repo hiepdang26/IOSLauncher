@@ -18,6 +18,7 @@ interface IOSLauncherContract {
         )
         fun showError(message: String)
         fun openDefaultLauncherSelection()
+        fun openCopiedIos17Launcher()
         fun showAlreadyDefaultLauncher()
         fun showAppOptions(item: LauncherIconUiModel)
         fun openApp(app: LauncherApp)

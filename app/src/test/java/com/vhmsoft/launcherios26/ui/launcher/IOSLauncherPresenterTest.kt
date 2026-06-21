@@ -24,6 +24,17 @@ class IOSLauncherPresenterTest {
     }
 
     @Test
+    fun onSetDefaultLauncherClicked_opensCopiedIos17Launcher() {
+        val view = FakeView()
+        val presenter = IOSLauncherPresenter(FakeRepository)
+
+        presenter.attachView(view)
+        presenter.onSetDefaultLauncherClicked()
+
+        assertTrue(view.openedCopiedIos17Launcher)
+    }
+
+    @Test
     fun settingsFeatureClicks_requestMatchingPrompts() {
         val view = FakeView()
         val presenter = IOSLauncherPresenter(FakeRepository)
@@ -47,6 +58,7 @@ class IOSLauncherPresenterTest {
 
     private class FakeView : IOSLauncherContract.View {
         var openedAppLibrary = false
+        var openedCopiedIos17Launcher = false
         val externalFeaturePrompts = mutableListOf<LauncherExternalFeatureCode>()
         var showedSettingsDrawer = false
 
@@ -59,6 +71,9 @@ class IOSLauncherPresenterTest {
         ) = Unit
         override fun showError(message: String) = Unit
         override fun openDefaultLauncherSelection() = Unit
+        override fun openCopiedIos17Launcher() {
+            openedCopiedIos17Launcher = true
+        }
         override fun showAlreadyDefaultLauncher() = Unit
         override fun showAppOptions(item: LauncherIconUiModel) = Unit
         override fun openApp(app: LauncherApp) = Unit

@@ -1898,8 +1898,11 @@ public class LauncherActivity extends AppCompatActivity
 
         icon.setOnLongClickListener(view -> {
             view.setHapticFeedbackEnabled(true);
-            handleWobbling(true);
-            longPressed = true;
+            if (isWobbling) {
+                longPressed = true;
+            } else {
+                showLauncherItemOptions(launcherItem, iconView, view);
+            }
             return true;
         });
 
@@ -1947,15 +1950,123 @@ public class LauncherActivity extends AppCompatActivity
                 return;
             }
 
-            if (launcherItem.itemType != Constants.ITEM_TYPE_FOLDER) {
-                startActivitySafely(getApplicationContext(), launcherItem, view);
-            } else {
-                folderFromDock = !(iconView.getParent().getParent() instanceof HorizontalPager);
-                displayFolder((FolderItem) launcherItem, iconView);
-            }
+            openLauncherItem(launcherItem, iconView, view);
         });
 
         return iconView;
+    }
+
+    private void openLauncherItem(LauncherItem launcherItem, BlissFrameLayout iconView, View view) {
+        if (launcherItem.itemType != Constants.ITEM_TYPE_FOLDER) {
+            startActivitySafely(getApplicationContext(), launcherItem, view);
+        } else {
+            folderFromDock = !(iconView.getParent().getParent() instanceof HorizontalPager);
+            displayFolder((FolderItem) launcherItem, iconView);
+        }
+    }
+
+    private void showLauncherItemOptions(final LauncherItem launcherItem, final BlissFrameLayout iconView,
+            final View anchor) {
+        List<CharSequence> options = new ArrayList<>();
+        List<Runnable> actions = new ArrayList<>();
+
+        options.add(getString(R.string.launcher_option_open));
+        actions.add(() -> openLauncherItem(launcherItem, iconView, anchor));
+
+        options.add(getString(R.string.launcher_option_edit_home_screen));
+        actions.add(() -> handleWobbling(true));
+
+        if (launcherItem.itemType != Constants.ITEM_TYPE_FOLDER) {
+            options.add(getString(R.string.launcher_option_app_info));
+            actions.add(() -> openLauncherItemInfo(launcherItem));
+
+            if (canShowUninstallOption(launcherItem)) {
+                options.add(getString(R.string.launcher_option_uninstall));
+                actions.add(() -> uninstallLauncherItem(launcherItem, iconView));
+            }
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.AlertDialogCustom))
+                .setTitle(launcherItem.title)
+                .setItems(options.toArray(new CharSequence[0]), (dialogInterface, which) -> actions.get(which).run())
+                .setNegativeButton(R.string.cancel, null)
+                .setIcon(launcherItem.icon)
+                .create();
+        dialog.setOnShowListener(arg0 -> dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                .setTextColor(getResources().getColor(R.color.color_blue)));
+        dialog.show();
+    }
+
+    private boolean canShowUninstallOption(LauncherItem launcherItem) {
+        if (launcherItem.itemType == Constants.ITEM_TYPE_SHORTCUT) {
+            return true;
+        }
+        if (launcherItem.itemType != Constants.ITEM_TYPE_APPLICATION) {
+            return false;
+        }
+        ApplicationItem applicationItem = (ApplicationItem) launcherItem;
+        return applicationItem.isSystemApp == ApplicationItem.FLAG_SYSTEM_UNKNOWN
+                || (applicationItem.isSystemApp & ApplicationItem.FLAG_SYSTEM_NO) != 0;
+    }
+
+    private void openLauncherItemInfo(LauncherItem launcherItem) {
+        String packageName = null;
+        ComponentName componentName = launcherItem.getTargetComponent();
+        if (componentName != null) {
+            packageName = componentName.getPackageName();
+        } else if (launcherItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
+            packageName = ((ApplicationItem) launcherItem).packageName;
+        } else if (launcherItem.itemType == Constants.ITEM_TYPE_SHORTCUT) {
+            packageName = ((ShortcutItem) launcherItem).packageName;
+        }
+
+        if (packageName == null) {
+            Toast.makeText(this, getString(R.string.activity_not_found), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.parse("package:" + packageName));
+        startActivity(intent);
+    }
+
+    private void uninstallLauncherItem(LauncherItem launcherItem, BlissFrameLayout blissFrameLayout) {
+        if (launcherItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
+            ComponentName componentName = launcherItem.getTargetComponent();
+            if (componentName == null) {
+                Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show();
+            } else {
+                Uri packageUri = Uri.fromParts("package", componentName.getPackageName(),
+                        componentName.getClassName());
+                Intent i = new Intent(Intent.ACTION_UNINSTALL_PACKAGE, packageUri).putExtra(Intent.EXTRA_USER,
+                        launcherItem.user.getRealHandle());
+                startActivity(i);
+            }
+        } else if (launcherItem.itemType == Constants.ITEM_TYPE_SHORTCUT) {
+            AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.AlertDialogCustom))
+                    .setTitle(launcherItem.title).setMessage(R.string.uninstall_shortcut_dialog)
+                    .setPositiveButton(R.string.ok, (dialog1, which) -> {
+                        ShortcutItem shortcut = (ShortcutItem) launcherItem;
+                        if (shortcut.packageName != null) {
+                            DeepShortcutManager.getInstance(this).unpinShortcut(ShortcutKey.fromItem(shortcut));
+                            if (DeepShortcutManager.getInstance(this).wasLastCallSuccess()) {
+                                deleteShortcutFromProvider(shortcut.id);
+                                removeShortcutView(shortcut, blissFrameLayout);
+                            }
+                        } else {
+                            deleteShortcutFromProvider(shortcut.id);
+                            removeShortcutView(shortcut, blissFrameLayout);
+                        }
+
+                    }).setNegativeButton(R.string.cancel, null).setIcon(launcherItem.icon).create();
+            dialog.setOnShowListener(arg0 -> {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setTextColor(getResources().getColor(R.color.color_blue));
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                        .setTextColor(getResources().getColor(R.color.color_blue));
+            });
+            dialog.show();
+        }
     }
 
     public BlissFrameLayout prepareSuggestedApp(final LauncherItem launcherItem) {
@@ -2147,49 +2258,7 @@ public class LauncherActivity extends AppCompatActivity
         imageView.setImageResource(R.drawable.remove_icon_72);
         imageView.setPadding(leftPadding, topPadding, rightPadding, bottomPadding);
 
-        imageView.setOnClickListener(v -> {
-            if (launcherItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
-                ComponentName componentName = launcherItem.getTargetComponent();
-                if (componentName == null) {
-                    // System applications cannot be installed. For now, show a toast explaining
-                    // that.
-                    // We may give them the option of disabling apps this way.
-                    Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show();
-                } else {
-                    Uri packageUri = Uri.fromParts("package", componentName.getPackageName(),
-                            componentName.getClassName());
-                    Intent i = new Intent(Intent.ACTION_UNINSTALL_PACKAGE, packageUri).putExtra(Intent.EXTRA_USER,
-                            launcherItem.user.getRealHandle());
-                    startActivity(i);
-                }
-            } else if (launcherItem.itemType == Constants.ITEM_TYPE_SHORTCUT) {
-                AlertDialog dialog = new AlertDialog.Builder(new ContextThemeWrapper(this, R.style.AlertDialogCustom))
-                        .setTitle(launcherItem.title).setMessage(R.string.uninstall_shortcut_dialog)
-                        .setPositiveButton(R.string.ok, (dialog1, which) -> {
-                            ShortcutItem shortcut = (ShortcutItem) launcherItem;
-                            if (shortcut.packageName != null) {
-                                DeepShortcutManager.getInstance(this).unpinShortcut(ShortcutKey.fromItem(shortcut));
-                                if (DeepShortcutManager.getInstance(this).wasLastCallSuccess()) {
-                                    deleteShortcutFromProvider(shortcut.id);
-                                    removeShortcutView(shortcut, blissFrameLayout);
-                                }
-                            } else {
-                                // Null package name generally comes for nougat shortcuts so don't unpin here,
-                                // just directly delete it.
-                                deleteShortcutFromProvider(shortcut.id);
-                                removeShortcutView(shortcut, blissFrameLayout);
-                            }
-
-                        }).setNegativeButton(R.string.cancel, null).setIcon(launcherItem.icon).create();
-                dialog.setOnShowListener(arg0 -> {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                            .setTextColor(getResources().getColor(R.color.color_blue));
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                            .setTextColor(getResources().getColor(R.color.color_blue));
-                });
-                dialog.show();
-            }
-        });
+        imageView.setOnClickListener(v -> uninstallLauncherItem(launcherItem, blissFrameLayout));
         FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(size + 2 * rightPadding,
                 size + 2 * topPadding);
         layoutParams.gravity = Gravity.END | Gravity.TOP;

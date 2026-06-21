@@ -167,6 +167,10 @@
     <string name="choose_widget">Choose widget</string>
     <string name="add_widget">Add Widget</string>
     <string name="edit">Edit</string>
+    <string name="launcher_option_open">Open</string>
+    <string name="launcher_option_edit_home_screen">Edit Home Screen</string>
+    <string name="launcher_option_app_info">App info</string>
+    <string name="launcher_option_uninstall">Uninstall</string>
     <string name="widgets">Widgets</string>
     <string name="uninstall_shortcut_dialog">Do you want to uninstall this shortcut?</string>
     <string name="ok">ok</string>
