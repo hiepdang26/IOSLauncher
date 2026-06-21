@@ -11,6 +11,12 @@ import kotlin.math.pow
 class LauncherDockDragCallback(
     private val adapter: LauncherDockAdapter,
     private val isDragCenterInDock: (Float, Float) -> Boolean,
+    private val onDragMoved: (
+        LauncherHomeItemUiModel,
+        RecyclerView.ViewHolder,
+        Float,
+        Float
+    ) -> Boolean = { _, _, _, _ -> false },
     private val onDragEnded: (
         LauncherHomeItemUiModel,
         RecyclerView.ViewHolder,
@@ -25,6 +31,7 @@ class LauncherDockDragCallback(
     private var lastDragCenterY = 0f
     private var touchToCenterOffsetX = 0f
     private var touchToCenterOffsetY = 0f
+    private var externalDragActive = false
 
     override fun getMovementFlags(
         recyclerView: RecyclerView,
@@ -55,6 +62,7 @@ class LauncherDockDragCallback(
         super.onSelectedChanged(viewHolder, actionState)
         if (actionState != ItemTouchHelper.ACTION_STATE_DRAG) return
 
+        externalDragActive = false
         draggedStableId = viewHolder?.bindingAdapterPosition
             ?.let { position -> adapter.stableIdAt(position) }
         viewHolder?.let { holder ->
@@ -82,6 +90,26 @@ class LauncherDockDragCallback(
     ) {
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && isCurrentlyActive) {
             updateDragCenter(dX, dY)
+            val draggedItem = adapter.itemByStableId(draggedStableId)
+            if (externalDragActive) {
+                val stillHandledExternally = draggedItem?.let { item ->
+                    onDragMoved(item, viewHolder, lastDragCenterX, lastDragCenterY)
+                } == true
+                if (stillHandledExternally) {
+                    hideDraggedView(viewHolder)
+                    return
+                }
+                externalDragActive = false
+                resetDraggedView(viewHolder)
+            }
+            if (draggedItem != null &&
+                onDragMoved(draggedItem, viewHolder, lastDragCenterX, lastDragCenterY)
+            ) {
+                externalDragActive = true
+                adapter.clearPendingDropTarget()
+                hideDraggedView(viewHolder)
+                return
+            }
             val targetStableId = if (isDragCenterInDock(lastDragCenterX, lastDragCenterY)) {
                 findDockDropTargetStableId(recyclerView, viewHolder)
             } else {
@@ -121,8 +149,13 @@ class LauncherDockDragCallback(
         } == true
 
         super.clearView(recyclerView, viewHolder)
-        resetDraggedView(viewHolder)
+        if (handledOutside && externalDragActive) {
+            hideDraggedView(viewHolder)
+        } else {
+            resetDraggedView(viewHolder)
+        }
         draggedStableId = null
+        externalDragActive = false
         adapter.clearActiveTouch()
 
         if (!handledOutside) {
@@ -234,6 +267,16 @@ class LauncherDockDragCallback(
         viewHolder.itemView.scaleX = 1f
         viewHolder.itemView.scaleY = 1f
         viewHolder.itemView.alpha = 1f
+        viewHolder.itemView.elevation = 0f
+    }
+
+    private fun hideDraggedView(viewHolder: RecyclerView.ViewHolder) {
+        viewHolder.itemView.animate().cancel()
+        viewHolder.itemView.translationX = 0f
+        viewHolder.itemView.translationY = 0f
+        viewHolder.itemView.scaleX = 1f
+        viewHolder.itemView.scaleY = 1f
+        viewHolder.itemView.alpha = 0f
         viewHolder.itemView.elevation = 0f
     }
 

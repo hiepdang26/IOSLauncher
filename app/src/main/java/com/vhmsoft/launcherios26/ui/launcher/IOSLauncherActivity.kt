@@ -79,6 +79,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockDragCallback
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockHomeEdgeDragPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockHomeDropResolver
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragCallback
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragPreviewPositioner
@@ -215,6 +216,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var homeEdgeDraggedItem: LauncherHomeItemUiModel? = null
     private var homeEdgeDragPlaceholder: LauncherHomeItemUiModel.Placeholder? = null
     private var homeEdgeBaseItems: List<LauncherHomeItemUiModel> = emptyList()
+    private var homeEdgeDragFromDock = false
     private var homeEdgeCommitted = false
     private var homeEdgeTouchActive = false
     private var homeEdgePageSwitching = false
@@ -1128,6 +1130,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         centerYOnScreen: Float
     ): Boolean {
         if (!editingHome) return false
+        if (homeEdgeDragActive && homeEdgeDragFromDock) {
+            if (homeEdgeCommitted) return true
+            if (homeEdgeTouchActive) return true
+
+            updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
+            finishHomeEdgeDrag(commit = true)
+            return true
+        }
         if (isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen)) {
             return false
         }
@@ -1138,6 +1148,40 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.root.post {
             moveDockItemToHome(item, centerXOnScreen, centerYOnScreen)
         }
+        return true
+    }
+
+    private fun handleDockDragMoved(
+        item: LauncherHomeItemUiModel,
+        viewHolder: RecyclerView.ViewHolder,
+        centerXOnScreen: Float,
+        centerYOnScreen: Float
+    ): Boolean {
+        if (homeEdgeDragActive && !homeEdgeDragFromDock) return false
+
+        val rootLocation = IntArray(2)
+        binding.workspace.root.getLocationOnScreen(rootLocation)
+        val rootWidth = binding.workspace.root.width.takeIf { width -> width > 0 }
+            ?: resources.displayMetrics.widthPixels
+        val rootCenterX = centerXOnScreen - rootLocation[0]
+        val inEdgeZone = rootCenterX <= dp(HOME_EDGE_SWITCH_ZONE_DP) ||
+            rootCenterX >= rootWidth - dp(HOME_EDGE_SWITCH_ZONE_DP)
+        val shouldHandle = LauncherDockHomeEdgeDragPolicy.shouldHandle(
+            editingHome = editingHome,
+            alreadyActive = homeEdgeDragActive && homeEdgeDragFromDock,
+            inDock = isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen),
+            inWorkspace = isPointInsideView(binding.workspace.workspacePager, centerXOnScreen, centerYOnScreen),
+            inEdgeZone = inEdgeZone
+        )
+        if (!shouldHandle) {
+            if (homeEdgeDragActive && homeEdgeDragFromDock) {
+                finishHomeEdgeDrag(commit = false)
+            }
+            return false
+        }
+
+        beginDockHomeEdgeDragIfNeeded(item, viewHolder)
+        updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
         return true
     }
 
@@ -1458,11 +1502,27 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             homeEdgeHomeDropIndex()
         }
         val updatedItems = if (draggedApp != null) {
-            LauncherFolderExitDropResolver.resolveDrop(
+            if (homeEdgeDragFromDock) {
+                LauncherDockHomeDropResolver.resolveDrop(
+                    baseItems = homeEdgeBaseItems,
+                    dockItem = draggedItem,
+                    dropIndex = dropIndex,
+                    folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
+                )
+            } else {
+                LauncherFolderExitDropResolver.resolveDrop(
+                    baseItems = homeEdgeBaseItems,
+                    draggedApp = draggedApp,
+                    dropIndex = dropIndex,
+                    folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
+                )
+            }
+        } else if (homeEdgeDragFromDock) {
+            LauncherDockHomeDropResolver.resolveDrop(
                 baseItems = homeEdgeBaseItems,
-                draggedApp = draggedApp,
+                dockItem = draggedItem,
                 dropIndex = dropIndex,
-                folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
+                folderTargetIndex = null
             )
         } else {
             LauncherHomeItemDropResolver.resolveDrop(
@@ -1475,11 +1535,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             )
         }
         val committedPage = homeEdgeDragPage
+        val updatedDockItems = if (homeEdgeDragFromDock) {
+            dockAdapter.itemsSnapshot()
+                .filterNot { dockItem -> dockItem.stableId == draggedItem.stableId }
+        } else {
+            null
+        }
 
         homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
         hideFolderEdgeGlows()
         binding.workspace.workspacePager.post {
             if (!homeEdgeCommitted) return@post
+            updatedDockItems?.let { items -> handleDockItemsChanged(items) }
             handleHomeItemsChanged(updatedItems, preferredPage = committedPage)
             dropCommitRenderGate.afterCommittedRender {
                 hideHomeEdgeDragPreview(restoreWorkspace = false)
@@ -1494,6 +1561,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (homeEdgeDraggedItem != null) return
 
         homeEdgeDraggedItem = draggedItem
+        homeEdgeDragFromDock = false
         homeEdgeCommitted = false
         homeEdgeTouchActive = true
         homeEdgePageSwitching = false
@@ -1509,6 +1577,44 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             maxOf(0, homePageCountForItemCount(homeEdgeBaseItems.size + 1) - 1)
         )
         homeEdgePreviewIndex = NO_PREVIEW_INDEX
+        binding.workspace.workspacePager.isUserInputEnabled = false
+        binding.workspace.selectedIconImage.setImageDrawable(homeEdgePreviewDrawable(draggedItem, viewHolder))
+        binding.workspace.selectedIconLabel.text = draggedItem.label
+        binding.workspace.selectedIconPreview.apply {
+            animate().cancel()
+            alpha = 1f
+            scaleX = 1.08f
+            scaleY = 1.08f
+            elevation = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
+            translationZ = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
+            visibility = View.VISIBLE
+        }
+        homeEdgeDragActive = true
+    }
+
+    private fun beginDockHomeEdgeDragIfNeeded(
+        draggedItem: LauncherHomeItemUiModel,
+        viewHolder: RecyclerView.ViewHolder
+    ) {
+        if (homeEdgeDraggedItem != null) return
+
+        homeEdgeDraggedItem = draggedItem
+        homeEdgeDragFromDock = true
+        homeEdgeCommitted = false
+        homeEdgeTouchActive = true
+        homeEdgePageSwitching = false
+        homeEdgeDragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
+        homeEdgeBaseItems = draggedItem.containedApps().fold(homeItems) { currentItems, app ->
+            removeAppFromHomeItems(currentItems, app)
+        }
+        homeEdgeSourcePage = currentHomePageIndex()
+        homeEdgeHasLeftSourcePage = true
+        homeEdgeDragPage = currentHomePageIndex().coerceAtMost(
+            maxOf(0, homePageCountForItemCount(homeEdgeBaseItems.size + 1) - 1)
+        )
+        homeEdgePreviewIndex = NO_PREVIEW_INDEX
+        homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
+        homeEdgeDirection = 0
         binding.workspace.workspacePager.isUserInputEnabled = false
         binding.workspace.selectedIconImage.setImageDrawable(homeEdgePreviewDrawable(draggedItem, viewHolder))
         binding.workspace.selectedIconLabel.text = draggedItem.label
@@ -1891,6 +1997,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         homeEdgeDraggedItem = null
         homeEdgeDragPlaceholder = null
         homeEdgeBaseItems = emptyList()
+        homeEdgeDragFromDock = false
         homeEdgeSourcePage = 0
         homeEdgeHasLeftSourcePage = false
         homeEdgePreviewIndex = NO_PREVIEW_INDEX
@@ -3952,6 +4059,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                     adapter = dockAdapter,
                     isDragCenterInDock = { centerX, centerY ->
                         isPointInsideView(binding.workspace.dockRecyclerView, centerX, centerY)
+                    },
+                    onDragMoved = { item, viewHolder, centerX, centerY ->
+                        handleDockDragMoved(item, viewHolder, centerX, centerY)
                     },
                     onDragEnded = { item, _, centerX, centerY ->
                         handleDockDragEnded(item, centerX, centerY)
