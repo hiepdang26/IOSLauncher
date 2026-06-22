@@ -1,0 +1,17 @@
+package com.google.android.gms.internal.ads;
+
+import org.json.JSONObject;
+
+/* JADX INFO: loaded from: classes.dex */
+public final class zzehg implements zzeev {
+    private final zzdqb zza;
+
+    public zzehg(zzdqb zzdqbVar) {
+        this.zza = zzdqbVar;
+    }
+
+    @Override // com.google.android.gms.internal.ads.zzeev
+    public final zzeew zza(String str, JSONObject jSONObject) {
+        return new zzeew(this.zza.zzc(str, jSONObject), new zzegp(), str);
+    }
+}

@@ -1,0 +1,34 @@
+package com.google.android.gms.internal.ads;
+
+import android.content.Context;
+import defpackage.nj;
+
+/* JADX INFO: loaded from: classes.dex */
+public final class zzfli implements zzhfc {
+    private final zzhfu zza;
+    private final zzhfu zzb;
+    private final zzhfu zzc;
+    private final zzhfu zzd;
+    private final zzhfu zze;
+    private final zzhfu zzf;
+    private final zzhfu zzg;
+    private final zzhfu zzh;
+    private final zzhfu zzi;
+
+    public zzfli(zzhfu zzhfuVar, zzhfu zzhfuVar2, zzhfu zzhfuVar3, zzhfu zzhfuVar4, zzhfu zzhfuVar5, zzhfu zzhfuVar6, zzhfu zzhfuVar7, zzhfu zzhfuVar8, zzhfu zzhfuVar9) {
+        this.zza = zzhfuVar;
+        this.zzb = zzhfuVar2;
+        this.zzc = zzhfuVar3;
+        this.zzd = zzhfuVar4;
+        this.zze = zzhfuVar5;
+        this.zzf = zzhfuVar6;
+        this.zzg = zzhfuVar7;
+        this.zzh = zzhfuVar8;
+        this.zzi = zzhfuVar9;
+    }
+
+    @Override // com.google.android.gms.internal.ads.zzhfu, com.google.android.gms.internal.ads.zzhft
+    public final /* bridge */ /* synthetic */ Object zzb() {
+        return new zzflh((zzein) this.zza.zzb(), ((zzchc) this.zzb).zza(), ((zzcwf) this.zzc).zzb(), (String) this.zzd.zzb(), (Context) this.zze.zzb(), ((zzcwg) this.zzf).zza(), (zzfez) this.zzg.zzb(), (nj) this.zzh.zzb(), (zzauo) this.zzi.zzb());
+    }
+}
