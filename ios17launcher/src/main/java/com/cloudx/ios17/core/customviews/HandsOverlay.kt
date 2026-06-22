@@ -1,138 +1,163 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.content.Context;
-import android.content.res.Resources;
-import android.graphics.Canvas;
-import android.graphics.drawable.Drawable;
-import java.util.Calendar;
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
+import java.util.Calendar
+import kotlin.math.roundToInt
 
 /** Created by falcon on 8/3/18. */
-public class HandsOverlay implements DialOverlay {
+class HandsOverlay : DialOverlay {
 
-    private final Drawable mHour;
-    private final Drawable mMinute;
-    private final Drawable mSecond;
-    private final boolean mUseLargeFace;
-    private float mHourRot;
-    private float mMinRot;
-    private float mSecRot;
-    private boolean mShowSeconds;
-    private float scale;
+    private val mHour: Drawable?
+    private val mMinute: Drawable?
+    private val mSecond: Drawable?
+    private val mUseLargeFace: Boolean
+    private var mHourRot = 0f
+    private var mMinRot = 0f
+    private var mSecRot = 0f
+    private var mShowSeconds = false
+    private var scale = 0f
 
-    public HandsOverlay(Context context, boolean useLargeFace) {
-        final Resources r = context.getResources();
-
-        mUseLargeFace = useLargeFace;
-
-        mHour = null;
-        mMinute = null;
-        mSecond = null;
+    constructor(context: Context, useLargeFace: Boolean) {
+        context.resources
+        mUseLargeFace = useLargeFace
+        mHour = null
+        mMinute = null
+        mSecond = null
     }
 
-    public HandsOverlay(Drawable hourHand, Drawable minuteHand, Drawable secHand) {
-        mUseLargeFace = false;
-
-        mHour = hourHand;
-        mMinute = minuteHand;
-        mSecond = secHand;
+    constructor(hourHand: Drawable?, minuteHand: Drawable?, secHand: Drawable?) {
+        mUseLargeFace = false
+        mHour = hourHand
+        mMinute = minuteHand
+        mSecond = secHand
     }
 
-    public HandsOverlay withScale(float scale) {
-        this.scale = scale;
-        return this;
+    fun withScale(scale: Float): HandsOverlay {
+        this.scale = scale
+        return this
     }
 
-    public HandsOverlay(Context context, int hourHandRes, int minuteHandRes) {
-        final Resources r = context.getResources();
-
-        mUseLargeFace = false;
-
-        mHour = r.getDrawable(hourHandRes);
-        mMinute = r.getDrawable(minuteHandRes);
-        mSecond = r.getDrawable(minuteHandRes);
+    constructor(context: Context, hourHandRes: Int, minuteHandRes: Int) {
+        val resources = context.resources
+        mUseLargeFace = false
+        mHour = resources.getDrawable(hourHandRes)
+        mMinute = resources.getDrawable(minuteHandRes)
+        mSecond = resources.getDrawable(minuteHandRes)
     }
 
-    public static float getHourHandAngle(int h, int m) {
-        return CustomAnalogClock.is24
-                ? ((12 + h) / 24.0f * 360) % 360 + (m / 60.0f) * 360 / 24.0f
-                : ((12 + h) / 12.0f * 360) % 360 + (m / 60.0f) * 360 / 12.0f;
+    override fun onDraw(
+        canvas: Canvas,
+        cX: Float,
+        cY: Float,
+        w: Int,
+        h: Int,
+        calendar: Calendar,
+        sizeChanged: Boolean
+    ) {
+        updateHands(calendar)
+
+        canvas.save()
+        if (!CustomAnalogClock.hourOnTop) {
+            drawHours(canvas, cX, cY, w, h, sizeChanged)
+        } else {
+            drawMinutes(canvas, cX, cY, w, h, sizeChanged)
+        }
+        canvas.restore()
+
+        canvas.save()
+        if (!CustomAnalogClock.hourOnTop) {
+            drawMinutes(canvas, cX, cY, w, h, sizeChanged)
+        } else {
+            drawHours(canvas, cX, cY, w, h, sizeChanged)
+        }
+        canvas.restore()
+
+        canvas.save()
+        drawSec(canvas, cX, cY, w, h, sizeChanged)
+        canvas.restore()
     }
 
-    @Override
-    public void onDraw(Canvas canvas, float cX, float cY, int w, int h, Calendar calendar, boolean sizeChanged) {
-
-        updateHands(calendar);
-
-        canvas.save();
-        if (!CustomAnalogClock.hourOnTop)
-            drawHours(canvas, cX, cY, w, h, calendar, sizeChanged);
-        else
-            drawMinutes(canvas, cX, cY, w, h, calendar, sizeChanged);
-        canvas.restore();
-
-        canvas.save();
-        if (!CustomAnalogClock.hourOnTop)
-            drawMinutes(canvas, cX, cY, w, h, calendar, sizeChanged);
-        else
-            drawHours(canvas, cX, cY, w, h, calendar, sizeChanged);
-        canvas.restore();
-
-        canvas.save();
-        if (!CustomAnalogClock.hourOnTop)
-            drawSec(canvas, cX, cY, w, h, calendar, sizeChanged);
-        else
-            drawSec(canvas, cX, cY, w, h, calendar, sizeChanged);
-        canvas.restore();
-    }
-
-    private void drawMinutes(Canvas canvas, float cX, float cY, int w, int h, Calendar calendar, boolean sizeChanged) {
-        canvas.rotate(mMinRot, cX, cY);
+    private fun drawMinutes(canvas: Canvas, cX: Float, cY: Float, w: Int, h: Int, sizeChanged: Boolean) {
+        var width = w
+        var height = h
+        val minute = mMinute!!
+        canvas.rotate(mMinRot, cX, cY)
 
         if (sizeChanged) {
-            w = (int) (mMinute.getIntrinsicWidth() * scale);
-            h = (int) (mMinute.getIntrinsicHeight() * scale);
-            mMinute.setBounds(Math.round(cX - (w / 2f)), Math.round(cY - (h / 2f)), Math.round(cX + (w / 2f)),
-                    Math.round(cY + (h / 2f)));
+            width = (minute.intrinsicWidth * scale).toInt()
+            height = (minute.intrinsicHeight * scale).toInt()
+            minute.setBounds(
+                (cX - width / 2f).roundToInt(),
+                (cY - height / 2f).roundToInt(),
+                (cX + width / 2f).roundToInt(),
+                (cY + height / 2f).roundToInt()
+            )
         }
-        mMinute.draw(canvas);
+        minute.draw(canvas)
     }
 
-    private void drawHours(Canvas canvas, float cX, float cY, int w, int h, Calendar calendar, boolean sizeChanged) {
-        canvas.rotate(mHourRot, cX, cY);
+    private fun drawHours(canvas: Canvas, cX: Float, cY: Float, w: Int, h: Int, sizeChanged: Boolean) {
+        var width = w
+        var height = h
+        val hour = mHour!!
+        canvas.rotate(mHourRot, cX, cY)
 
         if (sizeChanged) {
-            w = (int) (mHour.getIntrinsicWidth() * scale);
-            h = (int) (mHour.getIntrinsicHeight() * scale);
-            mHour.setBounds(Math.round(cX - (w / 2f)), Math.round(cY - (h / 2f)), Math.round(cX + (w / 2f)),
-                    Math.round(cY + (h / 2f)));
+            width = (hour.intrinsicWidth * scale).toInt()
+            height = (hour.intrinsicHeight * scale).toInt()
+            hour.setBounds(
+                (cX - width / 2f).roundToInt(),
+                (cY - height / 2f).roundToInt(),
+                (cX + width / 2f).roundToInt(),
+                (cY + height / 2f).roundToInt()
+            )
         }
-        mHour.draw(canvas);
+        hour.draw(canvas)
     }
 
-    private void drawSec(Canvas canvas, float cX, float cY, int w, int h, Calendar calendar, boolean sizeChanged) {
-        canvas.rotate(mSecRot, cX, cY);
+    private fun drawSec(canvas: Canvas, cX: Float, cY: Float, w: Int, h: Int, sizeChanged: Boolean) {
+        var width = w
+        var height = h
+        val second = mSecond!!
+        canvas.rotate(mSecRot, cX, cY)
 
         if (sizeChanged) {
-            w = (int) (mSecond.getIntrinsicWidth() * scale);
-            h = (int) (mSecond.getIntrinsicHeight() * scale);
-            mSecond.setBounds(Math.round(cX - (w / 2f)), Math.round(cY - (h / 2f)), Math.round(cX + (w / 2f)),
-                    Math.round(cY + (h / 2f)));
+            width = (second.intrinsicWidth * scale).toInt()
+            height = (second.intrinsicHeight * scale).toInt()
+            second.setBounds(
+                (cX - width / 2f).roundToInt(),
+                (cY - height / 2f).roundToInt(),
+                (cX + width / 2f).roundToInt(),
+                (cY + height / 2f).roundToInt()
+            )
         }
-        mSecond.draw(canvas);
+        second.draw(canvas)
     }
 
-    public void setShowSeconds(boolean showSeconds) {
-        mShowSeconds = showSeconds;
+    fun setShowSeconds(showSeconds: Boolean) {
+        mShowSeconds = showSeconds
     }
 
-    private void updateHands(Calendar calendar) {
+    private fun updateHands(calendar: Calendar) {
+        val h = calendar[Calendar.HOUR_OF_DAY]
+        val m = calendar[Calendar.MINUTE]
+        val s = calendar[Calendar.SECOND]
 
-        final int h = calendar.get(Calendar.HOUR_OF_DAY);
-        final int m = calendar.get(Calendar.MINUTE);
-        final int s = calendar.get(Calendar.SECOND);
+        mHourRot = getHourHandAngle(h, m)
+        mMinRot = (m / 60.0f) * 360 + if (mShowSeconds) (s / 60.0f) * 360 / 60.0f else 0f
+        mSecRot = s * 6.0f
+    }
 
-        mHourRot = getHourHandAngle(h, m);
-        mMinRot = (m / 60.0f) * 360 + (mShowSeconds ? ((s / 60.0f) * 360 / 60.0f) : 0);
-        mSecRot = (s * 6.0f);
+    companion object {
+        @JvmStatic
+        fun getHourHandAngle(h: Int, m: Int): Float {
+            return if (CustomAnalogClock.is24) {
+                ((12 + h) / 24.0f * 360) % 360 + (m / 60.0f) * 360 / 24.0f
+            } else {
+                ((12 + h) / 12.0f * 360) % 360 + (m / 60.0f) * 360 / 12.0f
+            }
+        }
     }
 }

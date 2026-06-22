@@ -1,10 +1,7 @@
-package com.cloudx.ios17.core.events;
+package com.cloudx.ios17.core.events
 
-public class TimeChangedEvent extends Event {
-
-    public static final int TYPE = 701;
-
-    public TimeChangedEvent() {
-        super(TYPE);
+class TimeChangedEvent : Event(TYPE) {
+    companion object {
+        const val TYPE = 701
     }
 }

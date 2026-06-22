@@ -1,27 +1,28 @@
-package com.cloudx.ios17.core.database.model;
+package com.cloudx.ios17.core.database.model
 
-import androidx.room.ColumnInfo;
-import androidx.room.Entity;
-import androidx.room.PrimaryKey;
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
 @Entity(tableName = "widget_items")
-public class WidgetItem {
+class WidgetItem() {
+    @field:PrimaryKey
+    @JvmField
+    var id: Int = 0
 
-    public static final int DEFAULT_ORDER = 99999;
+    @field:ColumnInfo(defaultValue = "0")
+    @JvmField
+    var height: Int = 0
 
-    @PrimaryKey
-    public int id;
+    @field:ColumnInfo(defaultValue = "99999")
+    @JvmField
+    var order: Int = DEFAULT_ORDER
 
-    @ColumnInfo(defaultValue = "0")
-    public int height = 0;
-
-    @ColumnInfo(defaultValue = "99999")
-    public int order = DEFAULT_ORDER;
-
-    public WidgetItem() {
+    constructor(id: Int) : this() {
+        this.id = id
     }
 
-    public WidgetItem(int id) {
-        this.id = id;
+    companion object {
+        const val DEFAULT_ORDER = 99999
     }
 }

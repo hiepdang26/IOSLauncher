@@ -1,363 +1,320 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.LauncherActivityInfo;
-import android.content.pm.LauncherApps;
-import android.content.pm.PackageManager;
-import android.content.res.Resources;
-import android.content.res.XmlResourceParser;
-import android.graphics.Bitmap;
-import android.graphics.Bitmap.CompressFormat;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.drawable.AdaptiveIconDrawable;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.util.Log;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-
-import javax.xml.parsers.DocumentBuilderFactory;
-
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.customviews.AdaptiveIconDrawableCompat;
-import com.cloudx.ios17.core.utils.GraphicsUtil;
-import com.cloudx.ios17.core.utils.UserHandle;
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.LauncherActivityInfo
+import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.util.Log
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.core.customviews.AdaptiveIconDrawableCompat
+import com.cloudx.ios17.core.utils.GraphicsUtil
+import com.cloudx.ios17.core.utils.UserHandle
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.util.HashMap
+import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Inspired from
  * http://stackoverflow.com/questions/31490630/how-to-load-icon-from-icon-pack
  */
-public class IconsHandler {
+class IconsHandler(private val ctx: Context) {
 
-    private static final String TAG = "IconsHandler";
-    // map with available icons packs
-    private final HashMap<String, String> iconsPacks = new HashMap<>();
-    // map with available drawable for an icons pack
-    private final Map<String, String> packagesDrawables = new HashMap<>();
-    // graphics util to manipulate bitmaps.
-    private final GraphicsUtil graphicsUtil;
-    private final int mIconDpi;
-    // instance of a resource object of an icon pack
-    private Resources iconPackres;
-    // package name of the icons pack
-    private String iconsPackPackageName;
-    // bitmap mask of an icons pack
-    private Bitmap maskImage = null;
-    // front image of an icons pack
-    private Bitmap frontImage = null;
-    // scale factor of an icons pack
-    private float factor = 1.0f;
-    private final PackageManager pm;
-    private final Context ctx;
+    // Map with available icons packs.
+    private val iconsPacks = HashMap<String, String>()
 
-    public IconsHandler(Context ctx) {
-        super();
-        this.ctx = ctx;
-        this.pm = ctx.getPackageManager();
-        graphicsUtil = new GraphicsUtil(ctx);
-        mIconDpi = BlissLauncher.getApplication(ctx).getDeviceProfile().fillResIconDpi;
-        loadIconsPack("foundation.e.blissiconpack");
+    // Map with available drawable for an icons pack.
+    private val packagesDrawables: MutableMap<String, String> = HashMap()
+
+    // Graphics util to manipulate bitmaps.
+    private val graphicsUtil = GraphicsUtil(ctx)
+    private val mIconDpi = BlissLauncher.getApplication(ctx).deviceProfile.fillResIconDpi
+    private var iconPackres: Resources? = null
+    private var iconsPackPackageName = ""
+    private var maskImage: Bitmap? = null
+    private var frontImage: Bitmap? = null
+    private var factor = 1.0f
+    private val pm: PackageManager = ctx.packageManager
+
+    init {
+        loadIconsPack("foundation.e.blissiconpack")
     }
 
-    private boolean iconPackExists(PackageManager packageManager) {
+    private fun iconPackExists(packageManager: PackageManager): Boolean =
         try {
-            packageManager.getPackageInfo("foundation.e.blissiconpack", PackageManager.GET_META_DATA);
-        } catch (PackageManager.NameNotFoundException e) {
-            return false;
+            packageManager.getPackageInfo("foundation.e.blissiconpack", PackageManager.GET_META_DATA)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
         }
-        return true;
-    }
 
     /**
-     * Parse icons pack metadata
+     * Parse icons pack metadata.
      *
-     * @param packageName
-     *            Android package ID of the package to parse
+     * @param packageName Android package ID of the package to parse.
      */
-    public void loadIconsPack(String packageName) {
+    fun loadIconsPack(packageName: String) {
+        iconsPackPackageName = if (iconPackExists(pm)) packageName else "default"
 
-        // clear icons pack
-        if (iconPackExists(pm)) {
-            iconsPackPackageName = packageName;
-        } else {
-            iconsPackPackageName = "default";
+        packagesDrawables.clear()
+
+        // System icons, nothing to do.
+        if (iconsPackPackageName.equals("default", ignoreCase = true)) {
+            return
         }
-
-        packagesDrawables.clear();
-
-        // system icons, nothing to do
-        if (iconsPackPackageName.equalsIgnoreCase("default")) {
-            return;
-        }
-
-        XmlResourceParser xpp = null;
 
         try {
-            // search appfilter.xml into icons pack apk resource folder
-            iconPackres = pm.getResourcesForApplication(iconsPackPackageName);
-            Context iconPackContext = ctx.createPackageContext(iconsPackPackageName, 0);
-            InputStream stream = iconPackContext.getAssets().open("appfilter.xml");
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(stream);
-            NodeList items = doc.getElementsByTagName("item");
-            for (int i = 0; i < items.getLength(); i++) {
-                Node item = items.item(i);
-                String componentName = item.getAttributes().getNamedItem("component").getTextContent();
-                String drawableName = item.getAttributes().getNamedItem("drawable").getTextContent();
+            iconPackres = pm.getResourcesForApplication(iconsPackPackageName)
+            val iconPackContext = ctx.createPackageContext(iconsPackPackageName, 0)
+            val stream: InputStream = iconPackContext.assets.open("appfilter.xml")
+            stream.use {
+                val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(it)
+                val items = doc.getElementsByTagName("item")
+                for (i in 0 until items.length) {
+                    val item = items.item(i)
+                    val componentName = item.attributes.getNamedItem("component").textContent
+                    val drawableName = item.attributes.getNamedItem("drawable").textContent
 
-                if (!packagesDrawables.containsKey(componentName)) {
-                    packagesDrawables.put(componentName, drawableName);
+                    if (!packagesDrawables.containsKey(componentName)) {
+                        packagesDrawables[componentName] = drawableName
+                    }
                 }
             }
-            Log.i(TAG, "Cached " + packagesDrawables.size() + " icons");
-        } catch (Exception e) {
-            e.printStackTrace();
-            Log.e(TAG, "Error parsing appfilter.xml " + e);
+            Log.i(TAG, "Cached ${packagesDrawables.size} icons")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.e(TAG, "Error parsing appfilter.xml $e")
         }
-
     }
 
-    private Drawable getDefaultAppDrawable(LauncherActivityInfo activityInfo, UserHandle userHandle) {
-        return activityInfo.getIcon(0);
-    }
+    private fun getDefaultAppDrawable(
+        activityInfo: LauncherActivityInfo,
+        userHandle: UserHandle
+    ): Drawable = activityInfo.getIcon(0)
 
-    public boolean isClock(String componentName) {
-        return packagesDrawables.get(componentName) != null && packagesDrawables.get(componentName).equals("clock");
-    }
+    fun isClock(componentName: String): Boolean = packagesDrawables[componentName] == "clock"
 
-    public boolean isCalendar(String componentName) {
-        return packagesDrawables.get(componentName) != null && packagesDrawables.get(componentName).equals("calendar");
-    }
+    fun isCalendar(componentName: String): Boolean = packagesDrawables[componentName] == "calendar"
 
     /**
-     * Get or generate icon for an app
+     * Get or generate icon for an app.
      */
-    public Drawable getDrawableIconForPackage(LauncherActivityInfo activityInfo, UserHandle userHandle) {
-        /*
-         * // system icons, nothing to do if
-         * (iconsPackPackageName.equalsIgnoreCase("default")) { return
-         * this.getDefaultAppDrawable(componentName, userHandle); }
-         */
-
-        ComponentName componentName = activityInfo.getComponentName();
-        String drawable = packagesDrawables.get(activityInfo.getComponentName().toString());
-        if (drawable != null) { // there is a custom icon
-            int id = iconPackres.getIdentifier(drawable, "drawable", iconsPackPackageName);
+    fun getDrawableIconForPackage(
+        activityInfo: LauncherActivityInfo,
+        userHandle: UserHandle
+    ): Drawable? {
+        val componentName = activityInfo.componentName
+        val drawable = packagesDrawables[activityInfo.componentName.toString()]
+        val iconPackResources = iconPackres
+        if (drawable != null && iconPackResources != null) {
+            val id = iconPackResources.getIdentifier(drawable, "drawable", iconsPackPackageName)
             if (id > 0) {
-                // noinspection deprecation: Resources.getDrawable(int, Theme) requires SDK 21+
                 try {
-                    return getBadgedIcon(iconPackres.getDrawable(id), activityInfo.getUser());
-                } catch (Resources.NotFoundException e) {
-                    // Unable to load icon, keep going.
-                    e.printStackTrace();
+                    return getBadgedIcon(iconPackResources.getDrawable(id), activityInfo.user)
+                } catch (e: Resources.NotFoundException) {
+                    e.printStackTrace()
                 }
             }
         }
 
-        String key = userHandle.addUserSuffixToString(componentName.flattenToString(), '/');
+        val key = userHandle.addUserSuffixToString(componentName.flattenToString(), '/')
 
-        // Search first in cache
-        Drawable systemIcon = cacheGetDrawable(key);
+        // Search first in cache.
+        var systemIcon = cacheGetDrawable(key)
         if (systemIcon != null) {
-            return systemIcon;
+            return systemIcon
         }
 
-        systemIcon = this.getDefaultAppDrawable(activityInfo, userHandle);
-        if (Utilities.ATLEAST_OREO && systemIcon instanceof AdaptiveIconDrawable) {
-            systemIcon = new AdaptiveIconDrawableCompat(((AdaptiveIconDrawable) systemIcon).getBackground(),
-                    ((AdaptiveIconDrawable) systemIcon).getForeground());
-            return systemIcon;
+        systemIcon = getDefaultAppDrawable(activityInfo, userHandle)
+        systemIcon = if (Utilities.ATLEAST_OREO && systemIcon is AdaptiveIconDrawable) {
+            AdaptiveIconDrawableCompat(systemIcon.background, systemIcon.foreground)
         } else {
-            // Icon is not adaptive, try to load using reflection.
-            Drawable adaptiveIcon = new AdaptiveIconProvider().load(ctx, componentName.getPackageName());
+            val adaptiveIcon = AdaptiveIconProvider().load(ctx, componentName.packageName)
             if (adaptiveIcon != null) {
-                systemIcon = adaptiveIcon;
+                adaptiveIcon
             } else {
-                // Failed to load adaptive icon, Generate an adaptive icon from app default
-                // icon.
-                systemIcon = new AdaptiveIconGenerator(ctx, getDefaultAppDrawable(activityInfo, userHandle))
-                        .getResult();
+                AdaptiveIconGenerator(ctx, getDefaultAppDrawable(activityInfo, userHandle)).getResult()
             }
         }
 
-        Drawable badgedIcon = getBadgedIcon(systemIcon, activityInfo.getUser());
-        cacheStoreDrawable(key, badgedIcon);
-        return badgedIcon;
+        val badgedIcon = getBadgedIcon(systemIcon, activityInfo.user)
+        cacheStoreDrawable(key, badgedIcon)
+        return badgedIcon
     }
 
-    public void resetIconDrawableForPackage(ComponentName componentName, UserHandle userHandle) {
-        if (!packagesDrawables.containsKey(componentName.toString())) {
-            LauncherApps launcherApps = (LauncherApps) ctx.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-            for (LauncherActivityInfo launcherActivityInfo : launcherApps
-                    .getActivityList(componentName.getPackageName(), userHandle.getRealHandle())) {
-                if (launcherActivityInfo.getComponentName().flattenToString().equals(componentName.flattenToString())) {
-                    Drawable icon = this.getDefaultAppDrawable(launcherActivityInfo, userHandle);
-                    if (Utilities.ATLEAST_OREO && icon instanceof AdaptiveIconDrawable) {
-                        icon = new AdaptiveIconDrawableCompat(((AdaptiveIconDrawable) icon).getBackground(),
-                                ((AdaptiveIconDrawable) icon).getForeground());
+    fun resetIconDrawableForPackage(componentName: ComponentName?, userHandle: UserHandle) {
+        val safeComponentName = componentName!!
+        if (!packagesDrawables.containsKey(safeComponentName.toString())) {
+            val launcherApps = ctx.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            for (launcherActivityInfo in launcherApps.getActivityList(
+                safeComponentName.packageName,
+                userHandle.getRealHandle()
+            )) {
+                if (launcherActivityInfo.componentName.flattenToString() == safeComponentName.flattenToString()) {
+                    var icon = getDefaultAppDrawable(launcherActivityInfo, userHandle)
+                    icon = if (Utilities.ATLEAST_OREO && icon is AdaptiveIconDrawable) {
+                        AdaptiveIconDrawableCompat(icon.background, icon.foreground)
                     } else {
-                        Drawable adaptiveIcon = new AdaptiveIconProvider().load(ctx, componentName.getPackageName());
-                        if (adaptiveIcon != null) {
-                            icon = adaptiveIcon;
-                        } else {
-                            icon = graphicsUtil.convertToRoundedCorner(ctx, graphicsUtil.addBackground(icon, false));
-                        }
+                        val adaptiveIcon = AdaptiveIconProvider().load(ctx, safeComponentName.packageName)
+                        adaptiveIcon ?: graphicsUtil.convertToRoundedCorner(
+                            ctx,
+                            graphicsUtil.addBackground(icon, false)
+                        )
                     }
 
-                    Drawable badgedIcon = getBadgedIcon(icon, launcherActivityInfo.getUser());
-                    cacheStoreDrawable(userHandle.addUserSuffixToString(componentName.flattenToString(), '/'),
-                            badgedIcon);
+                    val badgedIcon = getBadgedIcon(icon, launcherActivityInfo.user)
+                    cacheStoreDrawable(
+                        userHandle.addUserSuffixToString(safeComponentName.flattenToString(), '/'),
+                        badgedIcon
+                    )
                 }
             }
         }
     }
 
-    private Drawable getBadgedIcon(Drawable icon, android.os.UserHandle userHandle) {
-        return ctx.getApplicationContext().getPackageManager().getUserBadgedIcon(icon, userHandle);
+    private fun getBadgedIcon(icon: Drawable, userHandle: android.os.UserHandle): Drawable =
+        ctx.applicationContext.packageManager.getUserBadgedIcon(icon, userHandle)
+
+    private fun isDrawableInCache(key: String): Boolean {
+        val drawableFile = cacheGetFileName(key)
+        return drawableFile.isFile
     }
 
-    private boolean isDrawableInCache(String key) {
-        File drawableFile = cacheGetFileName(key);
-        return drawableFile.isFile();
-    }
-
-    private void cacheStoreDrawable(String key, Drawable drawable) {
-        Bitmap bitmap = getBitmapFromDrawable(drawable);
-        File drawableFile = cacheGetFileName(key);
-        FileOutputStream fos;
+    private fun cacheStoreDrawable(key: String, drawable: Drawable) {
+        val bitmap = getBitmapFromDrawable(drawable)
+        val drawableFile = cacheGetFileName(key)
         try {
-            fos = new FileOutputStream(drawableFile);
-            bitmap.compress(CompressFormat.PNG, 100, fos);
-            fos.flush();
-            fos.close();
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to store drawable in cache " + e);
+            val fos = FileOutputStream(drawableFile)
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            fos.flush()
+            fos.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Unable to store drawable in cache $e")
         }
     }
 
-    private Bitmap getBitmapFromDrawable(Drawable drawable) {
-        final Bitmap bmp = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(),
-                Bitmap.Config.ARGB_8888);
-        final Canvas canvas = new Canvas(bmp);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bmp;
+    private fun getBitmapFromDrawable(drawable: Drawable): Bitmap {
+        val bitmap = Bitmap.createBitmap(
+            drawable.intrinsicWidth,
+            drawable.intrinsicHeight,
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 
-    private Drawable cacheGetDrawable(String key) {
-
+    private fun cacheGetDrawable(key: String): Drawable? {
         if (!isDrawableInCache(key)) {
-            return null;
+            return null
         }
 
-        FileInputStream fis;
-        try {
-            fis = new FileInputStream(cacheGetFileName(key));
-            BitmapDrawable drawable = new BitmapDrawable(this.ctx.getResources(), BitmapFactory.decodeStream(fis));
-            fis.close();
-            return drawable;
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to get drawable from cache " + e);
+        return try {
+            val fis = FileInputStream(cacheGetFileName(key))
+            val drawable = BitmapDrawable(ctx.resources, BitmapFactory.decodeStream(fis))
+            fis.close()
+            drawable
+        } catch (e: Exception) {
+            Log.e(TAG, "Unable to get drawable from cache $e")
+            null
         }
-
-        return null;
     }
 
     /**
-     * create path for icons cache like this
+     * Create path for icons cache like this:
      * {cacheDir}/icons/{icons_pack_package_name}_{key_hash}.png
      */
-    private File cacheGetFileName(String key) {
-        return new File(getIconsCacheDir() + File.separator + iconsPackPackageName + "_" + key.hashCode() + ".png");
+    private fun cacheGetFileName(key: String): File =
+        File(getIconsCacheDir().toString() + File.separator + iconsPackPackageName + "_" + key.hashCode() + ".png")
+
+    /**
+     * Returns icons cache directory.
+     */
+    private fun getIconsCacheDir(): File {
+        val file = File(ctx.cacheDir.path + "/icons/")
+        file.mkdir()
+        return file
     }
 
     /**
-     * returns icons cache directory.
+     * Clear cache.
      */
-    private File getIconsCacheDir() {
-        File file = new File(this.ctx.getCacheDir().getPath() + "/icons/");
-        file.mkdir();
-        return file;
-    }
+    private fun cacheClear() {
+        val cacheDir = getIconsCacheDir()
 
-    /**
-     * Clear cache
-     */
-    private void cacheClear() {
-        File cacheDir = this.getIconsCacheDir();
-
-        if (!cacheDir.isDirectory()) {
-            return;
+        if (!cacheDir.isDirectory) {
+            return
         }
 
-        for (File item : cacheDir.listFiles()) {
+        cacheDir.listFiles()?.forEach { item ->
             if (!item.delete()) {
-                Log.w(TAG, "Failed to delete file: " + item.getAbsolutePath());
+                Log.w(TAG, "Failed to delete file: ${item.absolutePath}")
             }
         }
     }
 
-    public Drawable convertIcon(Drawable icon) {
-        return new AdaptiveIconGenerator(ctx, icon).getResult();
+    fun convertIcon(icon: Drawable?): Drawable = AdaptiveIconGenerator(ctx, icon!!).getResult()
+
+    val fullResDefaultActivityIcon: Drawable
+        get() = getFullResIcon(
+            Resources.getSystem(),
+            if (Utilities.ATLEAST_OREO) android.R.drawable.sym_def_app_icon else android.R.mipmap.sym_def_app_icon
+        )
+
+    private fun getFullResIcon(resources: Resources, iconId: Int): Drawable {
+        val drawable = try {
+            resources.getDrawableForDensity(iconId, mIconDpi)
+        } catch (_: Resources.NotFoundException) {
+            null
+        }
+
+        return drawable ?: fullResDefaultActivityIcon
     }
 
-    /**
-     * Returns a drawable suitable for the all apps view. If the package or the
-     * resource do not exist, it returns null.
-     */
-    public static Drawable createIconDrawable(Intent.ShortcutIconResource iconRes, Context context) {
-        PackageManager packageManager = context.getPackageManager();
-        // the resource
-        try {
-            Resources resources = packageManager.getResourcesForApplication(iconRes.packageName);
-            if (resources != null) {
-                final int id = resources.getIdentifier(iconRes.resourceName, null, null);
-                return resources.getDrawableForDensity(id,
-                        BlissLauncher.getApplication(context).getDeviceProfile().fillResIconDpi);
+    fun clearAll() {
+        packagesDrawables.clear()
+        cacheClear()
+    }
+
+    companion object {
+        private const val TAG = "IconsHandler"
+
+        /**
+         * Returns a drawable suitable for the all apps view. If the package or the
+         * resource do not exist, it returns null.
+         */
+        @JvmStatic
+        fun createIconDrawable(iconRes: Intent.ShortcutIconResource, context: Context): Drawable? {
+            val packageManager = context.packageManager
+            try {
+                val resources = packageManager.getResourcesForApplication(iconRes.packageName)
+                val id = resources.getIdentifier(iconRes.resourceName, null, null)
+                return resources.getDrawableForDensity(
+                    id,
+                    BlissLauncher.getApplication(context).deviceProfile.fillResIconDpi
+                )
+            } catch (_: Exception) {
+                // Icon not found.
             }
-        } catch (Exception e) {
-            // Icon not found.
-        }
-        return null;
-    }
-
-    /**
-     * Returns a drawable which is of the appropriate size to be displayed as an
-     * icon
-     */
-    public static Drawable createIconDrawable(Bitmap icon, Context context) {
-        return new BitmapDrawable(icon);
-    }
-
-    public Drawable getFullResDefaultActivityIcon() {
-        return getFullResIcon(Resources.getSystem(),
-                Utilities.ATLEAST_OREO ? android.R.drawable.sym_def_app_icon : android.R.mipmap.sym_def_app_icon);
-    }
-
-    private Drawable getFullResIcon(Resources resources, int iconId) {
-        Drawable d;
-        try {
-            d = resources.getDrawableForDensity(iconId, mIconDpi);
-        } catch (Resources.NotFoundException e) {
-            d = null;
+            return null
         }
 
-        return (d != null) ? d : getFullResDefaultActivityIcon();
-    }
-
-    public void clearAll() {
-        packagesDrawables.clear();
-        cacheClear();
+        /**
+         * Returns a drawable which is of the appropriate size to be displayed as an icon.
+         */
+        @JvmStatic
+        fun createIconDrawable(icon: Bitmap, context: Context): Drawable = BitmapDrawable(icon)
     }
 }

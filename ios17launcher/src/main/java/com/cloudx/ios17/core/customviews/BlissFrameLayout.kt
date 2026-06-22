@@ -1,264 +1,209 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.animation.ObjectAnimator;
-import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Rect;
-import android.util.AttributeSet;
-import android.util.Property;
-import android.util.TypedValue;
-import android.view.View;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.CalendarIcon;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.CalendarIcon;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.CalendarIcon;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.features.notification.DotRenderer;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.CalendarIcon;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.utils.Constants;
-
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
+import android.animation.ObjectAnimator
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Rect
+import android.util.AttributeSet
+import android.util.Property
+import android.util.TypedValue
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.Utilities
+import com.cloudx.ios17.core.database.model.ApplicationItem
+import com.cloudx.ios17.core.database.model.CalendarIcon
+import com.cloudx.ios17.core.database.model.FolderItem
+import com.cloudx.ios17.core.database.model.LauncherItem
+import com.cloudx.ios17.core.database.model.ShortcutItem
+import com.cloudx.ios17.core.utils.Constants
+import com.cloudx.ios17.features.notification.DotRenderer
+import java.util.Calendar
 
 /** Created by falcon on 20/3/18. */
-public class BlissFrameLayout extends FrameLayout {
+class BlissFrameLayout @JvmOverloads constructor(
+    private val mContext: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : FrameLayout(mContext, attrs, defStyleAttr) {
 
-    private final Context mContext;
+    private var hasBadge = false
+    private val mTempIconBounds = Rect()
+    private lateinit var mDeviceProfile: DeviceProfile
+    private var mBadgeScale = 0f
+    private var mIconSize = 0
+    private var mWithText = false
+    private lateinit var mDotRenderer: DotRenderer
+    private var mLauncherItem: LauncherItem? = null
 
-    private boolean hasBadge = false;
-    private Rect mTempIconBounds = new Rect();
-    private DeviceProfile mDeviceProfile;
-
-    private float mBadgeScale;
-
-    private static final Property<BlissFrameLayout, Float> BADGE_SCALE_PROPERTY = new Property<BlissFrameLayout, Float>(
-            Float.TYPE, "badgeScale") {
-        @Override
-        public Float get(BlissFrameLayout bubbleTextView) {
-            return bubbleTextView.mBadgeScale;
+    var launcherItem: LauncherItem
+        get() = mLauncherItem!!
+        set(value) {
+            mLauncherItem = value
+            when (value.itemType) {
+                Constants.ITEM_TYPE_APPLICATION -> bindApplicationItem(value as ApplicationItem)
+                Constants.ITEM_TYPE_SHORTCUT -> bindShortcutItem(value as ShortcutItem)
+                Constants.ITEM_TYPE_FOLDER -> bindFolderItem(value as FolderItem)
+            }
         }
 
-        @Override
-        public void set(BlissFrameLayout bubbleTextView, Float value) {
-            bubbleTextView.mBadgeScale = value;
-            bubbleTextView.invalidate();
-        }
-    };
-    private int mIconSize;
-    private boolean mWithText;
-    private DotRenderer mDotRenderer;
-    private LauncherItem mLauncherItem;
-
-    public BlissFrameLayout(Context context) {
-        this(context, null, 0);
+    init {
+        init()
     }
 
-    public BlissFrameLayout(Context context, AttributeSet attrs) {
-        this(context, attrs, 0);
+    private fun init() {
+        setWillNotDraw(false)
+        mDeviceProfile = BlissLauncher.getApplication(mContext).deviceProfile
+        mDotRenderer = DotRenderer(mContext, mDeviceProfile.iconSizePx)
+        mIconSize = mDeviceProfile.iconSizePx
     }
 
-    public BlissFrameLayout(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        mContext = context;
-        init();
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
     }
 
-    private void init() {
-        setWillNotDraw(false);
-        mDeviceProfile = BlissLauncher.getApplication(mContext).getDeviceProfile();
-        mDotRenderer = new DotRenderer(mContext, mDeviceProfile.iconSizePx);
-        mIconSize = mDeviceProfile.iconSizePx;
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        drawBadgeIfNecessary(canvas)
     }
 
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-    }
-
-    @Override
-    protected void dispatchDraw(Canvas canvas) {
-        super.dispatchDraw(canvas);
-        drawBadgeIfNecessary(canvas);
-    }
-
-    private void drawBadgeIfNecessary(Canvas canvas) {
+    private fun drawBadgeIfNecessary(canvas: Canvas) {
         if (hasBadge) {
-            getIconBounds(mTempIconBounds);
-            mDotRenderer.drawDot(canvas, mTempIconBounds);
+            getIconBounds(mTempIconBounds)
+            mDotRenderer.drawDot(canvas, mTempIconBounds)
         }
     }
 
-    public void setWithText(boolean withText) {
-        this.mWithText = withText;
+    fun setWithText(withText: Boolean) {
+        mWithText = withText
     }
 
-    private void getIconBounds(Rect outBounds) {
-        int cellHeightPx;
-        if (mWithText) {
-            cellHeightPx = mDeviceProfile.cellHeightWithoutPaddingPx;
+    private fun getIconBounds(outBounds: Rect) {
+        val cellHeightPx = if (mWithText) {
+            mDeviceProfile.cellHeightWithoutPaddingPx
         } else {
-            cellHeightPx = mDeviceProfile.hotseatCellHeightWithoutPaddingPx;
+            mDeviceProfile.hotseatCellHeightWithoutPaddingPx
         }
-        int top = (getHeight() - cellHeightPx) / 2;
-        int left = (getWidth() - mIconSize) / 2;
-        int right = left + mIconSize;
-        int bottom = top + mIconSize;
-        outBounds.set(left, top, right, bottom);
+        val top = (height - cellHeightPx) / 2
+        val left = (width - mIconSize) / 2
+        val right = left + mIconSize
+        val bottom = top + mIconSize
+        outBounds.set(left, top, right, bottom)
     }
 
-    public void applyBadge(boolean isBadge, boolean withText) {
-        mWithText = withText;
-        boolean wasBadged = hasBadge;
-        hasBadge = isBadge;
-        boolean isBadged = hasBadge;
-        float newBadgeScale = isBadge ? 1f : 0;
+    fun applyBadge(isBadge: Boolean, withText: Boolean) {
+        mWithText = withText
+        val wasBadged = hasBadge
+        hasBadge = isBadge
+        val isBadged = hasBadge
+        val newBadgeScale = if (isBadge) 1f else 0f
 
-        if ((wasBadged ^ isBadged)) {
-            if (isShown()) {
-                ObjectAnimator.ofFloat(this, BADGE_SCALE_PROPERTY, newBadgeScale).start();
+        if (wasBadged xor isBadged) {
+            if (isShown) {
+                ObjectAnimator.ofFloat(this, BADGE_SCALE_PROPERTY, newBadgeScale).start()
             } else {
-                mBadgeScale = newBadgeScale;
-                invalidate();
+                mBadgeScale = newBadgeScale
+                invalidate()
             }
         }
     }
 
-    public LauncherItem getLauncherItem() {
-        return mLauncherItem;
+    private fun applyIconMetrics(icon: SquareFrameLayout, label: TextView) {
+        val layoutParams = icon.layoutParams as LinearLayout.LayoutParams
+        layoutParams.width = mIconSize
+        layoutParams.height = mIconSize
+        layoutParams.leftMargin = 0
+        layoutParams.rightMargin = 0
+        icon.layoutParams = layoutParams
+
+        label.setPadding(
+            Utilities.pxFromDp(4, mContext).toInt(),
+            0,
+            Utilities.pxFromDp(4, mContext).toInt(),
+            0
+        )
+        label.setTextSize(TypedValue.COMPLEX_UNIT_PX, mDeviceProfile.iconTextSizePx.toFloat())
     }
 
-    public void setLauncherItem(LauncherItem launcherItem) {
-        this.mLauncherItem = launcherItem;
-        if (launcherItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
-            bindApplicationItem((ApplicationItem) launcherItem);
-        } else if (launcherItem.itemType == Constants.ITEM_TYPE_SHORTCUT) {
-            bindShortcutItem((ShortcutItem) launcherItem);
-        } else if (launcherItem.itemType == Constants.ITEM_TYPE_FOLDER) {
-            bindFolderItem((FolderItem) launcherItem);
-        }
+    private fun bindFolderItem(folderItem: FolderItem) {
+        val label = findViewById<TextView>(R.id.app_label)
+        val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
+        val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
+        icon.enableBlur()
+        applyIconMetrics(icon, label)
+        squareImageView.setImageDrawable(folderItem.icon)
+        label.text = folderItem.title.toString()
+        tag = arrayListOf(squareImageView, label, folderItem)
     }
 
-    private void bindFolderItem(FolderItem folderItem) {
-        final TextView label = findViewById(R.id.app_label);
-        final SquareFrameLayout icon = findViewById(R.id.app_icon);
-        final SquareImageView squareImageView = findViewById(R.id.icon_image_view);
-        icon.enableBlur();
-        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) icon.getLayoutParams();
-        layoutParams.leftMargin = mDeviceProfile.iconDrawablePaddingPx / 2;
-        layoutParams.rightMargin = mDeviceProfile.iconDrawablePaddingPx / 2;
-
-        label.setPadding((int) Utilities.pxFromDp(4, mContext), (int) Utilities.pxFromDp(0, mContext),
-                (int) Utilities.pxFromDp(4, mContext), (int) Utilities.pxFromDp(0, mContext));
-        squareImageView.setImageDrawable(folderItem.icon);
-        label.setText(folderItem.title.toString());
-        label.setTextSize(12);
-        List<Object> tags = new ArrayList<>();
-        tags.add(squareImageView);
-        tags.add(label);
-        tags.add(folderItem);
-        setTag(tags);
+    private fun bindShortcutItem(shortcutItem: ShortcutItem) {
+        val label = findViewById<TextView>(R.id.app_label)
+        val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
+        val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
+        applyIconMetrics(icon, label)
+        squareImageView.setImageDrawable(shortcutItem.icon)
+        label.text = shortcutItem.title.toString()
+        tag = arrayListOf(squareImageView, label, shortcutItem)
     }
 
-    private void bindShortcutItem(ShortcutItem shortcutItem) {
-        final TextView label = findViewById(R.id.app_label);
-        final SquareFrameLayout icon = findViewById(R.id.app_icon);
-        final SquareImageView squareImageView = findViewById(R.id.icon_image_view);
-        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) icon.getLayoutParams();
-        layoutParams.leftMargin = mDeviceProfile.iconDrawablePaddingPx / 2;
-        layoutParams.rightMargin = mDeviceProfile.iconDrawablePaddingPx / 2;
-
-        label.setPadding((int) Utilities.pxFromDp(4, mContext), (int) Utilities.pxFromDp(0, mContext),
-                (int) Utilities.pxFromDp(4, mContext), (int) Utilities.pxFromDp(0, mContext));
-        squareImageView.setImageDrawable(shortcutItem.icon);
-        label.setText(shortcutItem.title.toString());
-        label.setTextSize(12);
-        List<Object> tags = new ArrayList<>();
-        tags.add(squareImageView);
-        tags.add(label);
-        tags.add(shortcutItem);
-        setTag(tags);
-    }
-
-    private void bindApplicationItem(ApplicationItem applicationItem) {
-        final TextView label = findViewById(R.id.app_label);
-        final SquareFrameLayout icon = findViewById(R.id.app_icon);
-        final SquareImageView squareImageView = findViewById(R.id.icon_image_view);
-        LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) icon.getLayoutParams();
-        layoutParams.leftMargin = mDeviceProfile.iconDrawablePaddingPx / 2;
-        layoutParams.rightMargin = mDeviceProfile.iconDrawablePaddingPx / 2;
-        label.setPadding((int) Utilities.pxFromDp(4, mContext), (int) Utilities.pxFromDp(0, mContext),
-                (int) Utilities.pxFromDp(4, mContext), (int) Utilities.pxFromDp(0, mContext));
+    private fun bindApplicationItem(applicationItem: ApplicationItem) {
+        val label = findViewById<TextView>(R.id.app_label)
+        val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
+        val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
+        applyIconMetrics(icon, label)
         if (applicationItem.appType == ApplicationItem.TYPE_CLOCK) {
-            final CustomAnalogClock analogClock = findViewById(R.id.icon_clock);
-            analogClock.setAutoUpdate(true);
-            analogClock.setVisibility(View.VISIBLE);
-            squareImageView.setVisibility(GONE);
+            val analogClock = findViewById<CustomAnalogClock>(R.id.icon_clock)
+            analogClock.setAutoUpdate(true)
+            analogClock.visibility = View.VISIBLE
+            squareImageView.visibility = GONE
         } else if (applicationItem.appType == ApplicationItem.TYPE_CALENDAR) {
+            val monthTextView = findViewById<TextView>(R.id.calendar_month_textview)
+            monthTextView.layoutParams.height = mDeviceProfile.monthTextviewHeight
+            monthTextView.layoutParams.width = mDeviceProfile.calendarIconWidth
+            val monthPx = mDeviceProfile.monthTextSize
+            monthTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, (monthPx / 2).toFloat())
 
-            TextView monthTextView = findViewById(R.id.calendar_month_textview);
-            monthTextView.getLayoutParams().height = mDeviceProfile.monthTextviewHeight;
-            monthTextView.getLayoutParams().width = mDeviceProfile.calendarIconWidth;
-            int monthPx = mDeviceProfile.monthTextSize;
-            monthTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, monthPx / 2);
+            val dateTextView = findViewById<TextView>(R.id.calendar_date_textview)
+            dateTextView.layoutParams.height = mDeviceProfile.dateTextviewHeight
+            dateTextView.layoutParams.width = mDeviceProfile.calendarIconWidth
+            val datePx = mDeviceProfile.dateTextSize
+            dateTextView.setPadding(
+                0,
+                mDeviceProfile.dateTextTopPadding,
+                0,
+                mDeviceProfile.dateTextBottomPadding
+            )
 
-            TextView dateTextView = findViewById(R.id.calendar_date_textview);
-            dateTextView.getLayoutParams().height = mDeviceProfile.dateTextviewHeight;
-            dateTextView.getLayoutParams().width = mDeviceProfile.calendarIconWidth;
-            int datePx = mDeviceProfile.dateTextSize;
-            dateTextView.setPadding(0, mDeviceProfile.dateTextTopPadding, 0, mDeviceProfile.dateTextBottomPadding);
+            dateTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, (datePx / 2).toFloat())
 
-            dateTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, datePx / 2);
+            findViewById<View>(R.id.icon_calendar).visibility = View.VISIBLE
+            squareImageView.visibility = GONE
 
-            findViewById(R.id.icon_calendar).setVisibility(View.VISIBLE);
-            squareImageView.setVisibility(GONE);
-
-            CalendarIcon calendarIcon = new CalendarIcon(monthTextView, dateTextView);
-            calendarIcon.monthTextView.setText(Utilities.convertMonthToString());
-            calendarIcon.dayTextView.setText(String.valueOf(Calendar.getInstance().get(Calendar.DAY_OF_MONTH)));
+            val calendarIcon = CalendarIcon(monthTextView, dateTextView)
+            calendarIcon.monthTextView.text = Utilities.convertMonthToString()
+            calendarIcon.dayTextView.text = Calendar.getInstance().get(Calendar.DAY_OF_MONTH).toString()
         } else {
-            squareImageView.setImageDrawable(applicationItem.icon);
+            squareImageView.setImageDrawable(applicationItem.icon)
         }
-        label.setText(applicationItem.title.toString());
-        label.setTextSize(12);
-        List<Object> tags = new ArrayList<>();
-        tags.add(squareImageView);
-        tags.add(label);
-        tags.add(applicationItem);
-        setTag(tags);
+        label.text = applicationItem.title.toString()
+        tag = arrayListOf(squareImageView, label, applicationItem)
+    }
+
+    companion object {
+        private val BADGE_SCALE_PROPERTY = object : Property<BlissFrameLayout, Float>(
+            Float::class.java,
+            "badgeScale"
+        ) {
+            override fun get(bubbleTextView: BlissFrameLayout): Float = bubbleTextView.mBadgeScale
+
+            override fun set(bubbleTextView: BlissFrameLayout, value: Float) {
+                bubbleTextView.mBadgeScale = value
+                bubbleTextView.invalidate()
+            }
+        }
     }
 }

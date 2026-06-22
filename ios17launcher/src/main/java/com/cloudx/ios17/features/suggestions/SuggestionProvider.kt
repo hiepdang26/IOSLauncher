@@ -1,8 +1,7 @@
-package com.cloudx.ios17.features.suggestions;
+package com.cloudx.ios17.features.suggestions
 
-import io.reactivex.Single;
+import io.reactivex.Single
 
-public interface SuggestionProvider {
-
-    Single<SuggestionsResult> query(String query);
+interface SuggestionProvider {
+    fun query(query: String): Single<SuggestionsResult>
 }

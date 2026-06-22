@@ -1,153 +1,109 @@
-/*
- * Copyright (C) 2012 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+package com.cloudx.ios17.features.widgets
 
-package com.cloudx.ios17.features.widgets;
-
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewConfiguration;
-
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.Utilities;
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
+import com.cloudx.ios17.core.Utilities
 
 /**
- * Utility class to handle tripper long press on a view with custom timeout and
- * stylus event
+ * Utility class to handle tripper long press on a view with custom timeout and stylus event.
  */
-public class CheckLongPressHelper {
+class CheckLongPressHelper @JvmOverloads constructor(
+    private val mView: View,
+    private val mListener: View.OnLongClickListener? = null
+) {
 
-    public static final float DEFAULT_LONG_PRESS_TIMEOUT_FACTOR = 0.75f;
-
-    private final View mView;
-    private final View.OnLongClickListener mListener;
-    private final float mSlop;
-
-    private float mLongPressTimeoutFactor = DEFAULT_LONG_PRESS_TIMEOUT_FACTOR;
-
-    private boolean mHasPerformedLongPress;
-
-    private Runnable mPendingCheckForLongPress;
-
-    public CheckLongPressHelper(View v) {
-        this(v, null);
-    }
-
-    public CheckLongPressHelper(View v, View.OnLongClickListener listener) {
-        mView = v;
-        mListener = listener;
-        mSlop = ViewConfiguration.get(mView.getContext()).getScaledTouchSlop();
-    }
+    private val mSlop = ViewConfiguration.get(mView.context).scaledTouchSlop.toFloat()
+    private var mLongPressTimeoutFactor = DEFAULT_LONG_PRESS_TIMEOUT_FACTOR
+    private var mHasPerformedLongPress = false
+    private var mPendingCheckForLongPress: Runnable? = null
 
     /**
-     * Handles the touch event on a view
+     * Handles the touch event on a view.
      *
-     * @see View#onTouchEvent(MotionEvent)
+     * @see View.onTouchEvent
      */
-    public void onTouchEvent(MotionEvent ev) {
-        switch (ev.getAction()) {
-            case MotionEvent.ACTION_DOWN : {
-                // Just in case the previous long press hasn't been cleared, we make sure to
-                // start fresh on touch down.
-                cancelLongPress();
+    fun onTouchEvent(ev: MotionEvent) {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                cancelLongPress()
 
-                postCheckForLongPress();
+                postCheckForLongPress()
                 if (isStylusButtonPressed(ev)) {
-                    triggerLongPress();
+                    triggerLongPress()
                 }
-                break;
             }
-            case MotionEvent.ACTION_CANCEL :
-            case MotionEvent.ACTION_UP :
-                cancelLongPress();
-                break;
-            case MotionEvent.ACTION_MOVE :
-                if (!Utilities.pointInView(mView, ev.getX(), ev.getY(), mSlop)) {
-                    cancelLongPress();
+
+            MotionEvent.ACTION_CANCEL,
+            MotionEvent.ACTION_UP -> cancelLongPress()
+
+            MotionEvent.ACTION_MOVE ->
+                if (!Utilities.pointInView(mView, ev.x, ev.y, mSlop)) {
+                    cancelLongPress()
                 } else if (mPendingCheckForLongPress != null && isStylusButtonPressed(ev)) {
-                    // Only trigger long press if it has not been cancelled before
-                    triggerLongPress();
+                    triggerLongPress()
                 }
-                break;
         }
     }
 
     /** Overrides the default long press timeout. */
-    public void setLongPressTimeoutFactor(float longPressTimeoutFactor) {
-        mLongPressTimeoutFactor = longPressTimeoutFactor;
+    fun setLongPressTimeoutFactor(longPressTimeoutFactor: Float) {
+        mLongPressTimeoutFactor = longPressTimeoutFactor
     }
 
-    private void postCheckForLongPress() {
-        mHasPerformedLongPress = false;
+    private fun postCheckForLongPress() {
+        mHasPerformedLongPress = false
 
         if (mPendingCheckForLongPress == null) {
-            mPendingCheckForLongPress = this::triggerLongPress;
+            mPendingCheckForLongPress = Runnable { triggerLongPress() }
         }
-        mView.postDelayed(mPendingCheckForLongPress,
-                (long) (ViewConfiguration.getLongPressTimeout() * mLongPressTimeoutFactor));
+        mView.postDelayed(
+            mPendingCheckForLongPress,
+            (ViewConfiguration.getLongPressTimeout() * mLongPressTimeoutFactor).toLong()
+        )
     }
 
-    /** Cancels any pending long press */
-    public void cancelLongPress() {
-        mHasPerformedLongPress = false;
-        clearCallbacks();
+    /** Cancels any pending long press. */
+    fun cancelLongPress() {
+        mHasPerformedLongPress = false
+        clearCallbacks()
     }
 
     /**
-     * Returns true if long press has been performed in the current touch gesture
+     * Returns true if long press has been performed in the current touch gesture.
      */
-    public boolean hasPerformedLongPress() {
-        return mHasPerformedLongPress;
-    }
+    fun hasPerformedLongPress(): Boolean = mHasPerformedLongPress
 
-    private void triggerLongPress() {
-        if ((mView.getParent() != null) && mView.hasWindowFocus() && (!mView.isPressed() || mListener != null)
-                && !mHasPerformedLongPress) {
-            boolean handled;
-            if (mListener != null) {
-                handled = mListener.onLongClick(mView);
-            } else {
-                handled = mView.performLongClick();
-            }
+    private fun triggerLongPress() {
+        if (
+            mView.parent != null &&
+            mView.hasWindowFocus() &&
+            (!mView.isPressed || mListener != null) &&
+            !mHasPerformedLongPress
+        ) {
+            val handled = mListener?.onLongClick(mView) ?: mView.performLongClick()
             if (handled) {
-                mView.setPressed(false);
-                mHasPerformedLongPress = true;
+                mView.isPressed = false
+                mHasPerformedLongPress = true
             }
-            clearCallbacks();
+            clearCallbacks()
         }
     }
 
-    private void clearCallbacks() {
-        if (mPendingCheckForLongPress != null) {
-            mView.removeCallbacks(mPendingCheckForLongPress);
-            mPendingCheckForLongPress = null;
+    private fun clearCallbacks() {
+        val pendingCheckForLongPress = mPendingCheckForLongPress
+        if (pendingCheckForLongPress != null) {
+            mView.removeCallbacks(pendingCheckForLongPress)
+            mPendingCheckForLongPress = null
         }
     }
 
-    /**
-     * Identifies if the provided {@link MotionEvent} is a stylus with the primary
-     * stylus button pressed.
-     *
-     * @param event
-     *            The event to check.
-     * @return Whether a stylus button press occurred.
-     */
-    private static boolean isStylusButtonPressed(MotionEvent event) {
-        return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
-                && event.isButtonPressed(MotionEvent.BUTTON_SECONDARY);
+    companion object {
+        const val DEFAULT_LONG_PRESS_TIMEOUT_FACTOR = 0.75f
+
+        private fun isStylusButtonPressed(event: MotionEvent): Boolean {
+            return event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS &&
+                event.isButtonPressed(MotionEvent.BUTTON_SECONDARY)
+        }
     }
 }

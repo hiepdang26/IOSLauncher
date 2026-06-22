@@ -307,13 +307,13 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:orientation="vertical"
-                android:paddingStart="22dp"
-                android:paddingTop="44dp"
-                android:paddingEnd="22dp">
+                android:paddingStart="24dp"
+                android:paddingTop="54dp"
+                android:paddingEnd="24dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="38dp"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -325,13 +325,13 @@
                         android:background="@drawable/bg_ios_search_field"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp">
+                        android:paddingStart="16dp"
+                        android:paddingEnd="14dp">
 
                         <ImageView
                             android:id="@+id/searchFieldIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:contentDescription="@null"
                             android:src="@drawable/ic_search_18" />
 
@@ -343,18 +343,19 @@
                             android:layout_weight="1"
                             android:background="@android:color/transparent"
                             android:hint="@string/launcher_search_hint"
+                            android:includeFontPadding="false"
                             android:imeOptions="actionSearch"
                             android:inputType="text"
                             android:singleLine="true"
                             android:textColor="@color/ios_workspace_text"
                             android:textColorHint="#B8FFFFFF"
                             android:textCursorDrawable="@null"
-                            android:textSize="17sp" />
+                            android:textSize="23sp" />
 
                         <ImageView
                             android:id="@+id/searchMicIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:contentDescription="@null"
                             android:src="@drawable/ic_mic_18" />
                     </LinearLayout>
@@ -363,38 +364,39 @@
                         android:id="@+id/cancelSearchButton"
                         android:layout_width="wrap_content"
                         android:layout_height="match_parent"
-                        android:layout_marginStart="8dp"
+                        android:layout_marginStart="14dp"
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
                         android:text="@string/launcher_search_cancel"
                         android:textColor="@color/ios_workspace_text"
-                        android:textSize="14sp" />
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/searchSuggestionsLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginTop="14dp"
+                    android:layout_marginStart="14dp"
+                    android:layout_marginTop="22dp"
                     android:text="@string/launcher_search_suggestions"
                     android:textColor="#D8FFFFFF"
-                    android:textSize="13sp" />
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/searchResultsRecyclerView"
                     android:layout_width="match_parent"
-                    android:layout_height="0dp"
+                    android:layout_height="260dp"
                     android:layout_marginTop="8dp"
-                    android:layout_weight="1"
                     android:background="@drawable/bg_ios_search_results"
                     android:clipToPadding="false"
                     android:overScrollMode="never"
-                    android:paddingStart="10dp"
-                    android:paddingTop="14dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="180dp" />
+                    android:paddingStart="16dp"
+                    android:paddingTop="20dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="20dp" />
             </LinearLayout>
         </FrameLayout>
 

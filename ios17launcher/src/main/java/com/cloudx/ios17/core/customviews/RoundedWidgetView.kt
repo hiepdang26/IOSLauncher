@@ -1,169 +1,143 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.appwidget.AppWidgetHostView;
-import android.appwidget.AppWidgetProviderInfo;
-import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Path;
-import android.graphics.Rect;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import androidx.annotation.Nullable;
+import android.appwidget.AppWidgetHostView
+import android.appwidget.AppWidgetProviderInfo
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Path
+import android.graphics.Rect
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.blur.BlurViewDelegate
+import com.cloudx.ios17.core.blur.BlurWallpaperProvider
+import com.cloudx.ios17.features.widgets.CheckLongPressHelper
 
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
+open class RoundedWidgetView(
+    private val mContext: Context,
+    blurBackground: Boolean
+) : AppWidgetHostView(mContext) {
 
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
-import com.cloudx.ios17.features.widgets.CheckLongPressHelper;
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
+    private val stencilPath = Path()
+    private var cornerRadius = 0f
+    private val mLongPressHelper: CheckLongPressHelper
+    private var resizeBorder: ImageView? = null
+    private var mChildrenFocused = false
+    private var activated = false
+    private var mBlurDelegate: BlurViewDelegate? = null
 
-public class RoundedWidgetView extends AppWidgetHostView {
-
-    private final Path stencilPath = new Path();
-    private float cornerRadius;
-    private CheckLongPressHelper mLongPressHelper;
-    private Context mContext;
-    private static final String TAG = "RoundedWidgetView";
-    private ImageView resizeBorder;
-
-    private OnTouchListener _onTouchListener;
-    private OnLongClickListener _longClick;
-    private long _down;
-    private boolean mChildrenFocused;
-
-    private boolean activated = false;
-
-    private BlurViewDelegate mBlurDelegate = null;
-
-    public RoundedWidgetView(Context context, boolean blurBackground) {
-        super(context);
-        this.mContext = context;
-        this.cornerRadius = context.getResources().getDimensionPixelSize(R.dimen.corner_radius);
-        mLongPressHelper = new CheckLongPressHelper(this);
+    init {
+        cornerRadius = mContext.resources.getDimensionPixelSize(R.dimen.corner_radius).toFloat()
+        mLongPressHelper = CheckLongPressHelper(this)
         if (blurBackground) {
-            mBlurDelegate = new BlurViewDelegate(this, BlurWallpaperProvider.Companion.getBlurConfigWidget(), null);
-            mBlurDelegate.setBlurCornerRadius(cornerRadius);
-            setWillNotDraw(false);
-            setOutlineProvider(mBlurDelegate.getOutlineProvider());
-            setClipToOutline(true);
+            mBlurDelegate = BlurViewDelegate(this, BlurWallpaperProvider.blurConfigWidget, null)
+            mBlurDelegate?.blurCornerRadius = cornerRadius
+            setWillNotDraw(false)
+            outlineProvider = mBlurDelegate?.outlineProvider
+            clipToOutline = true
         }
     }
 
-    @Override
-    public void setAppWidget(int appWidgetId, AppWidgetProviderInfo info) {
-        super.setAppWidget(appWidgetId, info);
-        setPadding(0, 0, 0, 0);
+    override fun setAppWidget(appWidgetId: Int, info: AppWidgetProviderInfo?) {
+        super.setAppWidget(appWidgetId, info)
+        setPadding(0, 0, 0, 0)
     }
 
-    @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
 
-        // compute the path
-        stencilPath.reset();
-        stencilPath.addRoundRect(0, 0, w, h, cornerRadius, cornerRadius, Path.Direction.CW);
-        stencilPath.close();
+        stencilPath.reset()
+        stencilPath.addRoundRect(0f, 0f, w.toFloat(), h.toFloat(), cornerRadius, cornerRadius, Path.Direction.CW)
+        stencilPath.close()
     }
 
-    @Override
-    protected void dispatchDraw(Canvas canvas) {
-        int save = canvas.save();
-        canvas.clipPath(stencilPath);
-        super.dispatchDraw(canvas);
-        canvas.restoreToCount(save);
+    override fun dispatchDraw(canvas: Canvas) {
+        val save = canvas.save()
+        canvas.clipPath(stencilPath)
+        super.dispatchDraw(canvas)
+        canvas.restoreToCount(save)
     }
 
-    @Override
-    protected void onDraw(Canvas canvas) {
-        if (mBlurDelegate != null) {
-            mBlurDelegate.draw(canvas);
+    override fun onDraw(canvas: Canvas) {
+        mBlurDelegate?.draw(canvas)
+        super.onDraw(canvas)
+    }
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        mLongPressHelper.onTouchEvent(ev)
+        return mLongPressHelper.hasPerformedLongPress()
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        mLongPressHelper.onTouchEvent(event)
+        return true
+    }
+
+    override fun cancelLongPress() {
+        super.cancelLongPress()
+        mLongPressHelper.cancelLongPress()
+    }
+
+    override fun getDescendantFocusability(): Int {
+        return if (mChildrenFocused) {
+            ViewGroup.FOCUS_BEFORE_DESCENDANTS
+        } else {
+            ViewGroup.FOCUS_BLOCK_DESCENDANTS
         }
-        super.onDraw(canvas);
     }
 
-    @Override
-    public boolean onInterceptTouchEvent(MotionEvent ev) {
-        mLongPressHelper.onTouchEvent(ev);
-        return mLongPressHelper.hasPerformedLongPress();
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        mLongPressHelper.onTouchEvent(event);
-        return true;
-    }
-
-    @Override
-    public void cancelLongPress() {
-        super.cancelLongPress();
-
-        mLongPressHelper.cancelLongPress();
-    }
-
-    @Override
-    public int getDescendantFocusability() {
-        return mChildrenFocused ? ViewGroup.FOCUS_BEFORE_DESCENDANTS : ViewGroup.FOCUS_BLOCK_DESCENDANTS;
-    }
-
-    @Override
-    protected void onFocusChanged(boolean gainFocus, int direction, @Nullable Rect previouslyFocusedRect) {
+    override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
         if (gainFocus) {
-            mChildrenFocused = false;
-            dispatchChildFocus(false);
+            mChildrenFocused = false
+            dispatchChildFocus(false)
         }
-        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
+        super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
     }
 
-    @Override
-    public void requestChildFocus(View child, View focused) {
-        super.requestChildFocus(child, focused);
-        dispatchChildFocus(mChildrenFocused && focused != null);
+    override fun requestChildFocus(child: View, focused: View?) {
+        super.requestChildFocus(child, focused)
+        dispatchChildFocus(mChildrenFocused && focused != null)
         if (focused != null) {
-            focused.setFocusableInTouchMode(false);
+            focused.isFocusableInTouchMode = false
         }
     }
 
-    @Override
-    public boolean dispatchUnhandledMove(View focused, int direction) {
-        return mChildrenFocused;
+    override fun dispatchUnhandledMove(focused: View, direction: Int): Boolean = mChildrenFocused
+
+    private fun dispatchChildFocus(childIsFocused: Boolean) {
+        isSelected = childIsFocused
     }
 
-    private void dispatchChildFocus(boolean childIsFocused) {
-        // The host view's background changes when selected, to indicate the focus is
-        // inside.
-        setSelected(childIsFocused);
-    }
-
-    public void addBorder() {
+    fun addBorder() {
         if (resizeBorder != null) {
-            removeBorder();
+            removeBorder()
         }
-        resizeBorder = new ImageView(mContext);
-        resizeBorder.setImageResource(R.drawable.widget_resize_frame);
-        FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT);
-        resizeBorder.setLayoutParams(layoutParams);
-        addView(resizeBorder);
-        activated = true;
+        resizeBorder = ImageView(mContext)
+        resizeBorder?.setImageResource(R.drawable.widget_resize_frame)
+        val layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        resizeBorder?.layoutParams = layoutParams
+        addView(resizeBorder)
+        activated = true
     }
 
-    public void removeBorder() {
-        if (resizeBorder != null) {
-            removeView(resizeBorder);
-            resizeBorder = null;
-            activated = false;
+    fun removeBorder() {
+        val border = resizeBorder
+        if (border != null) {
+            removeView(border)
+            resizeBorder = null
+            activated = false
         }
     }
 
-    public boolean isWidgetActivated() {
-        return activated;
+    fun isWidgetActivated(): Boolean = activated
+
+    companion object {
+        private const val TAG = "RoundedWidgetView"
     }
 }

@@ -1,10 +1,7 @@
-package com.cloudx.ios17.features.launcher;
+package com.cloudx.ios17.features.launcher
 
-public interface OnSwipeDownListener {
-
-    void onSwipeStart();
-
-    void onSwipe(int position);
-
-    void onSwipeFinish();
+interface OnSwipeDownListener {
+    fun onSwipeStart()
+    fun onSwipe(position: Int)
+    fun onSwipeFinish()
 }

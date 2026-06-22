@@ -1,61 +1,59 @@
-package com.cloudx.ios17.features.weather;
+package com.cloudx.ios17.features.weather
 
-import android.Manifest;
-import android.app.Activity;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.ResultReceiver;
-import androidx.annotation.NonNull;
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
+import android.os.ResultReceiver
 
-public class PermissionRequestActivity extends Activity {
+class PermissionRequestActivity : Activity() {
+    private var mResultReceiver: ResultReceiver? = null
+    private var mResult = RESULT_CANCELED
 
-    private static final String RESULT_RECEIVER_EXTRA = "result_receiver";
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
-
-    private ResultReceiver mResultReceiver;
-    private int mResult = RESULT_CANCELED;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         if (hasLocationPermission()) {
-            finish();
-            return;
+            finish()
+            return
         }
 
-        mResultReceiver = getIntent().getParcelableExtra(RESULT_RECEIVER_EXTRA);
+        mResultReceiver = intent.getParcelableExtra(RESULT_RECEIVER_EXTRA)
         if (mResultReceiver == null) {
-            finish();
-            return;
+            finish()
+            return
         }
 
-        String[] permissions = new String[]{Manifest.permission.ACCESS_COARSE_LOCATION};
+        val permissions = arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            requestPermissions(permissions, LOCATION_PERMISSION_REQUEST_CODE);
+            requestPermissions(permissions, LOCATION_PERMISSION_REQUEST_CODE)
         }
     }
 
-    public boolean hasLocationPermission() {
-        return checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-    }
+    fun hasLocationPermission(): Boolean =
+        checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-            @NonNull int[] grantResults) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mResult = RESULT_OK;
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mResult = RESULT_OK
             }
         }
-        finish();
+        finish()
     }
 
-    @Override
-    public void finish() {
-        if (mResultReceiver != null) {
-            mResultReceiver.send(mResult, null);
-        }
-        super.finish();
+    override fun finish() {
+        mResultReceiver?.send(mResult, null)
+        super.finish()
+    }
+
+    companion object {
+        private const val RESULT_RECEIVER_EXTRA = "result_receiver"
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1
     }
 }

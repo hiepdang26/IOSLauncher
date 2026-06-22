@@ -1,219 +1,188 @@
-/*
- * Copyright 2018 /e/.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package com.cloudx.ios17.core.utils;
+package com.cloudx.ios17.core.utils
 
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.database.model.FolderItem
+import timber.log.Timber
 
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.BlissLauncher;
-import timber.log.Timber;
+class GraphicsUtil(private val mContext: Context) {
 
-import java.util.HashMap;
-import java.util.Map;
+    private val appIconWidth: Int
+    private val mFolderPreviewBackgroundColor: Int
 
-public class GraphicsUtil {
-
-    private static final String TAG = "BLISS_GRAPHICS";
-    private final Context mContext;
-    private final int appIconWidth;
-    private final int mFolderPreviewBackgroundColor;
-
-    public GraphicsUtil(Context context) {
-        this.mContext = context;
-        DeviceProfile deviceProfile = BlissLauncher.getApplication(context).getDeviceProfile();
-        this.appIconWidth = deviceProfile.iconSizePx;
-        mFolderPreviewBackgroundColor = mContext.getColor(R.color.folder_preview_background_color);
+    init {
+        val deviceProfile = BlissLauncher.getApplication(mContext).deviceProfile
+        appIconWidth = deviceProfile.iconSizePx
+        mFolderPreviewBackgroundColor = mContext.getColor(R.color.folder_preview_background_color)
     }
 
     /**
-     * Takes 1 or more drawables and merges them to form a single Drawable. However,
-     * if more than 4 drawables are provided, only the first 4 are used.
+     * Takes 1 or more drawables and merges them to form a single Drawable.
      */
-    public Drawable generateFolderIcon(Context context, Drawable... sources) {
-        int width = appIconWidth;
-        int height = width; // Square icons
+    fun generateFolderIcon(context: Context, vararg sources: Drawable): Drawable {
+        val width = appIconWidth
+        val height = width
 
-        Timber.tag(TAG).i("generateFolderIcon: " + width + "*" + height);
-        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
+        Timber.tag(TAG).i("generateFolderIcon: $width*$height")
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
 
-        int xOrigin = bitmap.getWidth() / 10;
-        int yOrigin = bitmap.getHeight() / 10;
-        int x = xOrigin;
-        int y = yOrigin;
-        int xIncrement = bitmap.getWidth() / 10;
-        int yIncrement = bitmap.getHeight() / 10;
-        int count = 0;
-        int total = 0;
-        for (Drawable d : sources) {
-            d.setBounds(x, y, (int) (x + width / 5f), (int) (y + height / 5f));
-            d.draw(canvas);
-            x += (int) (width / 5f + xIncrement);
-            count++;
-            total++;
+        val xOrigin = bitmap.width / 10
+        val yOrigin = bitmap.height / 10
+        var x = xOrigin
+        var y = yOrigin
+        val xIncrement = bitmap.width / 10
+        val yIncrement = bitmap.height / 10
+        var count = 0
+        var total = 0
+        for (drawable in sources) {
+            drawable.setBounds(x, y, (x + width / 5f).toInt(), (y + height / 5f).toInt())
+            drawable.draw(canvas)
+            x += (width / 5f + xIncrement).toInt()
+            count++
+            total++
             if (count == 3) {
-                count = 0;
-                y += (int) (height / 5f + yIncrement);
-                x = xOrigin;
+                count = 0
+                y += (height / 5f + yIncrement).toInt()
+                x = xOrigin
             }
             if (total > 8) {
-                break;
+                break
             }
         }
 
-        Drawable convertedBitmap = convertToRoundedCorner(context, addBackground(bitmap, true));
-        return convertedBitmap;
+        return convertToRoundedCorner(context, addBackground(bitmap, true))
     }
 
-    /**
-     * A utility method that simplifies calls to the generateFolderIcon() method
-     * that expects an array of Drawables.
-     */
-    public Drawable generateFolderIcon(Context context, FolderItem app) {
-        Drawable[] drawables = new Drawable[app.items.size()];
-        for (int i = 0; i < app.items.size(); i++) {
-            drawables[i] = app.items.get(i).icon;
+    fun generateFolderIcon(context: Context, app: FolderItem): Drawable {
+        val folderItems = requireNotNull(app.items)
+        val drawables = Array(folderItems.size) { index -> requireNotNull(folderItems[index].icon) }
+        return generateFolderIcon(context, *drawables)
+    }
+
+    /** Scales icons to match the icon pack. */
+    fun scaleImage(context: Context, image: Drawable?, scaleFactor: Float): Drawable? {
+        if (image !is BitmapDrawable) {
+            return image
         }
-        return generateFolderIcon(context, drawables);
+        val bitmap = image.bitmap
+        val sizeX = Math.round(image.intrinsicWidth * scaleFactor)
+        val sizeY = Math.round(image.intrinsicHeight * scaleFactor)
+        val bitmapResized = Bitmap.createScaledBitmap(bitmap, sizeX, sizeY, false)
+        return BitmapDrawable(context.resources, bitmapResized)
     }
 
-    /** Scales icons to match the icon pack */
-    public Drawable scaleImage(Context context, Drawable image, float scaleFactor) {
-        if ((image == null) || !(image instanceof BitmapDrawable)) {
-            return image;
+    fun addBackground(bitmap: Bitmap, isFolder: Boolean): Bitmap {
+        var workingBitmap = bitmap
+        if (!hasTransparency(workingBitmap)) {
+            workingBitmap = Bitmap.createScaledBitmap(
+                workingBitmap,
+                appIconWidth,
+                appIconWidth * workingBitmap.height / workingBitmap.width,
+                true
+            )
+            return workingBitmap
         }
-        Bitmap b = ((BitmapDrawable) image).getBitmap();
-        int sizeX = Math.round(image.getIntrinsicWidth() * scaleFactor);
-        int sizeY = Math.round(image.getIntrinsicHeight() * scaleFactor);
-        Bitmap bitmapResized = Bitmap.createScaledBitmap(b, sizeX, sizeY, false);
-        image = new BitmapDrawable(context.getResources(), bitmapResized);
-        return image;
-    }
-
-    public Bitmap addBackground(Bitmap bitmap, boolean isFolder) {
-        if (!hasTransparency(bitmap)) {
-            bitmap = Bitmap.createScaledBitmap(bitmap, appIconWidth,
-                    (appIconWidth * bitmap.getHeight() / bitmap.getWidth()), true);
-            return bitmap;
-        }
-        if (bitmap.getWidth() >= appIconWidth) {
-            bitmap = Bitmap.createScaledBitmap(bitmap, appIconWidth,
-                    (appIconWidth * bitmap.getHeight() / bitmap.getWidth()), true);
+        if (workingBitmap.width >= appIconWidth) {
+            workingBitmap = Bitmap.createScaledBitmap(
+                workingBitmap,
+                appIconWidth,
+                appIconWidth * workingBitmap.height / workingBitmap.width,
+                true
+            )
         }
 
-        int width = appIconWidth;
-        int height = width;
-        Bitmap mergedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(mergedBitmap);
-        canvas.drawColor(isFolder ? mFolderPreviewBackgroundColor : getDominantColor(bitmap));
+        val width = appIconWidth
+        val height = width
+        val mergedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(mergedBitmap)
+        canvas.drawColor(if (isFolder) mFolderPreviewBackgroundColor else getDominantColor(workingBitmap))
 
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
-        canvas.drawBitmap(bitmap, (width - bitmap.getWidth()) / 2, (height - bitmap.getHeight()) / 2, paint);
-        return mergedBitmap;
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG or Paint.FILTER_BITMAP_FLAG)
+        canvas.drawBitmap(
+            workingBitmap,
+            ((width - workingBitmap.width) / 2).toFloat(),
+            ((height - workingBitmap.height) / 2).toFloat(),
+            paint
+        )
+        return mergedBitmap
     }
 
-    public Bitmap addBackground(Drawable appIcon, boolean isFolder) {
-        Bitmap bitmap;
-        if (appIcon instanceof BitmapDrawable) {
-            bitmap = ((BitmapDrawable) appIcon).getBitmap();
-        } else {
-            bitmap = Bitmap.createBitmap(appIcon.getIntrinsicWidth(), appIcon.getIntrinsicHeight(),
-                    Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(bitmap);
-            appIcon.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-            appIcon.draw(canvas);
-        }
-        return addBackground(bitmap, isFolder);
+    fun addBackground(appIcon: Drawable, isFolder: Boolean): Bitmap {
+        val bitmap =
+            if (appIcon is BitmapDrawable) {
+                appIcon.bitmap
+            } else {
+                Bitmap.createBitmap(appIcon.intrinsicWidth, appIcon.intrinsicHeight, Bitmap.Config.ARGB_8888).also {
+                    val canvas = Canvas(it)
+                    appIcon.setBounds(0, 0, canvas.width, canvas.height)
+                    appIcon.draw(canvas)
+                }
+            }
+        return addBackground(bitmap, isFolder)
     }
 
-    public BitmapDrawable convertToRoundedCorner(Context context, Bitmap src) {
-        return new BitmapDrawable(context.getResources(), BitmapUtils.getCroppedBitmap(src, DeviceProfile.path));
+    fun convertToRoundedCorner(context: Context, src: Bitmap): BitmapDrawable {
+        return BitmapDrawable(context.resources, BitmapUtils.getCroppedBitmap(src, DeviceProfile.path))
     }
 
-    public boolean hasTransparency(Bitmap bitmap) {
-        for (int y = 0; y < bitmap.getHeight(); y++) {
-            for (int x = 0; x < bitmap.getWidth(); x++) {
+    fun hasTransparency(bitmap: Bitmap): Boolean {
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
                 if (Color.alpha(bitmap.getPixel(x, y)) < 255) {
-                    return true;
+                    return true
                 }
             }
         }
 
-        return false;
+        return false
     }
 
-    /**
-     * Finds the color with the most occurrences inside of a bitmap.
-     *
-     * @param drawable
-     *            to get the dominant color of
-     * @return the dominant color
-     */
-    public int getDominantColor(Drawable drawable) {
-        return getDominantColor(((BitmapDrawable) drawable).getBitmap());
+    fun getDominantColor(drawable: Drawable): Int {
+        return getDominantColor((drawable as BitmapDrawable).bitmap)
     }
 
-    /**
-     * Finds the color with the most occurrences inside of a bitmap.
-     *
-     * @param bitmap
-     *            the bitmap to get the dominant color of
-     * @return the dominant color
-     */
-    private int getDominantColor(Bitmap bitmap) {
-        @SuppressLint("UseSparseArrays")
-        Map<Integer, Integer> colors = new HashMap<>();
+    @SuppressLint("UseSparseArrays")
+    private fun getDominantColor(bitmap: Bitmap): Int {
+        val colors = HashMap<Int, Int>()
 
-        int count = 0;
-
-        for (int x = 0; x < bitmap.getWidth(); x++) {
-            for (int y = 0; y < bitmap.getHeight(); y++) {
+        for (x in 0 until bitmap.width) {
+            for (y in 0 until bitmap.height) {
                 if (Color.alpha(bitmap.getPixel(x, y)) == 255) {
-                    int color = bitmap.getPixel(x, y);
-                    colors.put(color, (colors.containsKey(color) ? colors.get(color) : 0) + 1);
+                    val color = bitmap.getPixel(x, y)
+                    colors[color] = (colors[color] ?: 0) + 1
                 }
             }
         }
 
-        int color = Color.TRANSPARENT;
-        int occurrences = 0;
-        if (colors.keySet().size() > 1) {
-            for (Integer key : colors.keySet()) {
-                if (colors.get(key) > occurrences) {
-                    occurrences = colors.get(key);
-                    color = key;
+        var color = Color.TRANSPARENT
+        var occurrences = 0
+        return if (colors.keys.size > 1) {
+            for (key in colors.keys) {
+                val count = colors[key] ?: 0
+                if (count > occurrences) {
+                    occurrences = count
+                    color = key
                 }
             }
 
-            return color;
+            color
         } else {
-            Timber.tag(TAG).i("getDominantColor: white");
-            return Color.WHITE;
+            Timber.tag(TAG).i("getDominantColor: white")
+            Color.WHITE
         }
+    }
+
+    companion object {
+        private const val TAG = "BLISS_GRAPHICS"
     }
 }

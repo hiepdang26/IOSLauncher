@@ -1,44 +1,25 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.content.Context;
-import android.util.AttributeSet;
-import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import androidx.annotation.Nullable;
+import android.content.Context
+import android.util.AttributeSet
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import com.cloudx.ios17.BlissLauncher
 
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.DeviceProfile;
+class PageIndicatorLinearLayout @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : LinearLayout(context, attrs, defStyleAttr) {
+    private val mContext: Context = context
 
-public class PageIndicatorLinearLayout extends LinearLayout {
-    private Context mContext;
-
-    public PageIndicatorLinearLayout(Context context) {
-        this(context, null);
-    }
-
-    public PageIndicatorLinearLayout(Context context, @Nullable AttributeSet attrs) {
-        this(context, attrs, 0);
-    }
-
-    public PageIndicatorLinearLayout(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        this.mContext = context;
-    }
-
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        ViewGroup.LayoutParams params = getLayoutParams();
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        val params = layoutParams
         if (params != null && params.width != ViewGroup.LayoutParams.MATCH_PARENT) {
-            return;
+            return
         }
-        DeviceProfile deviceProfile = BlissLauncher.getApplication(mContext).getDeviceProfile();
-        setMeasuredDimension(deviceProfile.getAvailableWidthPx(), deviceProfile.getPageIndicatorHeight());
+        val deviceProfile = BlissLauncher.getApplication(mContext).deviceProfile
+        setMeasuredDimension(deviceProfile.availableWidthPx, deviceProfile.pageIndicatorHeight)
     }
 }

@@ -1,41 +1,30 @@
-package com.cloudx.ios17.features.launcher;
+package com.cloudx.ios17.features.launcher
 
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.jakewharton.rxrelay2.BehaviorRelay;
+import com.cloudx.ios17.core.database.model.LauncherItem
+import com.jakewharton.rxrelay2.BehaviorRelay
 
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
+class AppsRepository private constructor() {
+    private var appsRelay: BehaviorRelay<List<LauncherItem>> = BehaviorRelay.create()
 
-import java.util.List;
-
-public class AppsRepository {
-
-    private static final String TAG = "AppsRepository";
-    private BehaviorRelay<List<LauncherItem>> appsRelay;
-
-    private static AppsRepository sAppsRepository;
-
-    private AppsRepository() {
-        appsRelay = BehaviorRelay.create();
+    fun clearAll() {
+        appsRelay = BehaviorRelay.create()
     }
 
-    public static AppsRepository getAppsRepository() {
-        if (sAppsRepository == null) {
-            sAppsRepository = new AppsRepository();
+    fun updateAppsRelay(launcherItems: List<LauncherItem>) {
+        appsRelay.accept(launcherItems)
+    }
+
+    fun getAppsRelay(): BehaviorRelay<List<LauncherItem>> = appsRelay
+
+    companion object {
+        private var sAppsRepository: AppsRepository? = null
+
+        @JvmStatic
+        fun getAppsRepository(): AppsRepository {
+            if (sAppsRepository == null) {
+                sAppsRepository = AppsRepository()
+            }
+            return sAppsRepository!!
         }
-        return sAppsRepository;
-    }
-
-    public void clearAll() {
-        appsRelay = BehaviorRelay.create();
-    }
-
-    public void updateAppsRelay(List<LauncherItem> launcherItems) {
-        this.appsRelay.accept(launcherItems);
-    }
-
-    public BehaviorRelay<List<LauncherItem>> getAppsRelay() {
-        return appsRelay;
     }
 }

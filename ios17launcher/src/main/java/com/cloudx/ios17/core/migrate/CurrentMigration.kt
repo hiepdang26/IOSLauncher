@@ -1,8 +1,9 @@
-package com.cloudx.ios17.core.migrate;
+package com.cloudx.ios17.core.migrate
 
-import java.util.List;
+class CurrentMigration {
+    @JvmField
+    var currentVersion: Int = 0
 
-public class CurrentMigration {
-    public int currentVersion;
-    public List<MigrationInfo> migrate_infos;
+    @JvmField
+    var migrate_infos: List<MigrationInfo>? = null
 }

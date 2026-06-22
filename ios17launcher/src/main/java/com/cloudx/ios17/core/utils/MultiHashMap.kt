@@ -1,34 +1,27 @@
-package com.cloudx.ios17.core.utils;
+package com.cloudx.ios17.core.utils
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.ArrayList
+import java.util.HashMap
 
-public class MultiHashMap<K, V> extends HashMap<K, ArrayList<V>> {
+class MultiHashMap<K, V> : HashMap<K, ArrayList<V>> {
+    constructor()
 
-    public MultiHashMap() {
-    }
+    constructor(size: Int) : super(size)
 
-    public MultiHashMap(int size) {
-        super(size);
-    }
-
-    public void addToList(K key, V value) {
-        ArrayList<V> list = get(key);
+    fun addToList(key: K, value: V) {
+        val list = get(key)
         if (list == null) {
-            list = new ArrayList<>();
-            list.add(value);
-            put(key, list);
+            put(key, arrayListOf(value))
         } else {
-            list.add(value);
+            list.add(value)
         }
     }
 
-    @Override
-    public MultiHashMap<K, V> clone() {
-        MultiHashMap<K, V> map = new MultiHashMap<>(size());
-        for (Entry<K, ArrayList<V>> entry : entrySet()) {
-            map.put(entry.getKey(), new ArrayList<V>(entry.getValue()));
+    public override fun clone(): MultiHashMap<K, V> {
+        val map = MultiHashMap<K, V>(size)
+        for ((key, value) in entries) {
+            map[key] = ArrayList(value)
         }
-        return map;
+        return map
     }
 }

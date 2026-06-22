@@ -1,33 +1,36 @@
-package com.cloudx.ios17.features.shortcuts;
+package com.cloudx.ios17.features.shortcuts
 
-import android.annotation.TargetApi;
-import android.content.Context;
-import android.content.pm.LauncherApps;
-import android.os.Build;
-import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
+import android.annotation.TargetApi
+import android.content.Context
+import android.content.pm.LauncherApps
+import android.os.Build
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 
 @TargetApi(Build.VERSION_CODES.O)
-public class AddItemActivity extends AppCompatActivity {
-
-    private static final String TAG = "AddItemActivity";
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getIntent() != null && getIntent().getAction().equalsIgnoreCase(LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT)) {
-            LauncherApps launcherApps = (LauncherApps) getSystemService(Context.LAUNCHER_APPS_SERVICE);
-            LauncherApps.PinItemRequest request = launcherApps.getPinItemRequest(getIntent());
+class AddItemActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val currentIntent = intent
+        if (currentIntent?.action?.equals(
+                LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT,
+                ignoreCase = true
+            ) == true
+        ) {
+            val launcherApps = getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val request = launcherApps.getPinItemRequest(currentIntent)
             if (request == null) {
-                finish();
-                return;
+                finish()
+                return
             }
 
-            if (request.getRequestType() == LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
-                InstallShortcutReceiver.queueShortcut(new ShortcutInfoCompat(request.getShortcutInfo()),
-                        this.getApplicationContext());
-                request.accept();
-                finish();
+            if (request.requestType == LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT) {
+                InstallShortcutReceiver.queueShortcut(
+                    ShortcutInfoCompat(request.shortcutInfo),
+                    applicationContext
+                )
+                request.accept()
+                finish()
             }
         }
     }

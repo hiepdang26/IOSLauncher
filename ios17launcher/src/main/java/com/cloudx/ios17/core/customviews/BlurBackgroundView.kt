@@ -78,5 +78,5 @@ class BlurBackgroundView(context: Context, attrs: AttributeSet?) :
         createFullBlurDrawable()
     }
 
-    override fun setInsets(insets: Rect) {}
+    override fun setInsets(insets: Rect?) {}
 }

@@ -1,41 +1,30 @@
-package com.cloudx.ios17.features.suggestions;
+package com.cloudx.ios17.features.suggestions
 
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
+import com.cloudx.ios17.core.database.model.LauncherItem
 
-import java.util.List;
+class SuggestionsResult(@JvmField var queryText: String?) {
+    private var networkItems: List<String>? = null
+    private var launcherItems: List<LauncherItem>? = null
 
-public class SuggestionsResult {
+    @JvmField
+    var type: Int = -1
 
-    public static final int TYPE_LAUNCHER_ITEM = 567;
-    public static final int TYPE_NETWORK_ITEM = 568;
+    fun getNetworkItems(): List<String>? = networkItems
 
-    private List<String> networkItems;
-    private List<LauncherItem> launcherItems;
-    public String queryText;
-    public int type = -1;
-
-    public SuggestionsResult(String queryText) {
-        this.queryText = queryText;
+    fun setNetworkItems(networkItems: List<String>?) {
+        this.networkItems = networkItems
+        type = TYPE_NETWORK_ITEM
     }
 
-    public List<String> getNetworkItems() {
-        return networkItems;
+    fun getLauncherItems(): List<LauncherItem>? = launcherItems
+
+    fun setLauncherItems(launcherItems: List<LauncherItem>?) {
+        this.launcherItems = launcherItems
+        type = TYPE_LAUNCHER_ITEM
     }
 
-    public void setNetworkItems(List<String> networkItems) {
-        this.networkItems = networkItems;
-        this.type = TYPE_NETWORK_ITEM;
-    }
-
-    public List<LauncherItem> getLauncherItems() {
-        return launcherItems;
-    }
-
-    public void setLauncherItems(List<LauncherItem> launcherItems) {
-        this.launcherItems = launcherItems;
-        this.type = TYPE_LAUNCHER_ITEM;
+    companion object {
+        const val TYPE_LAUNCHER_ITEM = 567
+        const val TYPE_NETWORK_ITEM = 568
     }
 }

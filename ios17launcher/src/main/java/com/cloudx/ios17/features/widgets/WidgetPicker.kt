@@ -1,211 +1,187 @@
-package com.cloudx.ios17.features.widgets;
+package com.cloudx.ios17.features.widgets
 
-import android.app.Activity;
-import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProviderInfo;
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
-import android.os.Bundle;
-import android.os.Parcelable;
-import android.util.DisplayMetrics;
-import android.widget.Toast;
-import androidx.recyclerview.widget.DividerItemDecoration;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import com.cloudx.ios17.R;
-import timber.log.Timber;
+import android.app.Activity
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Resources
+import android.graphics.drawable.Drawable
+import android.os.Bundle
+import android.os.Parcelable
+import android.util.DisplayMetrics
+import android.widget.Toast
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.cloudx.ios17.R
+import java.text.Collator
+import timber.log.Timber
 
-import java.text.Collator;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+class WidgetPicker : Activity(), WidgetPickerAdapter.OnClickListener {
 
-public class WidgetPicker extends Activity implements WidgetPickerAdapter.OnClickListener {
+    private var mAppWidgetId = 0
+    private lateinit var mAppWidgetManager: AppWidgetManager
+    private lateinit var mPackageManager: PackageManager
+    private lateinit var mBaseIntent: Intent
 
-    private static final int REQUEST_BIND_APPWIDGET = 111;
-    private int mAppWidgetId;
+    override fun onCreate(savedInstanceState: Bundle?) {
+        mPackageManager = packageManager
+        mAppWidgetManager = AppWidgetManager.getInstance(this)
 
-    private AppWidgetManager mAppWidgetManager;
-    private PackageManager mPackageManager;
+        super.onCreate(savedInstanceState)
 
-    private static final String TAG = "WidgetPicker";
-    private Intent mBaseIntent;
+        setResultData(RESULT_CANCELED, null)
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        mPackageManager = getPackageManager();
-        mAppWidgetManager = AppWidgetManager.getInstance(this);
-
-        super.onCreate(savedInstanceState);
-
-        // Set default return data
-        setResultData(RESULT_CANCELED, null);
-
-        // Read the appWidgetId passed our direction, otherwise bail if not found
-        final Intent intent = getIntent();
+        val intent = intent
         if (intent.hasExtra(AppWidgetManager.EXTRA_APPWIDGET_ID)) {
-            mAppWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,
-                    AppWidgetManager.INVALID_APPWIDGET_ID);
+            mAppWidgetId = intent.getIntExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                AppWidgetManager.INVALID_APPWIDGET_ID
+            )
         } else {
-            finish();
+            finish()
         }
 
-        // Read base intent from extras, otherwise assume default
-        Parcelable parcel = intent.getParcelableExtra(Intent.EXTRA_INTENT);
-        if (parcel instanceof Intent) {
-            mBaseIntent = (Intent) parcel;
-            mBaseIntent.setFlags(mBaseIntent.getFlags()
-                    & ~(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                            | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION));
+        val parcel = intent.getParcelableExtra<Parcelable>(Intent.EXTRA_INTENT)
+        if (parcel is Intent) {
+            mBaseIntent = parcel
+            mBaseIntent.flags =
+                mBaseIntent.flags and
+                    (Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PREFIX_URI_PERMISSION).inv()
         } else {
-            mBaseIntent = new Intent(Intent.ACTION_MAIN, null);
-            mBaseIntent.addCategory(Intent.CATEGORY_DEFAULT);
+            mBaseIntent = Intent(Intent.ACTION_MAIN, null)
+            mBaseIntent.addCategory(Intent.CATEGORY_DEFAULT)
         }
 
-        setContentView(R.layout.activity_widget_picker);
-        RecyclerView recyclerView = findViewById(R.id.all_widgets_recycler_view);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setHasFixedSize(true);
-        recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
-        WidgetPickerAdapter adapter = new WidgetPickerAdapter(this);
-        recyclerView.setAdapter(adapter);
-        List<WidgetPickerAdapter.Item> items = new ArrayList<>();
-        putInstalledAppWidgets(items);
-        Collections.sort(items, new Comparator<WidgetPickerAdapter.Item>() {
-            Collator mCollator = Collator.getInstance();
-
-            public int compare(WidgetPickerAdapter.Item lhs, WidgetPickerAdapter.Item rhs) {
-                return mCollator.compare(lhs.getLabel(), rhs.getLabel());
-            }
-        });
-        adapter.setItems(items);
+        setContentView(R.layout.activity_widget_picker)
+        val recyclerView = findViewById<RecyclerView>(R.id.all_widgets_recycler_view)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.setHasFixedSize(true)
+        recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
+        val adapter = WidgetPickerAdapter(this)
+        recyclerView.adapter = adapter
+        val items = ArrayList<WidgetPickerAdapter.Item>()
+        putInstalledAppWidgets(items)
+        val collator = Collator.getInstance()
+        items.sortWith { lhs, rhs -> collator.compare(lhs.getLabel().toString(), rhs.getLabel().toString()) }
+        adapter.setItems(items)
     }
 
-    private void putInstalledAppWidgets(List<WidgetPickerAdapter.Item> items) {
-        List<AppWidgetProviderInfo> installed = mAppWidgetManager.getInstalledProviders();
-        if (installed == null)
-            return;
-        final int size = installed.size();
-        for (int i = 0; i < size; i++) {
-            AppWidgetProviderInfo info = installed.get(i);
-            items.add(createItem(info));
+    private fun putInstalledAppWidgets(items: MutableList<WidgetPickerAdapter.Item>) {
+        val installed = mAppWidgetManager.installedProviders ?: return
+        for (info in installed) {
+            items.add(createItem(info))
         }
     }
 
-    public WidgetPickerAdapter.Item createItem(AppWidgetProviderInfo info) {
-        CharSequence label = info.loadLabel(mPackageManager);
-        Drawable icon = null;
+    fun createItem(info: AppWidgetProviderInfo): WidgetPickerAdapter.Item {
+        val label = info.loadLabel(mPackageManager)
+        var icon: Drawable? = null
         if (info.icon != 0) {
             try {
-                final Resources res = getResources();
-                final int density = res.getDisplayMetrics().densityDpi;
-                int iconDensity;
-                switch (density) {
-                    case DisplayMetrics.DENSITY_MEDIUM :
-                        iconDensity = DisplayMetrics.DENSITY_LOW;
-                        break;
-                    case DisplayMetrics.DENSITY_TV :
-                        iconDensity = DisplayMetrics.DENSITY_MEDIUM;
-                        break;
-                    case DisplayMetrics.DENSITY_HIGH :
-                        iconDensity = DisplayMetrics.DENSITY_MEDIUM;
-                        break;
-                    case DisplayMetrics.DENSITY_XHIGH :
-                        iconDensity = DisplayMetrics.DENSITY_HIGH;
-                        break;
-                    case DisplayMetrics.DENSITY_XXHIGH :
-                        iconDensity = DisplayMetrics.DENSITY_XHIGH;
-                        break;
-                    default :
-                        // The density is some abnormal value. Return some other
-                        // abnormal value that is a reasonable scaling of it.
-                        iconDensity = (int) ((density * 0.75f) + .5f);
-                }
-                Resources packageResources = mPackageManager.getResourcesForApplication(info.provider.getPackageName());
-                icon = packageResources.getDrawableForDensity(info.icon, iconDensity);
-            } catch (PackageManager.NameNotFoundException e) {
-                Timber.tag(TAG).w("Can't load icon drawable 0x" + Integer.toHexString(info.icon) + " for provider: "
-                        + info.provider);
+                val resources = resources
+                val density = resources.displayMetrics.densityDpi
+                val iconDensity =
+                    when (density) {
+                        DisplayMetrics.DENSITY_MEDIUM -> DisplayMetrics.DENSITY_LOW
+                        DisplayMetrics.DENSITY_TV -> DisplayMetrics.DENSITY_MEDIUM
+                        DisplayMetrics.DENSITY_HIGH -> DisplayMetrics.DENSITY_MEDIUM
+                        DisplayMetrics.DENSITY_XHIGH -> DisplayMetrics.DENSITY_HIGH
+                        DisplayMetrics.DENSITY_XXHIGH -> DisplayMetrics.DENSITY_XHIGH
+                        else -> (density * 0.75f + .5f).toInt()
+                    }
+                val packageResources = mPackageManager.getResourcesForApplication(info.provider.packageName)
+                icon = packageResources.getDrawableForDensity(info.icon, iconDensity)
+            } catch (e: PackageManager.NameNotFoundException) {
+                Timber.tag(TAG).w(
+                    "Can't load icon drawable 0x${Integer.toHexString(info.icon)} for provider: ${info.provider}"
+                )
+            } catch (e: Resources.NotFoundException) {
+                Timber.tag(TAG).w(
+                    "Can't load icon drawable 0x${Integer.toHexString(info.icon)} for provider: ${info.provider}"
+                )
             }
             if (icon == null) {
-                Timber.tag(TAG).w("Can't load icon drawable 0x" + Integer.toHexString(info.icon) + " for provider: "
-                        + info.provider);
+                Timber.tag(TAG).w(
+                    "Can't load icon drawable 0x${Integer.toHexString(info.icon)} for provider: ${info.provider}"
+                )
             }
         }
-        WidgetPickerAdapter.Item item = new WidgetPickerAdapter.Item(label, icon);
-        item.packageName = info.provider.getPackageName();
-        item.className = info.provider.getClassName();
-        item.profile = info.getProfile();
-        return item;
+        val item = WidgetPickerAdapter.Item(label, icon)
+        item.packageName = info.provider.packageName
+        item.className = info.provider.className
+        item.profile = info.profile
+        return item
     }
 
-    @Override
-    public void onClick(WidgetPickerAdapter.Item item) {
-        Intent intent = item.getIntent(mBaseIntent);
-        int result = -10;
+    override fun onClick(item: WidgetPickerAdapter.Item) {
+        val intent = item.getIntent(mBaseIntent)
+        var result = -10
         if (item.extras != null) {
-            setResultData(RESULT_OK, intent);
+            setResultData(RESULT_OK, intent)
         } else {
             try {
-                Bundle options = null;
-                if (intent.getExtras() != null) {
-                    options = intent.getExtras().getBundle(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS);
+                var options: Bundle? = null
+                if (intent.extras != null) {
+                    options = intent.extras?.getBundle(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS)
                 }
 
-                boolean success = mAppWidgetManager.bindAppWidgetIdIfAllowed(mAppWidgetId, intent.getComponent(),
-                        options);
+                val success = mAppWidgetManager.bindAppWidgetIdIfAllowed(
+                    mAppWidgetId,
+                    intent.component,
+                    options
+                )
                 if (success) {
-                    result = RESULT_OK;
+                    result = RESULT_OK
                 } else {
-                    Intent permissionIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_BIND);
-                    permissionIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId);
-                    permissionIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
-                            new ComponentName(item.packageName, item.className));
-                    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, item.profile);
-                    // TODO: we need to make sure that this accounts for the options bundle.
-                    // intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS, options);
-                    startActivityForResult(permissionIntent, REQUEST_BIND_APPWIDGET);
+                    val permissionIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                    permissionIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
+                    permissionIntent.putExtra(
+                        AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
+                        ComponentName(requireNotNull(item.packageName), requireNotNull(item.className))
+                    )
+                    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, item.profile)
+                    startActivityForResult(permissionIntent, REQUEST_BIND_APPWIDGET)
                 }
-
-            } catch (IllegalArgumentException e) {
-                result = RESULT_CANCELED;
+            } catch (e: IllegalArgumentException) {
+                result = RESULT_CANCELED
             }
-            setResultData(result, null);
+            setResultData(result, null)
         }
-        finish();
+        finish()
     }
 
-    /**
-     * Convenience method for setting the result code and intent. This method
-     * correctly injects the {@link AppWidgetManager#EXTRA_APPWIDGET_ID} that most
-     * hosts expect returned.
-     */
-    void setResultData(int code, Intent intent) {
-        Intent result = intent != null ? intent : new Intent();
-        result.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId);
-        setResult(code, result);
+    fun setResultData(code: Int, intent: Intent?) {
+        val result = intent ?: Intent()
+        result.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
+        setResult(code, result)
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        Timber.tag(TAG).d("onActivityResult() called with: requestCode = [" + requestCode + "], resultCode = ["
-                + resultCode + "], data = [" + data + "]");
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        Timber.tag(TAG).d(
+            "onActivityResult() called with: requestCode = [$requestCode], resultCode = [$resultCode], data = [$data]"
+        )
         if (requestCode == REQUEST_BIND_APPWIDGET) {
-            int appWidgetId = data != null ? data.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) : -1;
             if (resultCode == RESULT_OK) {
-                setResultData(RESULT_OK, null);
+                setResultData(RESULT_OK, null)
             } else {
-                Toast.makeText(this, getString(R.string.toast_permission_denied), Toast.LENGTH_SHORT).show();
-                setResultData(RESULT_CANCELED, null);
+                Toast.makeText(this, getString(R.string.toast_permission_denied), Toast.LENGTH_SHORT).show()
+                setResultData(RESULT_CANCELED, null)
             }
 
-            finish();
+            finish()
         } else {
-            super.onActivityResult(requestCode, resultCode, data);
+            super.onActivityResult(requestCode, resultCode, data)
         }
+    }
+
+    companion object {
+        private const val REQUEST_BIND_APPWIDGET = 111
+        private const val TAG = "WidgetPicker"
     }
 }

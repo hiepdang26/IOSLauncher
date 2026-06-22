@@ -1,6 +1,5 @@
-package com.cloudx.ios17.features.launcher;
+package com.cloudx.ios17.features.launcher
 
-public interface Provider {
-
-    void reload();
+interface Provider {
+    fun reload()
 }

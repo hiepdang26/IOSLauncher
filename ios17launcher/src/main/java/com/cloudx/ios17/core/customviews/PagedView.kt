@@ -1,1620 +1,1336 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-/*
- * Copyright (C) 2012 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+import android.animation.LayoutTransition
+import android.animation.TimeInterpolator
+import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Rect
+import android.os.Bundle
+import android.util.AttributeSet
+import android.view.InputDevice
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.VelocityTracker
+import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewDebug
+import android.view.ViewGroup
+import android.view.ViewParent
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.animation.Interpolator
+import android.widget.ScrollView
+import android.widget.Scroller
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.Utilities
+import com.cloudx.ios17.core.customviews.pageindicators.PageIndicator
+import com.cloudx.ios17.core.touch.OverScroll
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sign
+import kotlin.math.sin
+import timber.log.Timber
 
-import android.animation.LayoutTransition;
-import android.animation.TimeInterpolator;
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.Rect;
-import android.os.Bundle;
-import android.util.AttributeSet;
-import android.view.InputDevice;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
-import android.view.VelocityTracker;
-import android.view.View;
-import android.view.ViewConfiguration;
-import android.view.ViewDebug;
-import android.view.ViewGroup;
-import android.view.ViewParent;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.animation.Interpolator;
-import android.widget.ScrollView;
-import android.widget.Scroller;
+abstract class PagedView<T> @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyle: Int = 0
+) : ViewGroup(context, attrs, defStyle) where T : View, T : PageIndicator {
 
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.touch.OverScroll;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.touch.OverScroll;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.customviews.pageindicators.PageIndicator;
-import com.cloudx.ios17.core.touch.OverScroll;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.touch.OverScroll;
-import timber.log.Timber;
+    private var mFreeScroll = false
+    private var mSettleOnPageInFreeScroll = false
 
-import java.util.ArrayList;
+    protected var mFlingThresholdVelocity = 0
+    protected var mMinFlingVelocity = 0
+    protected var mMinSnapVelocity = 0
 
-/**
- * An abstraction of the original Workspace which supports browsing through a
- * sequential list of "pages"
- */
-public abstract class PagedView<T extends View & PageIndicator> extends ViewGroup {
-    private static final String TAG = "PagedView";
-    private static final boolean DEBUG = false;
-
-    protected static final int INVALID_PAGE = -1;
-    protected static final ComputePageScrollsLogic SIMPLE_SCROLL_LOGIC = (v) -> v.getVisibility() != GONE;
-
-    public static final int PAGE_SNAP_ANIMATION_DURATION = 750;
-    public static final int SLOW_PAGE_SNAP_ANIMATION_DURATION = 950;
-
-    // OverScroll constants
-    private static final int OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION = 270;
-
-    private static final float RETURN_TO_ORIGINAL_PAGE_THRESHOLD = 0.33f;
-    // The page is moved more than halfway, automatically move to the next page on
-    // touch up.
-    private static final float SIGNIFICANT_MOVE_THRESHOLD = 0.4f;
-
-    private static final float MAX_SCROLL_PROGRESS = 1.0f;
-
-    // The following constants need to be scaled based on density. The scaled
-    // versions will be
-    // assigned to the corresponding member variables below.
-    private static final int FLING_THRESHOLD_VELOCITY = 500;
-    private static final int MIN_SNAP_VELOCITY = 1500;
-    private static final int MIN_FLING_VELOCITY = 250;
-
-    public static final int INVALID_RESTORE_PAGE = -1001;
-
-    private boolean mFreeScroll = false;
-    private boolean mSettleOnPageInFreeScroll = false;
-
-    protected int mFlingThresholdVelocity;
-    protected int mMinFlingVelocity;
-    protected int mMinSnapVelocity;
-
-    protected boolean mFirstLayout = true;
+    protected var mFirstLayout = true
 
     @ViewDebug.ExportedProperty(category = "launcher")
-    protected int mCurrentPage;
+    protected var mCurrentPage = 0
 
     @ViewDebug.ExportedProperty(category = "launcher")
-    protected int mNextPage = INVALID_PAGE;
+    protected var mNextPage = INVALID_PAGE
 
-    protected int mMaxScrollX;
-    public Scroller mScroller;
-    private Interpolator mDefaultInterpolator;
-    private VelocityTracker mVelocityTracker;
-    protected int mPageSpacing = 0;
+    protected var mMaxScrollX = 0
 
-    private float mDownMotionX;
-    private float mDownMotionY;
-    private float mLastMotionX;
-    private float mLastMotionXRemainder;
-    private float mTotalMotionX;
+    @JvmField
+    var mScroller: Scroller = Scroller(context)
 
-    protected int[] mPageScrolls;
+    private var mDefaultInterpolator: Interpolator? = null
+    private var mVelocityTracker: VelocityTracker? = null
+    protected var mPageSpacing = 0
 
-    protected static final int TOUCH_STATE_REST = 0;
-    protected static final int TOUCH_STATE_SCROLLING = 1;
-    protected static final int TOUCH_STATE_PREV_PAGE = 2;
-    protected static final int TOUCH_STATE_NEXT_PAGE = 3;
+    private var mDownMotionX = 0f
+    private var mDownMotionY = 0f
+    private var mLastMotionX = 0f
+    private var mLastMotionXRemainder = 0f
+    private var mTotalMotionX = 0f
 
-    protected int mTouchState = TOUCH_STATE_REST;
+    protected var mPageScrolls: IntArray? = null
 
-    protected int mTouchSlop;
-    private int mMaximumVelocity;
-    protected boolean mAllowOverScroll = true;
+    protected var mTouchState = TOUCH_STATE_REST
+    protected var mTouchSlop = 0
+    private var mMaximumVelocity = 0
+    protected var mAllowOverScroll = true
+    protected var mActivePointerId = INVALID_POINTER
+    protected var mIsPageInTransition = false
+    protected var mWasInOverscroll = false
 
-    protected static final int INVALID_POINTER = -1;
+    protected var mOverScrollX = 0
+    protected var mUnboundedScrollX = 0
 
-    protected int mActivePointerId = INVALID_POINTER;
+    private var mPageIndicatorViewId = 0
+    protected var mPageIndicator: T? = null
 
-    protected boolean mIsPageInTransition = false;
+    protected val mInsets = Rect()
+    protected var mIsRtl = false
+    protected var mIsLayoutValid = false
 
-    protected boolean mWasInOverscroll = false;
+    private val mTmpIntPair = IntArray(2)
 
-    // mOverScrollX is equal to getScrollX() when we're within the normal scroll
-    // range. Otherwise
-    // it is equal to the scaled overscroll position. We use a separate value so as
-    // to prevent
-    // the screens from continuing to translate beyond the normal bounds.
-    protected int mOverScrollX;
+    init {
+        val typedArray = context.obtainStyledAttributes(attrs, R.styleable.PagedView, defStyle, 0)
+        mPageIndicatorViewId = typedArray.getResourceId(R.styleable.PagedView_pageIndicator, -1)
+        typedArray.recycle()
 
-    protected int mUnboundedScrollX;
-
-    // Page Indicator
-    int mPageIndicatorViewId;
-    protected T mPageIndicator;
-
-    // Convenience/caching
-    private static final Rect sTmpRect = new Rect();
-
-    protected final Rect mInsets = new Rect();
-    protected boolean mIsRtl;
-
-    // Similar to the platform implementation of isLayoutValid();
-    protected boolean mIsLayoutValid;
-
-    private int[] mTmpIntPair = new int[2];
-
-    public PagedView(Context context) {
-        this(context, null);
+        isHapticFeedbackEnabled = false
+        mIsRtl = false
+        init()
     }
 
-    public PagedView(Context context, AttributeSet attrs) {
-        this(context, attrs, 0);
-    }
+    protected fun init() {
+        mScroller = Scroller(getContext())
+        mCurrentPage = 0
 
-    public PagedView(Context context, AttributeSet attrs, int defStyle) {
-        super(context, attrs, defStyle);
+        val configuration = ViewConfiguration.get(getContext())
+        mTouchSlop = configuration.scaledPagingTouchSlop
+        mMaximumVelocity = configuration.scaledMaximumFlingVelocity
 
-        TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.PagedView, defStyle, 0);
-        mPageIndicatorViewId = a.getResourceId(R.styleable.PagedView_pageIndicator, -1);
-        a.recycle();
-
-        setHapticFeedbackEnabled(false);
-        mIsRtl = false;
-        init();
-    }
-
-    /** Initializes various states for this workspace. */
-    protected void init() {
-        mScroller = new Scroller(getContext());
-        mCurrentPage = 0;
-
-        final ViewConfiguration configuration = ViewConfiguration.get(getContext());
-        mTouchSlop = configuration.getScaledPagingTouchSlop();
-        mMaximumVelocity = configuration.getScaledMaximumFlingVelocity();
-
-        float density = getResources().getDisplayMetrics().density;
-        mFlingThresholdVelocity = (int) (FLING_THRESHOLD_VELOCITY * density);
-        mMinFlingVelocity = (int) (MIN_FLING_VELOCITY * density);
-        mMinSnapVelocity = (int) (MIN_SNAP_VELOCITY * density);
+        val density = resources.displayMetrics.density
+        mFlingThresholdVelocity = (FLING_THRESHOLD_VELOCITY * density).toInt()
+        mMinFlingVelocity = (MIN_FLING_VELOCITY * density).toInt()
+        mMinSnapVelocity = (MIN_SNAP_VELOCITY * density).toInt()
 
         if (Utilities.ATLEAST_OREO) {
-            setDefaultFocusHighlightEnabled(false);
+            defaultFocusHighlightEnabled = false
         }
     }
 
-    public void initParentViews(View parent) {
+    @Suppress("UNCHECKED_CAST")
+    fun initParentViews(parent: View) {
         if (mPageIndicatorViewId > -1) {
-            mPageIndicator = parent.findViewById(mPageIndicatorViewId);
-            mPageIndicator.setMarkersCount(getChildCount());
+            mPageIndicator = parent.findViewById<View>(mPageIndicatorViewId) as T
+            mPageIndicator?.setMarkersCount(childCount)
         }
     }
 
-    public T getPageIndicator() {
-        return mPageIndicator;
-    }
+    fun getPageIndicator(): T? = mPageIndicator
 
-    /**
-     * Returns the index of the currently displayed page. When in free scroll mode,
-     * this is the page that the user was on before entering free scroll mode (e.g.
-     * the home screen page they long-pressed on to enter the overview). Try using
-     * {@link #getPageNearestToCenterOfScreen()} to get the page the user is
-     * currently scrolling over.
-     */
-    public int getCurrentPage() {
-        return mCurrentPage;
-    }
+    fun getCurrentPage(): Int = mCurrentPage
 
-    /** Returns the index of page to be shown immediately afterwards. */
-    public int getNextPage() {
-        return (mNextPage != INVALID_PAGE) ? mNextPage : mCurrentPage;
-    }
+    fun getNextPage(): Int = if (mNextPage != INVALID_PAGE) mNextPage else mCurrentPage
 
-    public int getPageCount() {
-        return getChildCount();
-    }
+    fun getPageCount(): Int = childCount
 
-    public View getPageAt(int index) {
-        return getChildAt(index);
-    }
+    fun getPageAt(index: Int): View = getChildAt(index)
 
-    protected int indexToPage(int index) {
-        return index;
-    }
+    protected fun indexToPage(index: Int): Int = index
 
-    /**
-     * Updates the scroll of the current page immediately to its final scroll
-     * position. We use this in CustomizePagedView to allow tabs to share the same
-     * PagedView while resetting the scroll of the previous tab page.
-     */
-    protected void updateCurrentPageScroll() {
-        // If the current page is invalid, just reset the scroll position to zero
-        int newX = 0;
+    protected fun updateCurrentPageScroll() {
+        var newX = 0
         if (0 <= mCurrentPage && mCurrentPage < getPageCount()) {
-            newX = getScrollForPage(mCurrentPage);
+            newX = getScrollForPage(mCurrentPage)
         }
-        scrollTo(newX, 0);
-        mScroller.setFinalX(newX);
-        forceFinishScroller(true);
+        scrollTo(newX, 0)
+        mScroller.finalX = newX
+        forceFinishScroller(true)
     }
 
-    public void abortScrollerAnimation(boolean resetNextPage) {
-        mScroller.abortAnimation();
-        // We need to clean up the next page here to avoid computeScrollHelper from
-        // updating current page on the pass.
+    fun abortScrollerAnimation(resetNextPage: Boolean) {
+        mScroller.abortAnimation()
         if (resetNextPage) {
-            mNextPage = INVALID_PAGE;
-            pageEndTransition();
+            mNextPage = INVALID_PAGE
+            pageEndTransition()
         }
     }
 
-    private void forceFinishScroller(boolean resetNextPage) {
-        mScroller.forceFinished(true);
-        // We need to clean up the next page here to avoid computeScrollHelper from
-        // updating current page on the pass.
+    private fun forceFinishScroller(resetNextPage: Boolean) {
+        mScroller.forceFinished(true)
         if (resetNextPage) {
-            mNextPage = INVALID_PAGE;
-            pageEndTransition();
+            mNextPage = INVALID_PAGE
+            pageEndTransition()
         }
     }
 
-    private int validateNewPage(int newPage) {
-        // Ensure that it is clamped by the actual set of children in all cases
-        return Utilities.boundToRange(newPage, 0, getPageCount() - 1);
-    }
+    private fun validateNewPage(newPage: Int): Int =
+        Utilities.boundToRange(newPage, 0, getPageCount() - 1)
 
-    /** Sets the current page. */
-    public void setCurrentPage(int currentPage) {
-        if (!mScroller.isFinished()) {
-            abortScrollerAnimation(true);
+    fun setCurrentPage(currentPage: Int) {
+        if (!mScroller.isFinished) {
+            abortScrollerAnimation(true)
         }
-        // don't introduce any checks like mCurrentPage == currentPage here-- if we
-        // change the
-        // the default
-        if (getChildCount() == 0) {
-            return;
+        if (childCount == 0) {
+            return
         }
-        int prevPage = mCurrentPage;
-        mCurrentPage = validateNewPage(currentPage);
-        updateCurrentPageScroll();
-        notifyPageSwitchListener(prevPage);
-        invalidate();
+        val prevPage = mCurrentPage
+        mCurrentPage = validateNewPage(currentPage)
+        updateCurrentPageScroll()
+        notifyPageSwitchListener(prevPage)
+        invalidate()
     }
 
-    /**
-     * Should be called whenever the page changes. In the case of a scroll, we wait
-     * until the page has settled.
-     */
-    protected void notifyPageSwitchListener(int prevPage) {
-        updatePageIndicator();
+    protected fun notifyPageSwitchListener(prevPage: Int) {
+        updatePageIndicator()
     }
 
-    private void updatePageIndicator() {
-        if (mPageIndicator != null) {
-            mPageIndicator.setActiveMarker(getNextPage());
-        }
+    private fun updatePageIndicator() {
+        mPageIndicator?.setActiveMarker(getNextPage())
     }
 
-    protected void pageBeginTransition() {
+    protected fun pageBeginTransition() {
         if (!mIsPageInTransition) {
-            mIsPageInTransition = true;
-            onPageBeginTransition();
+            mIsPageInTransition = true
+            onPageBeginTransition()
         }
     }
 
-    protected void pageEndTransition() {
+    protected fun pageEndTransition() {
         if (mIsPageInTransition) {
-            mIsPageInTransition = false;
-            onPageEndTransition();
+            mIsPageInTransition = false
+            onPageEndTransition()
         }
     }
 
-    protected boolean isPageInTransition() {
-        return mIsPageInTransition;
+    protected fun isPageInTransition(): Boolean = mIsPageInTransition
+
+    protected open fun onPageBeginTransition() {
     }
 
-    /**
-     * Called when the page starts moving as part of the scroll. Subclasses can
-     * override this to provide custom behavior during animation.
-     */
-    protected void onPageBeginTransition() {
+    protected open fun onPageEndTransition() {
+        mWasInOverscroll = false
     }
 
-    /**
-     * Called when the page ends moving as part of the scroll. Subclasses can
-     * override this to provide custom behavior during animation.
-     */
-    protected void onPageEndTransition() {
-        mWasInOverscroll = false;
+    protected fun getUnboundedScrollX(): Int = mUnboundedScrollX
+
+    override fun scrollBy(x: Int, y: Int) {
+        scrollTo(getUnboundedScrollX() + x, scrollY + y)
     }
 
-    protected int getUnboundedScrollX() {
-        return mUnboundedScrollX;
-    }
-
-    @Override
-    public void scrollBy(int x, int y) {
-        scrollTo(getUnboundedScrollX() + x, getScrollY() + y);
-    }
-
-    @Override
-    public void scrollTo(int x, int y) {
-        // In free scroll mode, we clamp the scrollX
+    override fun scrollTo(xPosition: Int, y: Int) {
+        var x = xPosition
         if (mFreeScroll) {
-            // If the scroller is trying to move to a location beyond the maximum allowed
-            // in the free scroll mode, we make sure to end the scroll operation.
-            if (!mScroller.isFinished() && (x > mMaxScrollX || x < 0)) {
-                forceFinishScroller(false);
+            if (!mScroller.isFinished && (x > mMaxScrollX || x < 0)) {
+                forceFinishScroller(false)
             }
-
-            x = Utilities.boundToRange(x, 0, mMaxScrollX);
+            x = Utilities.boundToRange(x, 0, mMaxScrollX)
         }
 
-        mUnboundedScrollX = x;
+        mUnboundedScrollX = x
 
-        boolean isXBeforeFirstPage = mIsRtl ? (x > mMaxScrollX) : (x < 0);
-        boolean isXAfterLastPage = mIsRtl ? (x < 0) : (x > mMaxScrollX);
+        val isXBeforeFirstPage = if (mIsRtl) x > mMaxScrollX else x < 0
+        val isXAfterLastPage = if (mIsRtl) x < 0 else x > mMaxScrollX
         if (isXBeforeFirstPage) {
-            super.scrollTo(mIsRtl ? mMaxScrollX : 0, y);
+            super.scrollTo(if (mIsRtl) mMaxScrollX else 0, y)
             if (mAllowOverScroll) {
-                mWasInOverscroll = true;
+                mWasInOverscroll = true
                 if (mIsRtl) {
-                    overScroll(x - mMaxScrollX);
+                    overScroll((x - mMaxScrollX).toFloat())
                 } else {
-                    overScroll(x);
+                    overScroll(x.toFloat())
                 }
             }
         } else if (isXAfterLastPage) {
-            super.scrollTo(mIsRtl ? 0 : mMaxScrollX, y);
+            super.scrollTo(if (mIsRtl) 0 else mMaxScrollX, y)
             if (mAllowOverScroll) {
-                mWasInOverscroll = true;
+                mWasInOverscroll = true
                 if (mIsRtl) {
-                    overScroll(x);
+                    overScroll(x.toFloat())
                 } else {
-                    overScroll(x - mMaxScrollX);
+                    overScroll((x - mMaxScrollX).toFloat())
                 }
             }
         } else {
             if (mWasInOverscroll) {
-                overScroll(0);
-                mWasInOverscroll = false;
+                overScroll(0f)
+                mWasInOverscroll = false
             }
-            mOverScrollX = x;
-            super.scrollTo(x, y);
+            mOverScrollX = x
+            super.scrollTo(x, y)
         }
     }
 
-    private void sendScrollAccessibilityEvent() {
+    private fun sendScrollAccessibilityEvent() {
     }
 
-    // we moved this functionality to a helper function so SmoothPagedView can reuse
-    // it
-    protected boolean computeScrollHelper() {
-        return computeScrollHelper(true);
+    protected fun computeScrollHelper(): Boolean = computeScrollHelper(true)
+
+    protected fun announcePageForAccessibility() {
     }
 
-    protected void announcePageForAccessibility() {
-    }
-
-    protected boolean computeScrollHelper(boolean shouldInvalidate) {
+    protected fun computeScrollHelper(shouldInvalidate: Boolean): Boolean {
         if (mScroller.computeScrollOffset()) {
-            // Don't bother scrolling if the page does not need to be moved
-            if (getUnboundedScrollX() != mScroller.getCurrX() || getScrollY() != mScroller.getCurrY()
-                    || mOverScrollX != mScroller.getCurrX()) {
-                scrollTo(mScroller.getCurrX(), mScroller.getCurrY());
+            if (getUnboundedScrollX() != mScroller.currX || scrollY != mScroller.currY ||
+                mOverScrollX != mScroller.currX
+            ) {
+                scrollTo(mScroller.currX, mScroller.currY)
             }
             if (shouldInvalidate) {
-                invalidate();
+                invalidate()
             }
-            return true;
+            return true
         } else if (mNextPage != INVALID_PAGE && shouldInvalidate) {
-            sendScrollAccessibilityEvent();
+            sendScrollAccessibilityEvent()
 
-            int prevPage = mCurrentPage;
-            mCurrentPage = validateNewPage(mNextPage);
-            mNextPage = INVALID_PAGE;
-            notifyPageSwitchListener(prevPage);
+            val prevPage = mCurrentPage
+            mCurrentPage = validateNewPage(mNextPage)
+            mNextPage = INVALID_PAGE
+            notifyPageSwitchListener(prevPage)
 
-            // We don't want to trigger a page end moving unless the page has settled
-            // and the user has stopped scrolling
             if (mTouchState == TOUCH_STATE_REST) {
-                pageEndTransition();
+                pageEndTransition()
             }
 
             if (canAnnouncePageDescription()) {
-                announcePageForAccessibility();
+                announcePageForAccessibility()
             }
         }
-        return false;
+        return false
     }
 
-    @Override
-    public void computeScroll() {
-        computeScrollHelper();
+    override fun computeScroll() {
+        computeScrollHelper()
     }
 
-    public int getExpectedHeight() {
-        return getMeasuredHeight();
+    fun getExpectedHeight(): Int = measuredHeight
+
+    fun getNormalChildHeight(): Int =
+        getExpectedHeight() - paddingTop - paddingBottom - mInsets.top - mInsets.bottom
+
+    fun getExpectedWidth(): Int = measuredWidth
+
+    fun getNormalChildWidth(): Int =
+        getExpectedWidth() - paddingLeft - paddingRight - mInsets.left - mInsets.right
+
+    override fun requestLayout() {
+        mIsLayoutValid = false
+        super.requestLayout()
     }
 
-    public int getNormalChildHeight() {
-        return getExpectedHeight() - getPaddingTop() - getPaddingBottom() - mInsets.top - mInsets.bottom;
+    override fun forceLayout() {
+        mIsLayoutValid = false
+        super.forceLayout()
     }
 
-    public int getExpectedWidth() {
-        return getMeasuredWidth();
-    }
-
-    public int getNormalChildWidth() {
-        return getExpectedWidth() - getPaddingLeft() - getPaddingRight() - mInsets.left - mInsets.right;
-    }
-
-    @Override
-    public void requestLayout() {
-        mIsLayoutValid = false;
-        super.requestLayout();
-    }
-
-    @Override
-    public void forceLayout() {
-        mIsLayoutValid = false;
-        super.forceLayout();
-    }
-
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        if (getChildCount() == 0) {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            return;
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        if (childCount == 0) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
         }
 
-        // We measure the dimensions of the PagedView to be larger than the pages so
-        // that when we
-        // zoom out (and scale down), the view is still contained in the parent
-        int widthMode = MeasureSpec.getMode(widthMeasureSpec);
-        int widthSize = MeasureSpec.getSize(widthMeasureSpec);
-        int heightMode = MeasureSpec.getMode(heightMeasureSpec);
-        int heightSize = MeasureSpec.getSize(heightMeasureSpec);
+        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+        val heightSize = MeasureSpec.getSize(heightMeasureSpec)
 
         if (widthMode == MeasureSpec.UNSPECIFIED || heightMode == MeasureSpec.UNSPECIFIED) {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            return;
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
         }
 
-        // Return early if we aren't given a proper dimension
         if (widthSize <= 0 || heightSize <= 0) {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            return;
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
         }
 
-        // The children are given the same width and height as the workspace
-        // unless they were set to WRAP_CONTENT
-        if (DEBUG)
-            Timber.tag(TAG).d("PagedView.onMeasure(): " + widthSize + ", " + heightSize);
+        if (DEBUG) {
+            Timber.tag(TAG).d("PagedView.onMeasure(): $widthSize, $heightSize")
+        }
 
-        int myWidthSpec = MeasureSpec.makeMeasureSpec(widthSize - mInsets.left - mInsets.right, MeasureSpec.EXACTLY);
-        int myHeightSpec = MeasureSpec.makeMeasureSpec(heightSize - mInsets.top - mInsets.bottom, MeasureSpec.EXACTLY);
+        val myWidthSpec = MeasureSpec.makeMeasureSpec(widthSize - mInsets.left - mInsets.right, MeasureSpec.EXACTLY)
+        val myHeightSpec = MeasureSpec.makeMeasureSpec(heightSize - mInsets.top - mInsets.bottom, MeasureSpec.EXACTLY)
 
-        // measureChildren takes accounts for content padding, we only need to care
-        // about extra
-        // space due to insets.
-        measureChildren(myWidthSpec, myHeightSpec);
-        setMeasuredDimension(widthSize, heightSize);
+        measureChildren(myWidthSpec, myHeightSpec)
+        setMeasuredDimension(widthSize, heightSize)
     }
 
     @SuppressLint("DrawAllocation")
-    @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        mIsLayoutValid = true;
-        final int childCount = getChildCount();
-        boolean pageScrollChanged = false;
-        if (mPageScrolls == null || childCount != mPageScrolls.length) {
-            mPageScrolls = new int[childCount];
-            pageScrollChanged = true;
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        mIsLayoutValid = true
+        val childCount = childCount
+        var pageScrollChanged = false
+        val pageScrolls = mPageScrolls
+        if (pageScrolls == null || childCount != pageScrolls.size) {
+            mPageScrolls = IntArray(childCount)
+            pageScrollChanged = true
         }
 
         if (childCount == 0) {
-            return;
+            return
         }
 
-        if (DEBUG)
-            Timber.tag(TAG).d("PagedView.onLayout()");
-
-        if (getPageScrolls(mPageScrolls, true, SIMPLE_SCROLL_LOGIC)) {
-            pageScrollChanged = true;
+        if (DEBUG) {
+            Timber.tag(TAG).d("PagedView.onLayout()")
         }
 
-        final LayoutTransition transition = getLayoutTransition();
-        // If the transition is running defer updating max scroll, as some empty pages
-        // could
-        // still be present, and a max scroll change could cause sudden jumps in scroll.
-        if (transition != null && transition.isRunning()) {
-            transition.addTransitionListener(new LayoutTransition.TransitionListener() {
+        if (getPageScrolls(mPageScrolls!!, true, SIMPLE_SCROLL_LOGIC)) {
+            pageScrollChanged = true
+        }
 
-                @Override
-                public void startTransition(LayoutTransition transition, ViewGroup container, View view,
-                        int transitionType) {
+        val transition = layoutTransition
+        if (transition != null && transition.isRunning) {
+            transition.addTransitionListener(object : LayoutTransition.TransitionListener {
+                override fun startTransition(
+                    transition: LayoutTransition,
+                    container: ViewGroup,
+                    view: View,
+                    transitionType: Int
+                ) {
                 }
 
-                @Override
-                public void endTransition(LayoutTransition transition, ViewGroup container, View view,
-                        int transitionType) {
-                    // Wait until all transitions are complete.
-                    if (!transition.isRunning()) {
-                        transition.removeTransitionListener(this);
-                        updateMaxScrollX();
+                override fun endTransition(
+                    transition: LayoutTransition,
+                    container: ViewGroup,
+                    view: View,
+                    transitionType: Int
+                ) {
+                    if (!transition.isRunning) {
+                        transition.removeTransitionListener(this)
+                        updateMaxScrollX()
                     }
                 }
-            });
+            })
         } else {
-            updateMaxScrollX();
+            updateMaxScrollX()
         }
 
         if (mFirstLayout && mCurrentPage >= 0 && mCurrentPage < childCount) {
-            updateCurrentPageScroll();
-            mFirstLayout = false;
+            updateCurrentPageScroll()
+            mFirstLayout = false
         }
 
-        if (mScroller.isFinished() && pageScrollChanged) {
-            setCurrentPage(getNextPage());
+        if (mScroller.isFinished && pageScrollChanged) {
+            setCurrentPage(getNextPage())
         }
     }
 
-    /**
-     * Initializes {@code outPageScrolls} with scroll positions for view at that
-     * index. The length of {@code outPageScrolls} should be same as the the
-     * childCount
-     */
-    protected boolean getPageScrolls(int[] outPageScrolls, boolean layoutChildren,
-            ComputePageScrollsLogic scrollLogic) {
-        final int childCount = getChildCount();
+    protected fun getPageScrolls(
+        outPageScrolls: IntArray,
+        layoutChildren: Boolean,
+        scrollLogic: ComputePageScrollsLogic
+    ): Boolean {
+        val childCount = childCount
 
-        final int startIndex = mIsRtl ? childCount - 1 : 0;
-        final int endIndex = mIsRtl ? -1 : childCount;
-        final int delta = mIsRtl ? -1 : 1;
+        val startIndex = if (mIsRtl) childCount - 1 else 0
+        val endIndex = if (mIsRtl) -1 else childCount
+        val delta = if (mIsRtl) -1 else 1
 
-        final int verticalCenter = (getPaddingTop() + getMeasuredHeight() + mInsets.top - mInsets.bottom
-                - getPaddingBottom()) / 2;
+        val verticalCenter = (paddingTop + measuredHeight + mInsets.top - mInsets.bottom - paddingBottom) / 2
 
-        final int scrollOffsetLeft = mInsets.left + getPaddingLeft();
-        final int scrollOffsetRight = getWidth() - getPaddingRight() - mInsets.right;
-        boolean pageScrollChanged = false;
+        val scrollOffsetLeft = mInsets.left + paddingLeft
+        val scrollOffsetRight = width - paddingRight - mInsets.right
+        var pageScrollChanged = false
 
-        for (int i = startIndex, childLeft = scrollOffsetLeft; i != endIndex; i += delta) {
-            final View child = getPageAt(i);
+        var i = startIndex
+        var childLeft = scrollOffsetLeft
+        while (i != endIndex) {
+            val child = getPageAt(i)
             if (scrollLogic.shouldIncludeView(child)) {
-                final int childWidth = child.getMeasuredWidth();
-                final int childRight = childLeft + childWidth;
+                val childWidth = child.measuredWidth
+                val childRight = childLeft + childWidth
 
                 if (layoutChildren) {
-                    final int childHeight = child.getMeasuredHeight();
-                    final int childTop = verticalCenter - childHeight / 2;
-                    child.layout(childLeft, childTop, childRight, childTop + childHeight);
+                    val childHeight = child.measuredHeight
+                    val childTop = verticalCenter - childHeight / 2
+                    child.layout(childLeft, childTop, childRight, childTop + childHeight)
                 }
 
-                // In case the pages are of different width, align the page to left or right
-                // edge
-                // based on the orientation.
-                final int pageScroll = mIsRtl
-                        ? (childLeft - scrollOffsetLeft)
-                        : Math.max(0, childRight - scrollOffsetRight);
+                val pageScroll = if (mIsRtl) {
+                    childLeft - scrollOffsetLeft
+                } else {
+                    max(0, childRight - scrollOffsetRight)
+                }
                 if (outPageScrolls[i] != pageScroll) {
-                    pageScrollChanged = true;
-                    outPageScrolls[i] = pageScroll;
+                    pageScrollChanged = true
+                    outPageScrolls[i] = pageScroll
                 }
 
-                childLeft += childWidth + mPageSpacing + getChildGap();
+                childLeft += childWidth + mPageSpacing + getChildGap()
             }
+            i += delta
         }
-        return pageScrollChanged;
+        return pageScrollChanged
     }
 
-    protected int getChildGap() {
-        return 0;
+    protected open fun getChildGap(): Int = 0
+
+    private fun updateMaxScrollX() {
+        mMaxScrollX = computeMaxScrollX()
     }
 
-    private void updateMaxScrollX() {
-        mMaxScrollX = computeMaxScrollX();
-    }
-
-    protected int computeMaxScrollX() {
-        int childCount = getChildCount();
-        if (childCount > 0) {
-            final int index = mIsRtl ? 0 : childCount - 1;
-            return getScrollForPage(index);
+    protected open fun computeMaxScrollX(): Int {
+        val childCount = childCount
+        return if (childCount > 0) {
+            val index = if (mIsRtl) 0 else childCount - 1
+            getScrollForPage(index)
         } else {
-            return 0;
+            0
         }
     }
 
-    public void setPageSpacing(int pageSpacing) {
-        mPageSpacing = pageSpacing;
-        requestLayout();
+    fun setPageSpacing(pageSpacing: Int) {
+        mPageSpacing = pageSpacing
+        requestLayout()
     }
 
-    private void dispatchPageCountChanged() {
-        if (mPageIndicator != null) {
-            mPageIndicator.setMarkersCount(getChildCount());
+    private fun dispatchPageCountChanged() {
+        mPageIndicator?.setMarkersCount(childCount)
+        invalidate()
+    }
+
+    override fun onViewAdded(child: View) {
+        super.onViewAdded(child)
+        dispatchPageCountChanged()
+    }
+
+    override fun onViewRemoved(child: View) {
+        super.onViewRemoved(child)
+        mCurrentPage = validateNewPage(mCurrentPage)
+        dispatchPageCountChanged()
+    }
+
+    protected fun getChildOffset(index: Int): Int {
+        if (index < 0 || index > childCount - 1) {
+            return 0
         }
-        // This ensures that when children are added, they get the correct transforms /
-        // alphas
-        // in accordance with any scroll effects.
-        invalidate();
+        return getPageAt(index).left
     }
 
-    @Override
-    public void onViewAdded(View child) {
-        super.onViewAdded(child);
-        dispatchPageCountChanged();
-    }
-
-    @Override
-    public void onViewRemoved(View child) {
-        super.onViewRemoved(child);
-        mCurrentPage = validateNewPage(mCurrentPage);
-        dispatchPageCountChanged();
-    }
-
-    protected int getChildOffset(int index) {
-        if (index < 0 || index > getChildCount() - 1)
-            return 0;
-        return getPageAt(index).getLeft();
-    }
-
-    @Override
-    public boolean requestChildRectangleOnScreen(View child, Rect rectangle, boolean immediate) {
-        int page = indexToPage(indexOfChild(child));
-        if (page != mCurrentPage || !mScroller.isFinished()) {
+    override fun requestChildRectangleOnScreen(child: View, rectangle: Rect, immediate: Boolean): Boolean {
+        val page = indexToPage(indexOfChild(child))
+        if (page != mCurrentPage || !mScroller.isFinished) {
             if (immediate) {
-                setCurrentPage(page);
+                setCurrentPage(page)
             } else {
-                snapToPage(page);
+                snapToPage(page)
             }
-            return true;
+            return true
         }
-        return false;
+        return false
     }
 
-    @Override
-    protected boolean onRequestFocusInDescendants(int direction, Rect previouslyFocusedRect) {
-        int focusablePage;
-        if (mNextPage != INVALID_PAGE) {
-            focusablePage = mNextPage;
-        } else {
-            focusablePage = mCurrentPage;
-        }
-        View v = getPageAt(focusablePage);
-        if (v != null) {
-            return v.requestFocus(direction, previouslyFocusedRect);
-        }
-        return false;
+    override fun onRequestFocusInDescendants(direction: Int, previouslyFocusedRect: Rect?): Boolean {
+        val focusablePage = if (mNextPage != INVALID_PAGE) mNextPage else mCurrentPage
+        val view = getPageAt(focusablePage)
+        return view.requestFocus(direction, previouslyFocusedRect)
     }
 
-    @Override
-    public boolean dispatchUnhandledMove(View focused, int direction) {
-        if (super.dispatchUnhandledMove(focused, direction)) {
-            return true;
+    override fun dispatchUnhandledMove(focused: View, direction: Int): Boolean {
+        var moveDirection = direction
+        if (super.dispatchUnhandledMove(focused, moveDirection)) {
+            return true
         }
 
         if (mIsRtl) {
-            if (direction == View.FOCUS_LEFT) {
-                direction = View.FOCUS_RIGHT;
-            } else if (direction == View.FOCUS_RIGHT) {
-                direction = View.FOCUS_LEFT;
+            if (moveDirection == View.FOCUS_LEFT) {
+                moveDirection = View.FOCUS_RIGHT
+            } else if (moveDirection == View.FOCUS_RIGHT) {
+                moveDirection = View.FOCUS_LEFT
             }
         }
-        if (direction == View.FOCUS_LEFT) {
+        if (moveDirection == View.FOCUS_LEFT) {
             if (getCurrentPage() > 0) {
-                snapToPage(getCurrentPage() - 1);
-                getChildAt(getCurrentPage() - 1).requestFocus(direction);
-                return true;
+                snapToPage(getCurrentPage() - 1)
+                getChildAt(getCurrentPage() - 1).requestFocus(moveDirection)
+                return true
             }
-        } else if (direction == View.FOCUS_RIGHT) {
+        } else if (moveDirection == View.FOCUS_RIGHT) {
             if (getCurrentPage() < getPageCount() - 1) {
-                snapToPage(getCurrentPage() + 1);
-                getChildAt(getCurrentPage() + 1).requestFocus(direction);
-                return true;
+                snapToPage(getCurrentPage() + 1)
+                getChildAt(getCurrentPage() + 1).requestFocus(moveDirection)
+                return true
             }
         }
-        return false;
+        return false
     }
 
-    @Override
-    public void addFocusables(ArrayList<View> views, int direction, int focusableMode) {
-        if (getDescendantFocusability() == FOCUS_BLOCK_DESCENDANTS) {
-            return;
+    override fun addFocusables(views: ArrayList<View>, direction: Int, focusableMode: Int) {
+        if (descendantFocusability == FOCUS_BLOCK_DESCENDANTS) {
+            return
         }
 
-        // XXX-RTL: This will be fixed in a future CL
         if (mCurrentPage >= 0 && mCurrentPage < getPageCount()) {
-            getPageAt(mCurrentPage).addFocusables(views, direction, focusableMode);
+            getPageAt(mCurrentPage).addFocusables(views, direction, focusableMode)
         }
         if (direction == View.FOCUS_LEFT) {
             if (mCurrentPage > 0) {
-                getPageAt(mCurrentPage - 1).addFocusables(views, direction, focusableMode);
+                getPageAt(mCurrentPage - 1).addFocusables(views, direction, focusableMode)
             }
         } else if (direction == View.FOCUS_RIGHT) {
             if (mCurrentPage < getPageCount() - 1) {
-                getPageAt(mCurrentPage + 1).addFocusables(views, direction, focusableMode);
+                getPageAt(mCurrentPage + 1).addFocusables(views, direction, focusableMode)
             }
         }
     }
 
-    /**
-     * If one of our descendant views decides that it could be focused now, only
-     * pass that along if it's on the current page.
-     *
-     * <p>
-     * This happens when live folders requery, and if they're off page, they end up
-     * calling requestFocus, which pulls it on page.
-     */
-    @Override
-    public void focusableViewAvailable(View focused) {
-        View current = getPageAt(mCurrentPage);
-        View v = focused;
+    override fun focusableViewAvailable(focused: View) {
+        val current = getPageAt(mCurrentPage)
+        var view = focused
         while (true) {
-            if (v == current) {
-                super.focusableViewAvailable(focused);
-                return;
+            if (view == current) {
+                super.focusableViewAvailable(focused)
+                return
             }
-            if (v == this) {
-                return;
+            if (view == this) {
+                return
             }
-            ViewParent parent = v.getParent();
-            if (parent instanceof View) {
-                v = (View) v.getParent();
+            val parent: ViewParent = view.parent
+            if (parent is View) {
+                view = parent
             } else {
-                return;
+                return
             }
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+    override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {
         if (disallowIntercept) {
-            // We need to make sure to cancel our long press if
-            // a scrollable widget takes over touch events
-            final View currentPage = getPageAt(mCurrentPage);
-            if (currentPage != null) {
-                currentPage.cancelLongPress();
-            }
+            val currentPage = getPageAt(mCurrentPage)
+            currentPage.cancelLongPress()
         }
-        super.requestDisallowInterceptTouchEvent(disallowIntercept);
+        super.requestDisallowInterceptTouchEvent(disallowIntercept)
     }
 
-    /** Returns whether x and y originated within the buffered viewport */
-    private boolean isTouchPointInViewportWithBuffer(int x, int y) {
-        sTmpRect.set(-getMeasuredWidth() / 2, 0, 3 * getMeasuredWidth() / 2, getMeasuredHeight());
-        return sTmpRect.contains(x, y);
+    private fun isTouchPointInViewportWithBuffer(x: Int, y: Int): Boolean {
+        sTmpRect.set(-measuredWidth / 2, 0, 3 * measuredWidth / 2, measuredHeight)
+        return sTmpRect.contains(x, y)
     }
 
-    @Override
-    public boolean onInterceptTouchEvent(MotionEvent ev) {
-        /*
-         * This method JUST determines whether we want to intercept the motion. If we
-         * return true, onTouchEvent will be called and we do the actual scrolling
-         * there.
-         */
-        acquireVelocityTrackerAndAddMovement(ev);
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        acquireVelocityTrackerAndAddMovement(ev)
 
-        // Skip touch handling if there are no pages to swipe
-        if (getChildCount() <= 0)
-            return super.onInterceptTouchEvent(ev);
-
-        /*
-         * Shortcut the most recurring case: the user is in the dragging state and he is
-         * moving his finger. We want to intercept this motion.
-         */
-        final int action = ev.getAction();
-        if ((action == MotionEvent.ACTION_MOVE) && (mTouchState == TOUCH_STATE_SCROLLING)) {
-            return true;
+        if (childCount <= 0) {
+            return super.onInterceptTouchEvent(ev)
         }
 
-        switch (action & MotionEvent.ACTION_MASK) {
-            case MotionEvent.ACTION_MOVE : {
-                /*
-                 * mIsBeingDragged == false, otherwise the shortcut would have caught it. Check
-                 * whether the user has moved far enough from his original down touch.
-                 */
+        val action = ev.action
+        if (action == MotionEvent.ACTION_MOVE && mTouchState == TOUCH_STATE_SCROLLING) {
+            return true
+        }
+
+        when (action and MotionEvent.ACTION_MASK) {
+            MotionEvent.ACTION_MOVE -> {
                 if (mActivePointerId != INVALID_POINTER) {
-                    determineScrollingStart(ev);
+                    determineScrollingStart(ev)
                 }
-                // if mActivePointerId is INVALID_POINTER, then we must have missed an
-                // ACTION_DOWN
-                // event. in that case, treat the first occurence of a move event as a
-                // ACTION_DOWN
-                // i.e. fall through to the next case (don't break)
-                // (We sometimes miss ACTION_DOWN events in Workspace because it ignores all
-                // events
-                // while it's small- this was causing a crash before we checked for
-                // INVALID_POINTER)
-                break;
             }
 
-            case MotionEvent.ACTION_DOWN : {
-                final float x = ev.getX();
-                final float y = ev.getY();
-                // Remember location of down touch
-                mDownMotionX = x;
-                mDownMotionY = y;
-                mLastMotionX = x;
-                mLastMotionXRemainder = 0;
-                mTotalMotionX = 0;
-                mActivePointerId = ev.getPointerId(0);
+            MotionEvent.ACTION_DOWN -> {
+                val x = ev.x
+                val y = ev.y
+                mDownMotionX = x
+                mDownMotionY = y
+                mLastMotionX = x
+                mLastMotionXRemainder = 0f
+                mTotalMotionX = 0f
+                mActivePointerId = ev.getPointerId(0)
 
-                /*
-                 * If being flinged and user touches the screen, initiate drag; otherwise don't.
-                 * mScroller.isFinished should be false when being flinged.
-                 */
-                final int xDist = Math.abs(mScroller.getFinalX() - mScroller.getCurrX());
-                final boolean finishedScrolling = (mScroller.isFinished() || xDist < mTouchSlop / 3);
+                val xDist = abs(mScroller.finalX - mScroller.currX)
+                val finishedScrolling = mScroller.isFinished || xDist < mTouchSlop / 3
 
                 if (finishedScrolling) {
-                    mTouchState = TOUCH_STATE_REST;
-                    if (!mScroller.isFinished() && !mFreeScroll) {
-                        setCurrentPage(getNextPage());
-                        pageEndTransition();
+                    mTouchState = TOUCH_STATE_REST
+                    if (!mScroller.isFinished && !mFreeScroll) {
+                        setCurrentPage(getNextPage())
+                        pageEndTransition()
                     }
                 } else {
-                    if (isTouchPointInViewportWithBuffer((int) mDownMotionX, (int) mDownMotionY)) {
-                        mTouchState = TOUCH_STATE_SCROLLING;
+                    mTouchState = if (isTouchPointInViewportWithBuffer(mDownMotionX.toInt(), mDownMotionY.toInt())) {
+                        TOUCH_STATE_SCROLLING
                     } else {
-                        mTouchState = TOUCH_STATE_REST;
+                        TOUCH_STATE_REST
                     }
                 }
-
-                break;
             }
 
-            case MotionEvent.ACTION_UP :
-            case MotionEvent.ACTION_CANCEL :
-                resetTouchState();
-                break;
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> resetTouchState()
 
-            case MotionEvent.ACTION_POINTER_UP :
-                onSecondaryPointerUp(ev);
-                releaseVelocityTracker();
-                break;
+            MotionEvent.ACTION_POINTER_UP -> {
+                onSecondaryPointerUp(ev)
+                releaseVelocityTracker()
+            }
         }
 
-        /*
-         * The only time we want to intercept motion events is if we are in the drag
-         * mode.
-         */
-        return mTouchState != TOUCH_STATE_REST;
+        return mTouchState != TOUCH_STATE_REST
     }
 
-    public boolean isHandlingTouch() {
-        return mTouchState != TOUCH_STATE_REST;
+    fun isHandlingTouch(): Boolean = mTouchState != TOUCH_STATE_REST
+
+    protected fun determineScrollingStart(ev: MotionEvent) {
+        determineScrollingStart(ev, 1.0f)
     }
 
-    protected void determineScrollingStart(MotionEvent ev) {
-        determineScrollingStart(ev, 1.0f);
-    }
+    protected open fun determineScrollingStart(ev: MotionEvent, touchSlopScale: Float) {
+        val pointerIndex = ev.findPointerIndex(mActivePointerId)
+        if (pointerIndex == -1) {
+            return
+        }
 
-    /*
-     * Determines if we should change the touch state to start scrolling after the
-     * user moves their touch point too far.
-     */
-    protected void determineScrollingStart(MotionEvent ev, float touchSlopScale) {
-        // Disallow scrolling if we don't have a valid pointer index
-        final int pointerIndex = ev.findPointerIndex(mActivePointerId);
-        if (pointerIndex == -1)
-            return;
+        val x = ev.getX(pointerIndex)
+        val y = ev.getY(pointerIndex)
+        if (!isTouchPointInViewportWithBuffer(x.toInt(), y.toInt())) {
+            return
+        }
 
-        // Disallow scrolling if we started the gesture from outside the viewport
-        final float x = ev.getX(pointerIndex);
-        final float y = ev.getY(pointerIndex);
-        if (!isTouchPointInViewportWithBuffer((int) x, (int) y))
-            return;
+        val xDiff = abs(x - mLastMotionX).toInt()
 
-        final int xDiff = (int) Math.abs(x - mLastMotionX);
-
-        final int touchSlop = Math.round(touchSlopScale * mTouchSlop);
-        boolean xMoved = xDiff > touchSlop;
+        val touchSlop = (touchSlopScale * mTouchSlop).roundToInt()
+        val xMoved = xDiff > touchSlop
 
         if (xMoved) {
-            // Scroll if the user moved far enough along the X axis
-            mTouchState = TOUCH_STATE_SCROLLING;
-            mTotalMotionX += Math.abs(mLastMotionX - x);
-            mLastMotionX = x;
-            mLastMotionXRemainder = 0;
-            onScrollInteractionBegin();
-            pageBeginTransition();
-            // Stop listening for things like pinches.
-            requestDisallowInterceptTouchEvent(true);
+            mTouchState = TOUCH_STATE_SCROLLING
+            mTotalMotionX += abs(mLastMotionX - x)
+            mLastMotionX = x
+            mLastMotionXRemainder = 0f
+            onScrollInteractionBegin()
+            pageBeginTransition()
+            requestDisallowInterceptTouchEvent(true)
         }
     }
 
-    protected void cancelCurrentPageLongPress() {
-        // Try canceling the long press. It could also have been scheduled
-        // by a distant descendant, so use the mAllowLongPress flag to block
-        // everything
-        final View currentPage = getPageAt(mCurrentPage);
-        if (currentPage != null) {
-            currentPage.cancelLongPress();
-        }
+    protected fun cancelCurrentPageLongPress() {
+        val currentPage = getPageAt(mCurrentPage)
+        currentPage.cancelLongPress()
     }
 
-    protected float getScrollProgress(int screenCenter, View v, int page) {
-        final int halfScreenSize = getMeasuredWidth() / 2;
+    protected fun getScrollProgress(screenCenter: Int, view: View, page: Int): Float {
+        val halfScreenSize = measuredWidth / 2
 
-        int delta = screenCenter - (getScrollForPage(page) + halfScreenSize);
-        int count = getChildCount();
+        val delta = screenCenter - (getScrollForPage(page) + halfScreenSize)
+        val count = childCount
 
-        final int totalDistance;
-
-        int adjacentPage = page + 1;
-        if ((delta < 0 && !mIsRtl) || (delta > 0 && mIsRtl)) {
-            adjacentPage = page - 1;
-        }
-
-        if (adjacentPage < 0 || adjacentPage > count - 1) {
-            totalDistance = v.getMeasuredWidth() + mPageSpacing;
+        val adjacentPage = if ((delta < 0 && !mIsRtl) || (delta > 0 && mIsRtl)) {
+            page - 1
         } else {
-            totalDistance = Math.abs(getScrollForPage(adjacentPage) - getScrollForPage(page));
+            page + 1
         }
 
-        float scrollProgress = delta / (totalDistance * 1.0f);
-        scrollProgress = Math.min(scrollProgress, MAX_SCROLL_PROGRESS);
-        scrollProgress = Math.max(scrollProgress, -MAX_SCROLL_PROGRESS);
-        return scrollProgress;
-    }
-
-    public int getScrollForPage(int index) {
-        if (mPageScrolls == null || index >= mPageScrolls.length || index < 0) {
-            return 0;
+        val totalDistance = if (adjacentPage < 0 || adjacentPage > count - 1) {
+            view.measuredWidth + mPageSpacing
         } else {
-            return mPageScrolls[index];
+            abs(getScrollForPage(adjacentPage) - getScrollForPage(page))
         }
+
+        var scrollProgress = delta / (totalDistance * 1.0f)
+        scrollProgress = min(scrollProgress, MAX_SCROLL_PROGRESS)
+        scrollProgress = max(scrollProgress, -MAX_SCROLL_PROGRESS)
+        return scrollProgress
     }
 
-    // While layout transitions are occurring, a child's position may stray from its
-    // baseline
-    // position. This method returns the magnitude of this stray at any given time.
-    public int getLayoutTransitionOffsetForPage(int index) {
-        if (mPageScrolls == null || index >= mPageScrolls.length || index < 0) {
-            return 0;
+    fun getScrollForPage(index: Int): Int {
+        val pageScrolls = mPageScrolls
+        return if (pageScrolls == null || index >= pageScrolls.size || index < 0) {
+            0
         } else {
-            View child = getChildAt(index);
-
-            int scrollOffset = mIsRtl ? getPaddingRight() : getPaddingLeft();
-            int baselineX = mPageScrolls[index] + scrollOffset;
-            return (int) (child.getX() - baselineX);
+            pageScrolls[index]
         }
     }
 
-    protected void dampedOverScroll(float amount) {
-        if (Float.compare(amount, 0f) == 0)
-            return;
+    fun getLayoutTransitionOffsetForPage(index: Int): Int {
+        val pageScrolls = mPageScrolls
+        return if (pageScrolls == null || index >= pageScrolls.size || index < 0) {
+            0
+        } else {
+            val child = getChildAt(index)
+            val scrollOffset = if (mIsRtl) paddingRight else paddingLeft
+            val baselineX = pageScrolls[index] + scrollOffset
+            (child.x - baselineX).toInt()
+        }
+    }
 
-        int overScrollAmount = OverScroll.dampedScroll(amount, getMeasuredWidth());
+    protected fun dampedOverScroll(amount: Float) {
+        if (amount.compareTo(0f) == 0) {
+            return
+        }
+
+        val overScrollAmount = OverScroll.dampedScroll(amount, measuredWidth)
         if (amount < 0) {
-            mOverScrollX = overScrollAmount;
-            super.scrollTo(mOverScrollX, getScrollY());
+            mOverScrollX = overScrollAmount
+            super.scrollTo(mOverScrollX, scrollY)
         } else {
-            mOverScrollX = mMaxScrollX + overScrollAmount;
-            super.scrollTo(mOverScrollX, getScrollY());
+            mOverScrollX = mMaxScrollX + overScrollAmount
+            super.scrollTo(mOverScrollX, scrollY)
         }
-        invalidate();
+        invalidate()
     }
 
-    protected void overScroll(float amount) {
-        dampedOverScroll(amount);
+    protected open fun overScroll(amount: Float) {
+        dampedOverScroll(amount)
     }
 
-    protected void enableFreeScroll(boolean settleOnPageInFreeScroll) {
-        setEnableFreeScroll(true);
-        mSettleOnPageInFreeScroll = settleOnPageInFreeScroll;
+    protected fun enableFreeScroll(settleOnPageInFreeScroll: Boolean) {
+        setEnableFreeScroll(true)
+        mSettleOnPageInFreeScroll = settleOnPageInFreeScroll
     }
 
-    private void setEnableFreeScroll(boolean freeScroll) {
-        boolean wasFreeScroll = mFreeScroll;
-        mFreeScroll = freeScroll;
+    private fun setEnableFreeScroll(freeScroll: Boolean) {
+        val wasFreeScroll = mFreeScroll
+        mFreeScroll = freeScroll
 
         if (mFreeScroll) {
-            setCurrentPage(getNextPage());
+            setCurrentPage(getNextPage())
         } else if (wasFreeScroll) {
-            snapToPage(getNextPage());
+            snapToPage(getNextPage())
         }
 
-        setEnableOverscroll(!freeScroll);
+        setEnableOverscroll(!freeScroll)
     }
 
-    protected void setEnableOverscroll(boolean enable) {
-        mAllowOverScroll = enable;
+    protected fun setEnableOverscroll(enable: Boolean) {
+        mAllowOverScroll = enable
     }
 
-    @Override
-    public boolean onTouchEvent(MotionEvent ev) {
-        super.onTouchEvent(ev);
+    override fun onTouchEvent(ev: MotionEvent): Boolean {
+        super.onTouchEvent(ev)
 
-        // Skip touch handling if there are no pages to swipe
-        if (getChildCount() <= 0)
-            return super.onTouchEvent(ev);
+        if (childCount <= 0) {
+            return super.onTouchEvent(ev)
+        }
 
-        acquireVelocityTrackerAndAddMovement(ev);
+        acquireVelocityTrackerAndAddMovement(ev)
 
-        final int action = ev.getAction();
+        val action = ev.action
 
-        switch (action & MotionEvent.ACTION_MASK) {
-            case MotionEvent.ACTION_DOWN :
-                /*
-                 * If being flinged and user touches, stop the fling. isFinished will be false
-                 * if being flinged.
-                 */
-                if (!mScroller.isFinished()) {
-                    abortScrollerAnimation(false);
+        when (action and MotionEvent.ACTION_MASK) {
+            MotionEvent.ACTION_DOWN -> {
+                if (!mScroller.isFinished) {
+                    abortScrollerAnimation(false)
                 }
 
-                // Remember where the motion event started
-                mDownMotionX = mLastMotionX = ev.getX();
-                mDownMotionY = ev.getY();
-                mLastMotionXRemainder = 0;
-                mTotalMotionX = 0;
-                mActivePointerId = ev.getPointerId(0);
+                mDownMotionX = ev.x
+                mLastMotionX = mDownMotionX
+                mDownMotionY = ev.y
+                mLastMotionXRemainder = 0f
+                mTotalMotionX = 0f
+                mActivePointerId = ev.getPointerId(0)
 
                 if (mTouchState == TOUCH_STATE_SCROLLING) {
-                    onScrollInteractionBegin();
-                    pageBeginTransition();
+                    onScrollInteractionBegin()
+                    pageBeginTransition()
                 }
-                break;
+            }
 
-            case MotionEvent.ACTION_MOVE :
+            MotionEvent.ACTION_MOVE -> {
                 if (mTouchState == TOUCH_STATE_SCROLLING) {
-                    // Scroll to follow the motion event
-                    final int pointerIndex = ev.findPointerIndex(mActivePointerId);
+                    val pointerIndex = ev.findPointerIndex(mActivePointerId)
 
-                    if (pointerIndex == -1)
-                        return true;
+                    if (pointerIndex == -1) {
+                        return true
+                    }
 
-                    final float x = ev.getX(pointerIndex);
-                    final float deltaX = mLastMotionX + mLastMotionXRemainder - x;
+                    val x = ev.getX(pointerIndex)
+                    val deltaX = mLastMotionX + mLastMotionXRemainder - x
 
-                    mTotalMotionX += Math.abs(deltaX);
+                    mTotalMotionX += abs(deltaX)
 
-                    // Only scroll and update mLastMotionX if we have moved some discrete amount. We
-                    // keep the remainder because we are actually testing if we've moved from the
-                    // last
-                    // scrolled position (which is discrete).
-                    if (Math.abs(deltaX) >= 1.0f) {
-                        scrollBy((int) deltaX, 0);
-                        mLastMotionX = x;
-                        mLastMotionXRemainder = deltaX - (int) deltaX;
+                    if (abs(deltaX) >= 1.0f) {
+                        scrollBy(deltaX.toInt(), 0)
+                        mLastMotionX = x
+                        mLastMotionXRemainder = deltaX - deltaX.toInt()
                     } else {
-                        awakenScrollBars();
+                        awakenScrollBars()
                     }
                 } else {
-                    determineScrollingStart(ev);
+                    determineScrollingStart(ev)
                 }
-                break;
+            }
 
-            case MotionEvent.ACTION_UP :
+            MotionEvent.ACTION_UP -> {
                 if (mTouchState == TOUCH_STATE_SCROLLING) {
-                    final int activePointerId = mActivePointerId;
-                    final int pointerIndex = ev.findPointerIndex(activePointerId);
-                    final float x = ev.getX(pointerIndex);
-                    final VelocityTracker velocityTracker = mVelocityTracker;
-                    velocityTracker.computeCurrentVelocity(1000, mMaximumVelocity);
-                    int velocityX = (int) velocityTracker.getXVelocity(activePointerId);
-                    final int deltaX = (int) (x - mDownMotionX);
-                    final int pageWidth = getPageAt(mCurrentPage).getMeasuredWidth();
-                    boolean isSignificantMove = Math.abs(deltaX) > pageWidth * SIGNIFICANT_MOVE_THRESHOLD;
+                    val activePointerId = mActivePointerId
+                    val pointerIndex = ev.findPointerIndex(activePointerId)
+                    val x = ev.getX(pointerIndex)
+                    val velocityTracker = mVelocityTracker!!
+                    velocityTracker.computeCurrentVelocity(1000, mMaximumVelocity.toFloat())
+                    val velocityX = velocityTracker.getXVelocity(activePointerId).toInt()
+                    val deltaX = (x - mDownMotionX).toInt()
+                    val pageWidth = getPageAt(mCurrentPage).measuredWidth
+                    val isSignificantMove = abs(deltaX) > pageWidth * SIGNIFICANT_MOVE_THRESHOLD
 
-                    mTotalMotionX += Math.abs(mLastMotionX + mLastMotionXRemainder - x);
-                    boolean isFling = mTotalMotionX > mTouchSlop && shouldFlingForVelocity(velocityX);
+                    mTotalMotionX += abs(mLastMotionX + mLastMotionXRemainder - x)
+                    val isFling = mTotalMotionX > mTouchSlop && shouldFlingForVelocity(velocityX)
 
                     if (!mFreeScroll) {
-                        // In the case that the page is moved far to one direction and then is flung
-                        // in the opposite direction, we use a threshold to determine whether we should
-                        // just return to the starting page, or if we should skip one further.
-                        boolean returnToOriginalPage = false;
-                        if (Math.abs(deltaX) > pageWidth * RETURN_TO_ORIGINAL_PAGE_THRESHOLD
-                                && Math.signum(velocityX) != Math.signum(deltaX) && isFling) {
-                            returnToOriginalPage = true;
+                        var returnToOriginalPage = false
+                        if (abs(deltaX) > pageWidth * RETURN_TO_ORIGINAL_PAGE_THRESHOLD &&
+                            sign(velocityX.toFloat()) != sign(deltaX.toFloat()) && isFling
+                        ) {
+                            returnToOriginalPage = true
                         }
 
-                        int finalPage;
-                        // We give flings precedence over large moves, which is why we short-circuit our
-                        // test for a large move if a fling has been registered. That is, a large
-                        // move to the left and fling to the right will register as a fling to the
-                        // right.
-                        boolean isDeltaXLeft = mIsRtl ? deltaX > 0 : deltaX < 0;
-                        boolean isVelocityXLeft = mIsRtl ? velocityX > 0 : velocityX < 0;
-                        if (((isSignificantMove && !isDeltaXLeft && !isFling) || (isFling && !isVelocityXLeft))
-                                && mCurrentPage > 0) {
-                            finalPage = returnToOriginalPage ? mCurrentPage : mCurrentPage - 1;
-                            snapToPageWithVelocity(finalPage, velocityX);
-                        } else if (((isSignificantMove && isDeltaXLeft && !isFling) || (isFling && isVelocityXLeft))
-                                && mCurrentPage < getChildCount() - 1) {
-                            finalPage = returnToOriginalPage ? mCurrentPage : mCurrentPage + 1;
-                            snapToPageWithVelocity(finalPage, velocityX);
+                        val isDeltaXLeft = if (mIsRtl) deltaX > 0 else deltaX < 0
+                        val isVelocityXLeft = if (mIsRtl) velocityX > 0 else velocityX < 0
+                        if (((isSignificantMove && !isDeltaXLeft && !isFling) || (isFling && !isVelocityXLeft)) &&
+                            mCurrentPage > 0
+                        ) {
+                            val finalPage = if (returnToOriginalPage) mCurrentPage else mCurrentPage - 1
+                            snapToPageWithVelocity(finalPage, velocityX)
+                        } else if (((isSignificantMove && isDeltaXLeft && !isFling) ||
+                                (isFling && isVelocityXLeft)) &&
+                            mCurrentPage < childCount - 1
+                        ) {
+                            val finalPage = if (returnToOriginalPage) mCurrentPage else mCurrentPage + 1
+                            snapToPageWithVelocity(finalPage, velocityX)
                         } else {
-                            snapToDestination();
+                            snapToDestination()
                         }
                     } else {
-                        if (!mScroller.isFinished()) {
-                            abortScrollerAnimation(true);
+                        if (!mScroller.isFinished) {
+                            abortScrollerAnimation(true)
                         }
 
-                        float scaleX = getScaleX();
-                        int vX = (int) (-velocityX * scaleX);
-                        int initialScrollX = (int) (getScrollX() * scaleX);
+                        val scaleX = scaleX
+                        val velocityScrollX = (-velocityX * scaleX).toInt()
+                        val initialScrollX = (scrollX * scaleX).toInt()
 
-                        mScroller.fling(initialScrollX, getScrollY(), vX, 0, Integer.MIN_VALUE, Integer.MAX_VALUE, 0,
-                                0);
-                        int unscaledScrollX = (int) (mScroller.getFinalX() / scaleX);
-                        mNextPage = getPageNearestToCenterOfScreen(unscaledScrollX);
-                        int firstPageScroll = getScrollForPage(!mIsRtl ? 0 : getPageCount() - 1);
-                        int lastPageScroll = getScrollForPage(!mIsRtl ? getPageCount() - 1 : 0);
+                        mScroller.fling(
+                            initialScrollX,
+                            scrollY,
+                            velocityScrollX,
+                            0,
+                            Int.MIN_VALUE,
+                            Int.MAX_VALUE,
+                            0,
+                            0
+                        )
+                        val unscaledScrollX = (mScroller.finalX / scaleX).toInt()
+                        mNextPage = getPageNearestToCenterOfScreen(unscaledScrollX)
+                        val firstPageScroll = getScrollForPage(if (!mIsRtl) 0 else getPageCount() - 1)
+                        val lastPageScroll = getScrollForPage(if (!mIsRtl) getPageCount() - 1 else 0)
                         if (mSettleOnPageInFreeScroll && unscaledScrollX > 0 && unscaledScrollX < mMaxScrollX) {
-                            // If scrolling ends in the half of the added space that is closer to the
-                            // end, settle to the end. Otherwise snap to the nearest page.
-                            // If flinging past one of the ends, don't change the velocity as it will
-                            // get stopped at the end anyway.
-                            final int finalX = unscaledScrollX < firstPageScroll / 2
-                                    ? 0
-                                    : unscaledScrollX > (lastPageScroll + mMaxScrollX) / 2
-                                            ? mMaxScrollX
-                                            : getScrollForPage(mNextPage);
+                            val finalX = if (unscaledScrollX < firstPageScroll / 2) {
+                                0
+                            } else if (unscaledScrollX > (lastPageScroll + mMaxScrollX) / 2) {
+                                mMaxScrollX
+                            } else {
+                                getScrollForPage(mNextPage)
+                            }
 
-                            mScroller.setFinalX((int) (finalX * getScaleX()));
-                            // Ensure the scroll/snap doesn't happen too fast;
-                            int extraScrollDuration = OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION - mScroller.getDuration();
+                            mScroller.finalX = (finalX * scaleX).toInt()
+                            val extraScrollDuration = OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION - mScroller.duration
                             if (extraScrollDuration > 0) {
-                                mScroller.extendDuration(extraScrollDuration);
+                                mScroller.extendDuration(extraScrollDuration)
                             }
                         }
-                        invalidate();
+                        invalidate()
                     }
-                    onScrollInteractionEnd();
+                    onScrollInteractionEnd()
                 } else if (mTouchState == TOUCH_STATE_PREV_PAGE) {
-                    // at this point we have not moved beyond the touch slop
-                    // (otherwise mTouchState would be TOUCH_STATE_SCROLLING), so
-                    // we can just page
-                    int nextPage = Math.max(0, mCurrentPage - 1);
+                    val nextPage = max(0, mCurrentPage - 1)
                     if (nextPage != mCurrentPage) {
-                        snapToPage(nextPage);
+                        snapToPage(nextPage)
                     } else {
-                        snapToDestination();
+                        snapToDestination()
                     }
                 } else if (mTouchState == TOUCH_STATE_NEXT_PAGE) {
-                    // at this point we have not moved beyond the touch slop
-                    // (otherwise mTouchState would be TOUCH_STATE_SCROLLING), so
-                    // we can just page
-                    int nextPage = Math.min(getChildCount() - 1, mCurrentPage + 1);
+                    val nextPage = min(childCount - 1, mCurrentPage + 1)
                     if (nextPage != mCurrentPage) {
-                        snapToPage(nextPage);
+                        snapToPage(nextPage)
                     } else {
-                        snapToDestination();
+                        snapToDestination()
                     }
                 }
 
-                // End any intermediate reordering states
-                resetTouchState();
-                break;
+                resetTouchState()
+            }
 
-            case MotionEvent.ACTION_CANCEL :
+            MotionEvent.ACTION_CANCEL -> {
                 if (mTouchState == TOUCH_STATE_SCROLLING) {
-                    snapToDestination();
-                    onScrollInteractionEnd();
+                    snapToDestination()
+                    onScrollInteractionEnd()
                 }
-                resetTouchState();
-                break;
+                resetTouchState()
+            }
 
-            case MotionEvent.ACTION_POINTER_UP :
-                onSecondaryPointerUp(ev);
-                releaseVelocityTracker();
-                break;
+            MotionEvent.ACTION_POINTER_UP -> {
+                onSecondaryPointerUp(ev)
+                releaseVelocityTracker()
+            }
         }
 
-        return true;
+        return true
     }
 
-    protected boolean shouldFlingForVelocity(int velocityX) {
-        return Math.abs(velocityX) > mFlingThresholdVelocity;
+    protected fun shouldFlingForVelocity(velocityX: Int): Boolean = abs(velocityX) > mFlingThresholdVelocity
+
+    private fun resetTouchState() {
+        releaseVelocityTracker()
+        mTouchState = TOUCH_STATE_REST
+        mActivePointerId = INVALID_POINTER
     }
 
-    private void resetTouchState() {
-        releaseVelocityTracker();
-        mTouchState = TOUCH_STATE_REST;
-        mActivePointerId = INVALID_POINTER;
+    protected open fun onScrollInteractionBegin() {
     }
 
-    /** Triggered by scrolling via touch */
-    protected void onScrollInteractionBegin() {
+    protected open fun onScrollInteractionEnd() {
     }
 
-    protected void onScrollInteractionEnd() {
-    }
-
-    @Override
-    public boolean onGenericMotionEvent(MotionEvent event) {
-        if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_SCROLL : {
-                    // Handle mouse (or ext. device) by shifting the page depending on the scroll
-                    final float vscroll;
-                    final float hscroll;
-                    if ((event.getMetaState() & KeyEvent.META_SHIFT_ON) != 0) {
-                        vscroll = 0;
-                        hscroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL);
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.source and InputDevice.SOURCE_CLASS_POINTER != 0) {
+            when (event.action) {
+                MotionEvent.ACTION_SCROLL -> {
+                    val vscroll: Float
+                    val hscroll: Float
+                    if (event.metaState and KeyEvent.META_SHIFT_ON != 0) {
+                        vscroll = 0f
+                        hscroll = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
                     } else {
-                        vscroll = -event.getAxisValue(MotionEvent.AXIS_VSCROLL);
-                        hscroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL);
+                        vscroll = -event.getAxisValue(MotionEvent.AXIS_VSCROLL)
+                        hscroll = event.getAxisValue(MotionEvent.AXIS_HSCROLL)
                     }
-                    if (hscroll != 0 || vscroll != 0) {
-                        boolean isForwardScroll = mIsRtl ? (hscroll < 0 || vscroll < 0) : (hscroll > 0 || vscroll > 0);
-                        if (isForwardScroll) {
-                            scrollRight();
+                    if (hscroll != 0f || vscroll != 0f) {
+                        val isForwardScroll = if (mIsRtl) {
+                            hscroll < 0 || vscroll < 0
                         } else {
-                            scrollLeft();
+                            hscroll > 0 || vscroll > 0
                         }
-                        return true;
+                        if (isForwardScroll) {
+                            scrollRight()
+                        } else {
+                            scrollLeft()
+                        }
+                        return true
                     }
                 }
             }
         }
-        return super.onGenericMotionEvent(event);
+        return super.onGenericMotionEvent(event)
     }
 
-    private void acquireVelocityTrackerAndAddMovement(MotionEvent ev) {
+    private fun acquireVelocityTrackerAndAddMovement(ev: MotionEvent) {
         if (mVelocityTracker == null) {
-            mVelocityTracker = VelocityTracker.obtain();
+            mVelocityTracker = VelocityTracker.obtain()
         }
-        mVelocityTracker.addMovement(ev);
+        mVelocityTracker!!.addMovement(ev)
     }
 
-    private void releaseVelocityTracker() {
-        if (mVelocityTracker != null) {
-            mVelocityTracker.clear();
-            mVelocityTracker.recycle();
-            mVelocityTracker = null;
+    private fun releaseVelocityTracker() {
+        val velocityTracker = mVelocityTracker
+        if (velocityTracker != null) {
+            velocityTracker.clear()
+            velocityTracker.recycle()
+            mVelocityTracker = null
         }
     }
 
-    private void onSecondaryPointerUp(MotionEvent ev) {
-        final int pointerIndex = (ev.getAction()
-                & MotionEvent.ACTION_POINTER_INDEX_MASK) >> MotionEvent.ACTION_POINTER_INDEX_SHIFT;
-        final int pointerId = ev.getPointerId(pointerIndex);
+    private fun onSecondaryPointerUp(ev: MotionEvent) {
+        val pointerIndex =
+            (ev.action and MotionEvent.ACTION_POINTER_INDEX_MASK) shr MotionEvent.ACTION_POINTER_INDEX_SHIFT
+        val pointerId = ev.getPointerId(pointerIndex)
         if (pointerId == mActivePointerId) {
-            // This was our active pointer going up. Choose a new
-            // active pointer and adjust accordingly.
-            // TODO: Make this decision more intelligent.
-            final int newPointerIndex = pointerIndex == 0 ? 1 : 0;
-            mLastMotionX = mDownMotionX = ev.getX(newPointerIndex);
-            mLastMotionXRemainder = 0;
-            mActivePointerId = ev.getPointerId(newPointerIndex);
-            if (mVelocityTracker != null) {
-                mVelocityTracker.clear();
-            }
+            val newPointerIndex = if (pointerIndex == 0) 1 else 0
+            mDownMotionX = ev.getX(newPointerIndex)
+            mLastMotionX = mDownMotionX
+            mLastMotionXRemainder = 0f
+            mActivePointerId = ev.getPointerId(newPointerIndex)
+            mVelocityTracker?.clear()
         }
     }
 
-    @Override
-    public void requestChildFocus(View child, View focused) {
-        super.requestChildFocus(child, focused);
-        int page = indexToPage(indexOfChild(child));
-        if (page >= 0 && page != getCurrentPage() && !isInTouchMode()) {
-            snapToPage(page);
+    override fun requestChildFocus(child: View, focused: View) {
+        super.requestChildFocus(child, focused)
+        val page = indexToPage(indexOfChild(child))
+        if (page >= 0 && page != getCurrentPage() && !isInTouchMode) {
+            snapToPage(page)
         }
     }
 
-    public int getPageNearestToCenterOfScreen() {
-        return getPageNearestToCenterOfScreen(getScrollX());
-    }
+    fun getPageNearestToCenterOfScreen(): Int = getPageNearestToCenterOfScreen(scrollX)
 
-    private int getPageNearestToCenterOfScreen(int scaledScrollX) {
-        int screenCenter = scaledScrollX + (getMeasuredWidth() / 2);
-        int minDistanceFromScreenCenter = Integer.MAX_VALUE;
-        int minDistanceFromScreenCenterIndex = -1;
-        final int childCount = getChildCount();
-        for (int i = 0; i < childCount; ++i) {
-            View layout = getPageAt(i);
-            int childWidth = layout.getMeasuredWidth();
-            int halfChildWidth = (childWidth / 2);
-            int childCenter = getChildOffset(i) + halfChildWidth;
-            int distanceFromScreenCenter = Math.abs(childCenter - screenCenter);
+    private fun getPageNearestToCenterOfScreen(scaledScrollX: Int): Int {
+        val screenCenter = scaledScrollX + measuredWidth / 2
+        var minDistanceFromScreenCenter = Int.MAX_VALUE
+        var minDistanceFromScreenCenterIndex = -1
+        val childCount = childCount
+        for (i in 0 until childCount) {
+            val layout = getPageAt(i)
+            val childWidth = layout.measuredWidth
+            val halfChildWidth = childWidth / 2
+            val childCenter = getChildOffset(i) + halfChildWidth
+            val distanceFromScreenCenter = abs(childCenter - screenCenter)
             if (distanceFromScreenCenter < minDistanceFromScreenCenter) {
-                minDistanceFromScreenCenter = distanceFromScreenCenter;
-                minDistanceFromScreenCenterIndex = i;
+                minDistanceFromScreenCenter = distanceFromScreenCenter
+                minDistanceFromScreenCenterIndex = i
             }
         }
-        return minDistanceFromScreenCenterIndex;
+        return minDistanceFromScreenCenterIndex
     }
 
-    protected void snapToDestination() {
-        snapToPage(getPageNearestToCenterOfScreen(), getPageSnapDuration());
+    protected fun snapToDestination() {
+        snapToPage(getPageNearestToCenterOfScreen(), getPageSnapDuration())
     }
 
-    protected boolean isInOverScroll() {
-        return (mOverScrollX > mMaxScrollX || mOverScrollX < 0);
+    protected fun isInOverScroll(): Boolean = mOverScrollX > mMaxScrollX || mOverScrollX < 0
+
+    protected fun getPageSnapDuration(): Int =
+        if (isInOverScroll()) OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION else PAGE_SNAP_ANIMATION_DURATION
+
+    private fun distanceInfluenceForSnapDuration(value: Float): Float {
+        var f = value
+        f -= 0.5f
+        f *= 0.3f * Math.PI.toFloat() / 2.0f
+        return sin(f)
     }
 
-    protected int getPageSnapDuration() {
-        if (isInOverScroll()) {
-            return OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION;
-        }
-        return PAGE_SNAP_ANIMATION_DURATION;
-    }
+    protected fun snapToPageWithVelocity(whichPageInput: Int, velocityInput: Int): Boolean {
+        var whichPage = validateNewPage(whichPageInput)
+        val halfScreenSize = measuredWidth / 2
 
-    // We want the duration of the page snap animation to be influenced by the
-    // distance that
-    // the screen has to travel, however, we don't want this duration to be effected
-    // in a
-    // purely linear fashion. Instead, we use this method to moderate the effect
-    // that the distance
-    // of travel has on the overall snap duration.
-    private float distanceInfluenceForSnapDuration(float f) {
-        f -= 0.5f; // center the values about 0.
-        f *= 0.3f * Math.PI / 2.0f;
-        return (float) Math.sin(f);
-    }
+        val newX = getScrollForPage(whichPage)
+        val delta = newX - getUnboundedScrollX()
 
-    protected boolean snapToPageWithVelocity(int whichPage, int velocity) {
-        whichPage = validateNewPage(whichPage);
-        int halfScreenSize = getMeasuredWidth() / 2;
-
-        final int newX = getScrollForPage(whichPage);
-        int delta = newX - getUnboundedScrollX();
-        int duration = 0;
-
-        if (Math.abs(velocity) < mMinFlingVelocity) {
-            // If the velocity is low enough, then treat this more as an automatic page
-            // advance
-            // as opposed to an apparent physical response to flinging
-            return snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION);
+        if (abs(velocityInput) < mMinFlingVelocity) {
+            return snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION)
         }
 
-        // Here we compute a "distance" that will be used in the computation of the
-        // overall
-        // snap duration. This is a function of the actual distance that needs to be
-        // traveled;
-        // we keep this value close to half screen size in order to reduce the variance
-        // in snap
-        // duration as a function of the distance the page needs to travel.
-        float distanceRatio = Math.min(1f, 1.0f * Math.abs(delta) / (2 * halfScreenSize));
-        float distance = halfScreenSize + halfScreenSize * distanceInfluenceForSnapDuration(distanceRatio);
+        val distanceRatio = min(1f, 1.0f * abs(delta) / (2 * halfScreenSize))
+        val distance = halfScreenSize + halfScreenSize * distanceInfluenceForSnapDuration(distanceRatio)
 
-        velocity = Math.abs(velocity);
-        velocity = Math.max(mMinSnapVelocity, velocity);
+        var velocity = abs(velocityInput)
+        velocity = max(mMinSnapVelocity, velocity)
 
-        // we want the page's snap velocity to approximately match the velocity at which
-        // the
-        // user flings, so we scale the duration by a value near to the derivative of
-        // the scroll
-        // interpolator at zero, ie. 5. We use 4 to make it a little slower.
-        duration = 4 * Math.round(1000 * Math.abs(distance / velocity));
+        val duration = 4 * (1000 * abs(distance / velocity)).roundToInt()
 
-        return snapToPage(whichPage, delta, duration);
+        return snapToPage(whichPage, delta, duration)
     }
 
-    public boolean snapToPage(int whichPage) {
-        return snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION);
+    fun snapToPage(whichPage: Int): Boolean = snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION)
+
+    fun snapToPageImmediately(whichPage: Int): Boolean =
+        snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION, true, null)
+
+    fun snapToPage(whichPage: Int, duration: Int): Boolean = snapToPage(whichPage, duration, false, null)
+
+    fun snapToPage(whichPage: Int, duration: Int, interpolator: TimeInterpolator?): Boolean =
+        snapToPage(whichPage, duration, false, interpolator)
+
+    protected fun snapToPage(
+        whichPageInput: Int,
+        duration: Int,
+        immediate: Boolean,
+        interpolator: TimeInterpolator?
+    ): Boolean {
+        val whichPage = validateNewPage(whichPageInput)
+
+        val newX = getScrollForPage(whichPage)
+        val delta = newX - getUnboundedScrollX()
+        return snapToPage(whichPage, delta, duration, immediate, interpolator)
     }
 
-    public boolean snapToPageImmediately(int whichPage) {
-        return snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION, true, null);
-    }
+    protected fun snapToPage(whichPage: Int, delta: Int, duration: Int): Boolean =
+        snapToPage(whichPage, delta, duration, false, null)
 
-    public boolean snapToPage(int whichPage, int duration) {
-        return snapToPage(whichPage, duration, false, null);
-    }
-
-    public boolean snapToPage(int whichPage, int duration, TimeInterpolator interpolator) {
-        return snapToPage(whichPage, duration, false, interpolator);
-    }
-
-    protected boolean snapToPage(int whichPage, int duration, boolean immediate, TimeInterpolator interpolator) {
-        whichPage = validateNewPage(whichPage);
-
-        int newX = getScrollForPage(whichPage);
-        final int delta = newX - getUnboundedScrollX();
-        return snapToPage(whichPage, delta, duration, immediate, interpolator);
-    }
-
-    protected boolean snapToPage(int whichPage, int delta, int duration) {
-        return snapToPage(whichPage, delta, duration, false, null);
-    }
-
-    protected boolean snapToPage(int whichPage, int delta, int duration, boolean immediate,
-            TimeInterpolator interpolator) {
+    protected fun snapToPage(
+        whichPageInput: Int,
+        delta: Int,
+        durationInput: Int,
+        immediate: Boolean,
+        interpolator: TimeInterpolator?
+    ): Boolean {
         if (mFirstLayout) {
-            setCurrentPage(whichPage);
-            return false;
+            setCurrentPage(whichPageInput)
+            return false
         }
 
-        whichPage = validateNewPage(whichPage);
+        val whichPage = validateNewPage(whichPageInput)
 
-        mNextPage = whichPage;
+        mNextPage = whichPage
 
-        awakenScrollBars(duration);
+        var duration = durationInput
+        awakenScrollBars(duration)
         if (immediate) {
-            duration = 0;
+            duration = 0
         } else if (duration == 0) {
-            duration = Math.abs(delta);
+            duration = abs(delta)
         }
 
         if (duration != 0) {
-            pageBeginTransition();
+            pageBeginTransition()
         }
 
-        if (!mScroller.isFinished()) {
-            abortScrollerAnimation(false);
+        if (!mScroller.isFinished) {
+            abortScrollerAnimation(false)
         }
 
-        mScroller.startScroll(getUnboundedScrollX(), 0, delta, 0, duration);
+        mScroller.startScroll(getUnboundedScrollX(), 0, delta, 0, duration)
 
-        updatePageIndicator();
+        updatePageIndicator()
 
-        // Trigger a compute() to finish switching pages if necessary
         if (immediate) {
-            computeScroll();
-            pageEndTransition();
+            computeScroll()
+            pageEndTransition()
         }
 
-        invalidate();
-        return Math.abs(delta) > 0;
+        invalidate()
+        return abs(delta) > 0
     }
 
-    public boolean scrollLeft() {
+    fun scrollLeft(): Boolean {
         if (getNextPage() > 0) {
-            snapToPage(getNextPage() - 1);
-            return true;
+            snapToPage(getNextPage() - 1)
+            return true
         }
-        return false;
+        return false
     }
 
-    public boolean scrollRight() {
-        if (getNextPage() < getChildCount() - 1) {
-            snapToPage(getNextPage() + 1);
-            return true;
+    fun scrollRight(): Boolean {
+        if (getNextPage() < childCount - 1) {
+            snapToPage(getNextPage() + 1)
+            return true
         }
-        return false;
+        return false
     }
 
-    @Override
-    public CharSequence getAccessibilityClassName() {
-        // Some accessibility services have special logic for ScrollView. Since we
-        // provide same
-        // accessibility info as ScrollView, inform the service to handle use the same
-        // way.
-        return ScrollView.class.getName();
-    }
+    override fun getAccessibilityClassName(): CharSequence = ScrollView::class.java.name
 
-    protected boolean isPageOrderFlipped() {
-        return false;
-    }
+    protected fun isPageOrderFlipped(): Boolean = false
 
-    /* Accessibility */
-    @SuppressWarnings("deprecation")
-    @Override
-    public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
-        super.onInitializeAccessibilityNodeInfo(info);
-        final boolean pagesFlipped = isPageOrderFlipped();
-        info.setScrollable(getPageCount() > 1);
+    @Suppress("DEPRECATION")
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        val pagesFlipped = isPageOrderFlipped()
+        info.isScrollable = getPageCount() > 1
         if (getCurrentPage() < getPageCount() - 1) {
-            info.addAction(pagesFlipped
-                    ? AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-                    : AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+            info.addAction(
+                if (pagesFlipped) {
+                    AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+                } else {
+                    AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                }
+            )
         }
         if (getCurrentPage() > 0) {
-            info.addAction(pagesFlipped
-                    ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-                    : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+            info.addAction(
+                if (pagesFlipped) {
+                    AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                } else {
+                    AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+                }
+            )
         }
 
-        // Accessibility-wise, PagedView doesn't support long click, so disabling it.
-        // Besides disabling the accessibility long-click, this also prevents this view
-        // from getting
-        // accessibility focus.
-        info.setLongClickable(false);
-        info.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_LONG_CLICK);
+        info.isLongClickable = false
+        info.removeAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_LONG_CLICK)
     }
 
-    @Override
-    public void sendAccessibilityEvent(int eventType) {
-        // Don't let the view send real scroll events.
+    override fun sendAccessibilityEvent(eventType: Int) {
         if (eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-            super.sendAccessibilityEvent(eventType);
+            super.sendAccessibilityEvent(eventType)
         }
     }
 
-    @Override
-    public void onInitializeAccessibilityEvent(AccessibilityEvent event) {
-        super.onInitializeAccessibilityEvent(event);
-        event.setScrollable(getPageCount() > 1);
+    override fun onInitializeAccessibilityEvent(event: AccessibilityEvent) {
+        super.onInitializeAccessibilityEvent(event)
+        event.isScrollable = getPageCount() > 1
     }
 
-    @Override
-    public boolean performAccessibilityAction(int action, Bundle arguments) {
+    override fun performAccessibilityAction(action: Int, arguments: Bundle?): Boolean {
         if (super.performAccessibilityAction(action, arguments)) {
-            return true;
+            return true
         }
-        final boolean pagesFlipped = isPageOrderFlipped();
-        switch (action) {
-            case AccessibilityNodeInfo.ACTION_SCROLL_FORWARD : {
-                if (pagesFlipped ? scrollLeft() : scrollRight()) {
-                    return true;
+        val pagesFlipped = isPageOrderFlipped()
+        when (action) {
+            AccessibilityNodeInfo.ACTION_SCROLL_FORWARD -> {
+                if (if (pagesFlipped) scrollLeft() else scrollRight()) {
+                    return true
                 }
             }
-                break;
-            case AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD : {
-                if (pagesFlipped ? scrollRight() : scrollLeft()) {
-                    return true;
+            AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD -> {
+                if (if (pagesFlipped) scrollRight() else scrollLeft()) {
+                    return true
                 }
             }
-                break;
         }
-        return false;
+        return false
     }
 
-    protected boolean canAnnouncePageDescription() {
-        return true;
+    protected fun canAnnouncePageDescription(): Boolean = true
+
+    protected fun getCurrentPageDescription(): String =
+        getContext().getString(R.string.default_scroll_format, getNextPage() + 1, childCount)
+
+    protected fun getDownMotionX(): Float = mDownMotionX
+
+    protected fun getDownMotionY(): Float = mDownMotionY
+
+    protected fun interface ComputePageScrollsLogic {
+        fun shouldIncludeView(view: View): Boolean
     }
 
-    protected String getCurrentPageDescription() {
-        return getContext().getString(R.string.default_scroll_format, getNextPage() + 1, getChildCount());
-    }
-
-    protected float getDownMotionX() {
-        return mDownMotionX;
-    }
-
-    protected float getDownMotionY() {
-        return mDownMotionY;
-    }
-
-    protected interface ComputePageScrollsLogic {
-
-        boolean shouldIncludeView(View view);
-    }
-
-    public int[] getVisibleChildrenRange() {
-        float visibleLeft = 0;
-        float visibleRight = visibleLeft + getMeasuredWidth();
-        float scaleX = getScaleX();
+    fun getVisibleChildrenRange(): IntArray {
+        var visibleLeft = 0f
+        var visibleRight = visibleLeft + measuredWidth
+        val scaleX = scaleX
         if (scaleX < 1 && scaleX > 0) {
-            float mid = getMeasuredWidth() / 2;
-            visibleLeft = mid - ((mid - visibleLeft) / scaleX);
-            visibleRight = mid + ((visibleRight - mid) / scaleX);
+            val mid = measuredWidth / 2f
+            visibleLeft = mid - (mid - visibleLeft) / scaleX
+            visibleRight = mid + (visibleRight - mid) / scaleX
         }
 
-        int leftChild = -1;
-        int rightChild = -1;
-        final int childCount = getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            final View child = getPageAt(i);
+        var leftChild = -1
+        var rightChild = -1
+        val childCount = childCount
+        for (i in 0 until childCount) {
+            val child = getPageAt(i)
 
-            float left = child.getLeft() + child.getTranslationX() - getScrollX();
-            if (left <= visibleRight && (left + child.getMeasuredWidth()) >= visibleLeft) {
+            val left = child.left + child.translationX - scrollX
+            if (left <= visibleRight && left + child.measuredWidth >= visibleLeft) {
                 if (leftChild == -1) {
-                    leftChild = i;
+                    leftChild = i
                 }
-                rightChild = i;
+                rightChild = i
             }
         }
-        mTmpIntPair[0] = leftChild;
-        mTmpIntPair[1] = rightChild;
-        return mTmpIntPair;
+        mTmpIntPair[0] = leftChild
+        mTmpIntPair[1] = rightChild
+        return mTmpIntPair
     }
 
-    public boolean isScrollerFinished() {
-        return mScroller.isFinished();
+    fun isScrollerFinished(): Boolean = mScroller.isFinished
+
+    companion object {
+        private const val TAG = "PagedView"
+        private const val DEBUG = false
+
+        protected const val INVALID_PAGE = -1
+
+        private val SIMPLE_SCROLL_LOGIC = ComputePageScrollsLogic { view -> view.visibility != GONE }
+
+        const val PAGE_SNAP_ANIMATION_DURATION = 750
+        const val SLOW_PAGE_SNAP_ANIMATION_DURATION = 950
+
+        private const val OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION = 270
+
+        private const val RETURN_TO_ORIGINAL_PAGE_THRESHOLD = 0.33f
+        private const val SIGNIFICANT_MOVE_THRESHOLD = 0.4f
+
+        private const val MAX_SCROLL_PROGRESS = 1.0f
+
+        private const val FLING_THRESHOLD_VELOCITY = 500
+        private const val MIN_SNAP_VELOCITY = 1500
+        private const val MIN_FLING_VELOCITY = 250
+
+        const val INVALID_RESTORE_PAGE = -1001
+
+        protected const val TOUCH_STATE_REST = 0
+        protected const val TOUCH_STATE_SCROLLING = 1
+        protected const val TOUCH_STATE_PREV_PAGE = 2
+        protected const val TOUCH_STATE_NEXT_PAGE = 3
+
+        protected const val INVALID_POINTER = -1
+
+        private val sTmpRect = Rect()
     }
 }

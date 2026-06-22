@@ -1,51 +1,38 @@
-package com.cloudx.ios17.features.launcher.tasks;
+package com.cloudx.ios17.features.launcher.tasks
 
-import android.os.AsyncTask;
-import android.os.Process;
+import android.os.AsyncTask
+import android.os.Process
+import com.cloudx.ios17.features.launcher.AppProvider
+import com.cloudx.ios17.features.shortcuts.DeepShortcutManager
+import com.cloudx.ios17.features.shortcuts.ShortcutInfoCompat
+import timber.log.Timber
 
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.features.shortcuts.DeepShortcutManager;
-import com.cloudx.ios17.features.shortcuts.ShortcutInfoCompat;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import timber.log.Timber;
+class LoadShortcutTask : AsyncTask<Void, Void, Map<String, ShortcutInfoCompat>>() {
+    private var mAppProvider: AppProvider? = null
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-public class LoadShortcutTask extends AsyncTask<Void, Void, Map<String, ShortcutInfoCompat>> {
-
-    private AppProvider mAppProvider;
-
-    private static final String TAG = "LoadShortcutTask";
-
-    public LoadShortcutTask() {
-        super();
+    fun setAppProvider(appProvider: AppProvider) {
+        mAppProvider = appProvider
     }
 
-    public void setAppProvider(AppProvider appProvider) {
-        this.mAppProvider = appProvider;
-    }
+    override fun doInBackground(vararg params: Void?): Map<String, ShortcutInfoCompat> {
+        val provider = mAppProvider!!
+        val list = DeepShortcutManager.getInstance(provider.context)
+            .queryForPinnedShortcuts(null, Process.myUserHandle())
+        Timber.tag(TAG).i("doInBackground: %s", list.size)
 
-    @Override
-    protected Map<String, ShortcutInfoCompat> doInBackground(Void... voids) {
-        List<ShortcutInfoCompat> list = DeepShortcutManager.getInstance(mAppProvider.getContext())
-                .queryForPinnedShortcuts(null, Process.myUserHandle());
-        Timber.tag(TAG).i("doInBackground: %s", list.size());
-        Map<String, ShortcutInfoCompat> shortcutInfoMap = new HashMap<>();
-        for (ShortcutInfoCompat shortcutInfoCompat : list) {
-            shortcutInfoMap.put(shortcutInfoCompat.getId(), shortcutInfoCompat);
+        val shortcutInfoMap = HashMap<String, ShortcutInfoCompat>()
+        for (shortcutInfoCompat in list) {
+            shortcutInfoMap[shortcutInfoCompat.id] = shortcutInfoCompat
         }
-        return shortcutInfoMap;
+        return shortcutInfoMap
     }
 
-    @Override
-    protected void onPostExecute(Map<String, ShortcutInfoCompat> shortcuts) {
-        super.onPostExecute(shortcuts);
-        if (mAppProvider != null) {
-            mAppProvider.loadShortcutsOver(shortcuts);
-        }
+    override fun onPostExecute(shortcuts: Map<String, ShortcutInfoCompat>) {
+        super.onPostExecute(shortcuts)
+        mAppProvider?.loadShortcutsOver(shortcuts)
+    }
+
+    companion object {
+        private const val TAG = "LoadShortcutTask"
     }
 }

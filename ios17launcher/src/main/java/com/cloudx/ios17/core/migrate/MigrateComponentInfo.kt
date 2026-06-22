@@ -1,6 +1,9 @@
-package com.cloudx.ios17.core.migrate;
+package com.cloudx.ios17.core.migrate
 
 class MigrateComponentInfo {
-    String old_component_name;
-    String new_component_name;
+    @JvmField
+    var old_component_name: String? = null
+
+    @JvmField
+    var new_component_name: String? = null
 }

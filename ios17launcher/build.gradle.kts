@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -37,7 +38,7 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     implementation("androidx.room:room-runtime:2.8.4")
-    annotationProcessor("androidx.room:room-compiler:2.8.4")
+    ksp("androidx.room:room-compiler:2.8.4")
     implementation("androidx.viewpager:viewpager:1.1.0")
 
     implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
@@ -61,4 +62,5 @@ dependencies {
     implementation("foundation.e:elib:0.0.1-alpha11")
     implementation("foundation.e.lib:telemetry:0.0.7-alpha")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    testImplementation(libs.junit)
 }

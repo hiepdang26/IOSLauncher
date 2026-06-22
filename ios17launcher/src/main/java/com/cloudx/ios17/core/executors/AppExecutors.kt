@@ -1,35 +1,23 @@
-package com.cloudx.ios17.core.executors;
+package com.cloudx.ios17.core.executors
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
-public class AppExecutors {
-    private static final AppExecutors ourInstance = new AppExecutors();
-    private ExecutorService diskExecutor;
-    private ExecutorService appExecutor;
-    private Executor searchExecutor;
-    private ExecutorService shortcutExecutor;
+class AppExecutors private constructor() {
+    private val diskExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val appExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val shortcutExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    public static AppExecutors getInstance() {
-        return ourInstance;
-    }
+    fun diskIO(): ExecutorService = diskExecutor
 
-    private AppExecutors() {
-        diskExecutor = Executors.newSingleThreadExecutor();
-        appExecutor = Executors.newSingleThreadExecutor();
-        shortcutExecutor = Executors.newSingleThreadExecutor();
-    }
+    fun appIO(): ExecutorService = appExecutor
 
-    public ExecutorService diskIO() {
-        return diskExecutor;
-    }
+    fun shortcutIO(): ExecutorService = shortcutExecutor
 
-    public ExecutorService appIO() {
-        return appExecutor;
-    }
+    companion object {
+        private val ourInstance = AppExecutors()
 
-    public ExecutorService shortcutIO() {
-        return shortcutExecutor;
+        @JvmStatic
+        fun getInstance(): AppExecutors = ourInstance
     }
 }

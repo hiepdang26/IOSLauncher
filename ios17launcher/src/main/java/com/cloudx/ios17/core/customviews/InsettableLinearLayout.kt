@@ -1,117 +1,108 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.Rect;
-import android.util.AttributeSet;
-import android.view.View;
-import android.view.ViewDebug;
-import android.view.ViewGroup;
-import android.widget.LinearLayout;
-import com.cloudx.ios17.R;
+import android.content.Context
+import android.graphics.Rect
+import android.util.AttributeSet
+import android.view.View
+import android.view.ViewDebug
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import com.cloudx.ios17.R
 
-public class InsettableLinearLayout extends LinearLayout implements Insettable {
+class InsettableLinearLayout @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : LinearLayout(context, attrs), Insettable {
 
     @ViewDebug.ExportedProperty(category = "launcher")
-    protected Rect mInsets = new Rect();
+    protected val mInsets: Rect = Rect()
 
-    private boolean mInsetsSet = false;
+    private var mInsetsSet = false
 
-    public Rect getInsets() {
-        return mInsets;
-    }
+    val insets: Rect
+        get() = mInsets
 
-    public InsettableLinearLayout(Context context, AttributeSet attrs) {
-        super(context, attrs);
-    }
+    fun setLinearLayoutChildInsets(child: View, newInsets: Rect?, oldInsets: Rect?) {
+        val safeNewInsets = InsettableRectPolicy.nonNull(newInsets)
+        val safeOldInsets = InsettableRectPolicy.nonNull(oldInsets)
+        val lp = child.layoutParams as LayoutParams
 
-    public void setLinearLayoutChildInsets(View child, Rect newInsets, Rect oldInsets) {
-        final LayoutParams lp = (LayoutParams) child.getLayoutParams();
+        val childIndex = indexOfChild(child)
+        val newTop = if (childIndex == 0) safeNewInsets.top else 0
+        val oldTop = if (childIndex == 0) safeOldInsets.top else 0
+        val newBottom = if (childIndex == childCount - 1) safeNewInsets.bottom else 0
+        val oldBottom = if (childIndex == childCount - 1) safeOldInsets.bottom else 0
 
-        int childIndex = indexOfChild(child);
-        int newTop = childIndex == 0 ? newInsets.top : 0;
-        int oldTop = childIndex == 0 ? oldInsets.top : 0;
-        int newBottom = childIndex == getChildCount() - 1 ? newInsets.bottom : 0;
-        int oldBottom = childIndex == getChildCount() - 1 ? oldInsets.bottom : 0;
-
-        if (child instanceof Insettable) {
-            ((Insettable) child).setInsets(new Rect(newInsets.left, newTop, newInsets.right, newBottom));
+        if (child is Insettable) {
+            child.setInsets(Rect(safeNewInsets.left, newTop, safeNewInsets.right, newBottom))
         } else if (!lp.ignoreInsets) {
-            lp.topMargin += (newTop - oldTop);
-            lp.leftMargin += (newInsets.left - oldInsets.left);
-            lp.rightMargin += (newInsets.right - oldInsets.right);
-            lp.bottomMargin += (newBottom - oldBottom);
+            lp.topMargin += newTop - oldTop
+            lp.leftMargin += safeNewInsets.left - safeOldInsets.left
+            lp.rightMargin += safeNewInsets.right - safeOldInsets.right
+            lp.bottomMargin += newBottom - oldBottom
         }
-        child.setLayoutParams(lp);
+        child.layoutParams = lp
     }
 
-    @Override
-    public void setInsets(Rect insets) {
-        if (getOrientation() != VERTICAL) {
-            throw new IllegalStateException("Doesn't support horizontal orientation");
+    override fun setInsets(insets: Rect?) {
+        if (orientation != VERTICAL) {
+            throw IllegalStateException("Doesn't support horizontal orientation")
         }
-        mInsetsSet = true;
-        final int n = getChildCount();
-        for (int i = 0; i < n; i++) {
-            final View child = getChildAt(i);
-            setLinearLayoutChildInsets(child, insets, mInsets);
+        val safeInsets = InsettableRectPolicy.nonNull(insets)
+        mInsetsSet = true
+        val childCount = childCount
+        for (i in 0 until childCount) {
+            setLinearLayoutChildInsets(getChildAt(i), safeInsets, mInsets)
         }
-        mInsets.set(insets);
+        mInsets.set(safeInsets)
     }
 
-    @Override
-    public LayoutParams generateLayoutParams(AttributeSet attrs) {
-        return new InsettableLinearLayout.LayoutParams(getContext(), attrs);
+    override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
+        return LayoutParams(context, attrs)
     }
 
-    @Override
-    protected LayoutParams generateDefaultLayoutParams() {
-        return new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+    override fun generateDefaultLayoutParams(): LayoutParams {
+        return LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
-    // Override to allow type-checking of LayoutParams.
-    @Override
-    protected boolean checkLayoutParams(ViewGroup.LayoutParams p) {
-        return p instanceof InsettableLinearLayout.LayoutParams;
+    override fun checkLayoutParams(params: ViewGroup.LayoutParams): Boolean {
+        return params is LayoutParams
     }
 
-    @Override
-    protected LayoutParams generateLayoutParams(ViewGroup.LayoutParams p) {
-        return new LayoutParams(p);
+    override fun generateLayoutParams(params: ViewGroup.LayoutParams): LayoutParams {
+        return LayoutParams(params)
     }
 
-    public static class LayoutParams extends LinearLayout.LayoutParams {
-        boolean ignoreInsets = false;
+    class LayoutParams : LinearLayout.LayoutParams {
+        @JvmField
+        var ignoreInsets: Boolean = false
 
-        public LayoutParams(Context c, AttributeSet attrs) {
-            super(c, attrs);
-            TypedArray a = c.obtainStyledAttributes(attrs, R.styleable.InsettableFrameLayout_Layout);
-            ignoreInsets = a.getBoolean(R.styleable.InsettableFrameLayout_Layout_layout_ignoreInsets, false);
-            a.recycle();
+        constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
+            val typedArray =
+                context.obtainStyledAttributes(attrs, R.styleable.InsettableFrameLayout_Layout)
+            ignoreInsets = typedArray.getBoolean(
+                R.styleable.InsettableFrameLayout_Layout_layout_ignoreInsets,
+                false
+            )
+            typedArray.recycle()
         }
 
-        public LayoutParams(int width, int height) {
-            super(width, height);
-        }
+        constructor(width: Int, height: Int) : super(width, height)
 
-        public LayoutParams(ViewGroup.LayoutParams lp) {
-            super(lp);
-        }
+        constructor(layoutParams: ViewGroup.LayoutParams) : super(layoutParams)
     }
 
-    @Override
-    public void onViewAdded(View child) {
-        super.onViewAdded(child);
+    override fun onViewAdded(child: View) {
+        super.onViewAdded(child)
         if (mInsetsSet) {
-            throw new IllegalStateException("Cannot modify views after insets are set");
+            throw IllegalStateException("Cannot modify views after insets are set")
         }
     }
 
-    @Override
-    public void onViewRemoved(View child) {
-        super.onViewRemoved(child);
+    override fun onViewRemoved(child: View) {
+        super.onViewRemoved(child)
         if (mInsetsSet) {
-            throw new IllegalStateException("Cannot modify views after insets are set");
+            throw IllegalStateException("Cannot modify views after insets are set")
         }
     }
 }

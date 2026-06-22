@@ -1,98 +1,98 @@
-package com.cloudx.ios17.core.broadcast;
+package com.cloudx.ios17.core.broadcast
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.os.Process;
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Process
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.core.events.AppAddEvent
+import com.cloudx.ios17.core.events.AppChangeEvent
+import com.cloudx.ios17.core.events.AppRemoveEvent
+import com.cloudx.ios17.core.events.EventRelay
+import com.cloudx.ios17.core.utils.UserHandle
+import timber.log.Timber
 
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.events.AppAddEvent;
-import com.cloudx.ios17.core.events.AppChangeEvent;
-import com.cloudx.ios17.core.events.AppRemoveEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.events.AppAddEvent;
-import com.cloudx.ios17.core.events.AppChangeEvent;
-import com.cloudx.ios17.core.events.AppRemoveEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.events.AppAddEvent;
-import com.cloudx.ios17.core.events.AppChangeEvent;
-import com.cloudx.ios17.core.events.AppRemoveEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.events.AppAddEvent;
-import com.cloudx.ios17.core.events.AppChangeEvent;
-import com.cloudx.ios17.core.events.AppRemoveEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.utils.UserHandle;
-import timber.log.Timber;
+class PackageAddedRemovedHandler : BroadcastReceiver() {
 
-public class PackageAddedRemovedHandler extends BroadcastReceiver {
-
-    private static final String TAG = "PackageAddedRemovedHand";
-
-    public static void handleEvent(Context ctx, String action, String packageName, UserHandle user, boolean replacing) {
-
-        if (!Process.myUserHandle().equals(user.getRealHandle())) {
-            return;
+    override fun onReceive(ctx: Context, intent: Intent) {
+        val packageName = intent.data?.schemeSpecificPart ?: return
+        if (packageName.equals(ctx.packageName, ignoreCase = true)) {
+            return
         }
-        Timber.tag(TAG).d("handleEvent() called with: ctx = [" + ctx + "], action = [" + action + "], packageName = ["
-                + packageName + "], user = [" + user + "], replacing = [" + replacing + "]");
-        // Insert into history new packages (not updated ones)
-        if ("android.intent.action.PACKAGE_ADDED".equals(action) && !replacing) {
-            Intent launchIntent = ctx.getPackageManager().getLaunchIntentForPackage(packageName);
-            if (launchIntent == null) { // for some plugin app
-                return;
-            }
-
-            BlissLauncher.getApplication(ctx).resetIconsHandler();
-
-            AppAddEvent event = new AppAddEvent(packageName, user);
-            EventRelay.getInstance().push(event);
-            BlissLauncher.getApplication(ctx).getAppProvider().reload(false);
-        }
-
-        if ("android.intent.action.PACKAGE_CHANGED".equalsIgnoreCase(action)) {
-            Intent launchIntent = ctx.getPackageManager().getLaunchIntentForPackage(packageName);
-            if (launchIntent != null) {
-                BlissLauncher.getApplication(ctx).getIconsHandler()
-                        .resetIconDrawableForPackage(launchIntent.getComponent(), user);
-            }
-
-            BlissLauncher.getApplication(ctx).resetIconsHandler();
-
-            AppChangeEvent event = new AppChangeEvent(packageName, user);
-            EventRelay.getInstance().push(event);
-            BlissLauncher.getApplication(ctx).getAppProvider().reload(false);
-        }
-        if ("android.intent.action.PACKAGE_REMOVED".equals(action) && !replacing) {
-            AppRemoveEvent event = new AppRemoveEvent(packageName, user);
-            EventRelay.getInstance().push(event);
-            BlissLauncher.getApplication(ctx).getAppProvider().reload(false);
-        }
-
-        if ("android.intent.action.MEDIA_MOUNTED".equals(action)) {
-            Intent launchIntent = ctx.getPackageManager().getLaunchIntentForPackage(packageName);
-            if (launchIntent != null) {
-                BlissLauncher.getApplication(ctx).getIconsHandler()
-                        .resetIconDrawableForPackage(launchIntent.getComponent(), user);
-                AppChangeEvent appChangeEvent = new AppChangeEvent(packageName, user);
-                EventRelay.getInstance().push(appChangeEvent);
-            }
-        }
+        handleEvent(
+            ctx,
+            intent.action,
+            packageName,
+            UserHandle(),
+            intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+        )
     }
 
-    @Override
-    public void onReceive(Context ctx, Intent intent) {
-        String packageName = intent.getData().getSchemeSpecificPart();
-        if (packageName.equalsIgnoreCase(ctx.getPackageName())) {
-            return;
+    companion object {
+        private const val TAG = "PackageAddedRemovedHand"
+
+        @JvmStatic
+        fun handleEvent(
+            ctx: Context,
+            action: String?,
+            packageName: String?,
+            user: UserHandle,
+            replacing: Boolean
+        ) {
+            if (Process.myUserHandle() != user.getRealHandle()) {
+                return
+            }
+            Timber.tag(TAG).d(
+                "handleEvent() called with: ctx = [$ctx], action = [$action], packageName = [$packageName], user = [$user], replacing = [$replacing]"
+            )
+
+            if (Intent.ACTION_PACKAGE_ADDED == action && !replacing) {
+                if (packageName == null) {
+                    return
+                }
+                val launchIntent = ctx.packageManager.getLaunchIntentForPackage(packageName) ?: return
+
+                BlissLauncher.getApplication(ctx).resetIconsHandler()
+
+                EventRelay.getInstance().push(AppAddEvent(packageName, user))
+                BlissLauncher.getApplication(ctx).appProvider.reload(false)
+            }
+
+            if (Intent.ACTION_PACKAGE_CHANGED.equals(action, ignoreCase = true)) {
+                if (packageName == null) {
+                    return
+                }
+                val launchIntent = ctx.packageManager.getLaunchIntentForPackage(packageName)
+                if (launchIntent != null) {
+                    BlissLauncher.getApplication(ctx).iconsHandler
+                        .resetIconDrawableForPackage(launchIntent.component, user)
+                }
+
+                BlissLauncher.getApplication(ctx).resetIconsHandler()
+
+                EventRelay.getInstance().push(AppChangeEvent(packageName, user))
+                BlissLauncher.getApplication(ctx).appProvider.reload(false)
+            }
+
+            if (Intent.ACTION_PACKAGE_REMOVED == action && !replacing) {
+                if (packageName == null) {
+                    return
+                }
+                EventRelay.getInstance().push(AppRemoveEvent(packageName, user))
+                BlissLauncher.getApplication(ctx).appProvider.reload(false)
+            }
+
+            if (Intent.ACTION_MEDIA_MOUNTED == action) {
+                if (packageName == null) {
+                    return
+                }
+                val launchIntent = ctx.packageManager.getLaunchIntentForPackage(packageName)
+                if (launchIntent != null) {
+                    BlissLauncher.getApplication(ctx).iconsHandler
+                        .resetIconDrawableForPackage(launchIntent.component, user)
+                    EventRelay.getInstance().push(AppChangeEvent(packageName, user))
+                }
+            }
         }
-        handleEvent(ctx, intent.getAction(), packageName, new UserHandle(),
-                intent.getBooleanExtra(Intent.EXTRA_REPLACING, false));
     }
 }

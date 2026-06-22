@@ -1,66 +1,42 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.content.Context;
-import android.graphics.Canvas;
-import android.util.AttributeSet;
-import android.widget.FrameLayout;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import android.content.Context
+import android.graphics.Canvas
+import android.util.AttributeSet
+import android.widget.FrameLayout
+import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.blur.BlurViewDelegate
+import com.cloudx.ios17.core.blur.BlurWallpaperProvider
 
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.blur.BlurViewDelegate;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
+class SquareFrameLayout @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : FrameLayout(context, attrs, defStyleAttr) {
+    private var mBlurDelegate: BlurViewDelegate? = null
 
-/** Created by falcon on 9/3/18. */
-public class SquareFrameLayout extends FrameLayout {
-
-    private BlurViewDelegate mBlurDelegate = null;
-
-    public SquareFrameLayout(@NonNull Context context) {
-        this(context, null);
+    init {
+        setWillNotDraw(false)
     }
 
-    public SquareFrameLayout(@NonNull Context context, @Nullable AttributeSet attrs) {
-        this(context, attrs, 0);
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        val size = minOf(measuredWidth, measuredHeight)
+        setMeasuredDimension(size, size)
     }
 
-    public SquareFrameLayout(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        setWillNotDraw(false);
+    fun enableBlur() {
+        mBlurDelegate = BlurViewDelegate(this, BlurWallpaperProvider.blurConfigAppGroup, null)
+        setWillNotDraw(false)
     }
 
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-
-        int width = getMeasuredWidth();
-        int height = getMeasuredHeight();
-        int size = Math.min(width, height);
-        setMeasuredDimension(size, size);
-    }
-
-    public void enableBlur() {
-        mBlurDelegate = new BlurViewDelegate(this, BlurWallpaperProvider.Companion.getBlurConfigAppGroup(), null);
-        setWillNotDraw(false);
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        if (mBlurDelegate != null) {
-            int count = canvas.save();
-            canvas.clipPath(DeviceProfile.path);
-            mBlurDelegate.draw(canvas);
-            canvas.restoreToCount(count);
+    override fun onDraw(canvas: Canvas) {
+        mBlurDelegate?.let { delegate ->
+            val count = canvas.save()
+            canvas.clipPath(DeviceProfile.path)
+            delegate.draw(canvas)
+            canvas.restoreToCount(count)
         }
-        super.onDraw(canvas);
+        super.onDraw(canvas)
     }
 }

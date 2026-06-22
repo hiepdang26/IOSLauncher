@@ -1,72 +1,54 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.animation.LayoutTransition;
-import android.content.Context;
-import android.util.AttributeSet;
-import android.view.MotionEvent;
-import android.view.View;
+import android.animation.LayoutTransition
+import android.content.Context
+import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.View
+import com.cloudx.ios17.core.customviews.pageindicators.PageIndicatorDots
+import com.cloudx.ios17.features.launcher.LauncherActivity
 
-import com.cloudx.ios17.core.customviews.pageindicators.PageIndicatorDots;
+class Workspace @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet,
+    defStyle: Int = 0
+) : PagedView<PageIndicatorDots>(context, attrs, defStyle), View.OnTouchListener {
+    private val mLauncher: LauncherActivity = LauncherActivity.getLauncher(context)
+    private var mLayoutTransition: LayoutTransition? = null
 
-import com.cloudx.ios17.core.customviews.pageindicators.PageIndicatorDots;
-import com.cloudx.ios17.core.customviews.pageindicators.PageIndicatorDots;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.core.customviews.pageindicators.PageIndicatorDots;
-
-public class Workspace extends PagedView<PageIndicatorDots> implements View.OnTouchListener {
-
-    private static final String TAG = "Workspace";
-    private static final int DEFAULT_PAGE = 0;
-    private final LauncherActivity mLauncher;
-    private LayoutTransition mLayoutTransition;
-
-    public Workspace(Context context, AttributeSet attributeSet) {
-        this(context, attributeSet, 0);
+    init {
+        isHapticFeedbackEnabled = false
+        initWorkspace()
+        setOnTouchListener { _, _ -> false }
     }
 
-    public Workspace(Context context, AttributeSet attributeSet, int defStyle) {
-        super(context, attributeSet, defStyle);
-
-        mLauncher = LauncherActivity.getLauncher(context);
-        setHapticFeedbackEnabled(false);
-        initWorkspace();
-
-        setOnTouchListener(new OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                return false;
-            }
-        });
+    private fun initWorkspace() {
+        mCurrentPage = DEFAULT_PAGE
+        clipToPadding = false
+        setupLayoutTransition()
     }
 
-    private void initWorkspace() {
-        mCurrentPage = DEFAULT_PAGE;
-        setClipToPadding(false);
-        setupLayoutTransition();
-
-        // setWallpaperDimension();
+    private fun setupLayoutTransition() {
+        mLayoutTransition = LayoutTransition().apply {
+            enableTransitionType(LayoutTransition.DISAPPEARING)
+            enableTransitionType(LayoutTransition.CHANGE_DISAPPEARING)
+            disableTransitionType(LayoutTransition.APPEARING)
+            disableTransitionType(LayoutTransition.CHANGE_APPEARING)
+        }
+        layoutTransition = mLayoutTransition
     }
 
-    private void setupLayoutTransition() {
-        // We want to show layout transitions when pages are deleted, to close the gap.
-        mLayoutTransition = new LayoutTransition();
-        mLayoutTransition.enableTransitionType(LayoutTransition.DISAPPEARING);
-        mLayoutTransition.enableTransitionType(LayoutTransition.CHANGE_DISAPPEARING);
-        mLayoutTransition.disableTransitionType(LayoutTransition.APPEARING);
-        mLayoutTransition.disableTransitionType(LayoutTransition.CHANGE_APPEARING);
-        setLayoutTransition(mLayoutTransition);
+    fun enableLayoutTransitions() {
+        layoutTransition = mLayoutTransition
     }
 
-    void enableLayoutTransitions() {
-        setLayoutTransition(mLayoutTransition);
+    fun disableLayoutTransitions() {
+        layoutTransition = null
     }
 
-    void disableLayoutTransitions() {
-        setLayoutTransition(null);
-    }
+    override fun onTouch(v: View, event: MotionEvent): Boolean = false
 
-    @Override
-    public boolean onTouch(View v, MotionEvent event) {
-        return false;
+    companion object {
+        private const val DEFAULT_PAGE = 0
     }
 }

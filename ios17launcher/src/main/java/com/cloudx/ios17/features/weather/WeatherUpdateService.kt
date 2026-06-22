@@ -1,69 +1,60 @@
-package com.cloudx.ios17.features.weather;
+package com.cloudx.ios17.features.weather
 
-import android.annotation.SuppressLint;
-import android.app.Service;
-import android.content.Intent;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.IBinder;
+import android.annotation.SuppressLint
+import android.app.Service
+import android.content.Intent
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.IBinder
+import timber.log.Timber
 
-import androidx.annotation.Nullable;
-
-import timber.log.Timber;
-
-public class WeatherUpdateService extends Service {
-    private static final String TAG = "WeatherUpdateService";
-
-    public static final String ACTION_FORCE_UPDATE = "org.indin.blisslauncher.action.FORCE_WEATHER_UPDATE";
-    public static final String ACTION_UPDATE_FINISHED = "org.indin.blisslauncher.action.WEATHER_UPDATE_FINISHED";
-    public static final String ACTION_UPDATE_CITY_FINISHED = "org.indin.blisslauncher.action.WEATHER_UPDATE_CITY_FINISHED";
-    public static final String EXTRA_UPDATE_CITY_KEY = "city";
-
-    private static final long UPDATE_PERIOD_IN_MS = 5L * 1000L;
-
-    private HandlerThread mHandlerThread;
-    private Handler mHandler;
-    private WeatherUpdater mWeatherUpdater;
+class WeatherUpdateService : Service() {
+    private lateinit var mHandlerThread: HandlerThread
+    private lateinit var mHandler: Handler
+    private lateinit var mWeatherUpdater: WeatherUpdater
 
     @SuppressLint("MissingPermission")
-    @Override
-    public void onCreate() {
-        Timber.tag(TAG).d("onCreate");
+    override fun onCreate() {
+        Timber.tag(TAG).d("onCreate")
 
-        mHandlerThread = new HandlerThread("WeatherUpdateServiceHandler");
-        mHandlerThread.start();
-        mHandler = new Handler(mHandlerThread.getLooper());
+        mHandlerThread = HandlerThread("WeatherUpdateServiceHandler")
+        mHandlerThread.start()
+        mHandler = Handler(mHandlerThread.looper)
 
-        mWeatherUpdater = WeatherUpdater.getInstance(getApplicationContext());
-
-        executePeriodicRequest();
+        mWeatherUpdater = WeatherUpdater.getInstance(applicationContext)
+        executePeriodicRequest()
     }
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && ACTION_FORCE_UPDATE.equals(intent.getAction())) {
-            WeatherUpdater.getInstance(this).updateWeather();
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent != null && ACTION_FORCE_UPDATE == intent.action) {
+            WeatherUpdater.getInstance(this).updateWeather()
         }
-
-        return START_STICKY;
+        return START_STICKY
     }
 
-    private void executePeriodicRequest() {
-        mWeatherUpdater.checkWeatherRequest();
-        mHandler.removeCallbacksAndMessages(null);
-        mHandler.postDelayed(this::executePeriodicRequest, UPDATE_PERIOD_IN_MS);
+    private fun executePeriodicRequest() {
+        mWeatherUpdater.checkWeatherRequest()
+        mHandler.removeCallbacksAndMessages(null)
+        mHandler.postDelayed({ executePeriodicRequest() }, UPDATE_PERIOD_IN_MS)
     }
 
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        mHandler.removeCallbacksAndMessages(null)
+        mHandlerThread.quitSafely()
+        super.onDestroy()
     }
 
-    @Override
-    public void onDestroy() {
-        mHandler.removeCallbacksAndMessages(null);
-        mHandlerThread.quitSafely();
-        super.onDestroy();
+    companion object {
+        private const val TAG = "WeatherUpdateService"
+
+        const val ACTION_FORCE_UPDATE = "org.indin.blisslauncher.action.FORCE_WEATHER_UPDATE"
+        const val ACTION_UPDATE_FINISHED = "org.indin.blisslauncher.action.WEATHER_UPDATE_FINISHED"
+        const val ACTION_UPDATE_CITY_FINISHED =
+            "org.indin.blisslauncher.action.WEATHER_UPDATE_CITY_FINISHED"
+        const val EXTRA_UPDATE_CITY_KEY = "city"
+
+        private const val UPDATE_PERIOD_IN_MS = 5L * 1000L
     }
 }

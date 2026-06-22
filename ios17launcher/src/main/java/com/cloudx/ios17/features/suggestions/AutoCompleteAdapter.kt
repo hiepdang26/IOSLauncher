@@ -1,96 +1,79 @@
-package com.cloudx.ios17.features.suggestions;
+package com.cloudx.ios17.features.suggestions
 
-import android.content.Context;
-import android.graphics.Typeface;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
-import android.text.style.StyleSpan;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.animation.AlphaAnimation;
-import android.widget.TextView;
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
+import android.content.Context
+import android.graphics.Typeface
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.StyleSpan
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.view.animation.AlphaAnimation
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.cloudx.ios17.R
+import com.cloudx.ios17.features.launcher.LauncherActivity
+import java.util.Locale
 
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
+class AutoCompleteAdapter(context: Context) :
+    RecyclerView.Adapter<AutoCompleteAdapter.AutoCompleteViewHolder>() {
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+    private var mItems: List<String> = ArrayList()
+    private val mOnSuggestionClickListener = context as OnSuggestionClickListener
+    private val mInflater: LayoutInflater = LayoutInflater.from(context)
+    private var mQueryText: String? = null
 
-public class AutoCompleteAdapter extends RecyclerView.Adapter<AutoCompleteAdapter.AutoCompleteViewHolder> {
-    private List<String> mItems = new ArrayList<>();
-    private final OnSuggestionClickListener mOnSuggestionClickListener;
-    private final LayoutInflater mInflater;
-    private String mQueryText;
-
-    public AutoCompleteAdapter(Context context) {
-        super();
-        mOnSuggestionClickListener = (LauncherActivity) context;
-        mInflater = LayoutInflater.from(context);
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AutoCompleteViewHolder {
+        val view = mInflater.inflate(R.layout.item_suggestion, parent, false)
+        val holder = AutoCompleteViewHolder(view)
+        view.setOnClickListener {
+            mOnSuggestionClickListener.onClick(mItems[holder.adapterPosition])
+        }
+        return holder
     }
 
-    @NonNull
-    @Override
-    public AutoCompleteAdapter.AutoCompleteViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = mInflater.inflate(R.layout.item_suggestion, parent, false);
-        AutoCompleteViewHolder holder = new AutoCompleteViewHolder(view);
-        view.setOnClickListener(v -> mOnSuggestionClickListener.onClick(mItems.get(holder.getAdapterPosition())));
-        return holder;
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull AutoCompleteAdapter.AutoCompleteViewHolder holder, int position) {
-        String suggestion = mItems.get(position);
-        if (mQueryText != null) {
-            SpannableStringBuilder spannable = new SpannableStringBuilder(suggestion);
-            String lcSuggestion = suggestion.toLowerCase(Locale.getDefault());
-            int queryTextPos = lcSuggestion.indexOf(mQueryText);
+    override fun onBindViewHolder(holder: AutoCompleteViewHolder, position: Int) {
+        val suggestion = mItems[position]
+        val queryText = mQueryText
+        if (queryText != null) {
+            val spannable = SpannableStringBuilder(suggestion)
+            val lcSuggestion = suggestion.lowercase(Locale.getDefault())
+            var queryTextPos = lcSuggestion.indexOf(queryText)
             while (queryTextPos >= 0) {
-                spannable.setSpan(new StyleSpan(Typeface.BOLD), queryTextPos, queryTextPos + mQueryText.length(),
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                queryTextPos = lcSuggestion.indexOf(mQueryText, queryTextPos + mQueryText.length());
+                spannable.setSpan(
+                    StyleSpan(Typeface.BOLD),
+                    queryTextPos,
+                    queryTextPos + queryText.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                queryTextPos = lcSuggestion.indexOf(queryText, queryTextPos + queryText.length)
             }
-            holder.mSuggestionTextView.setText(spannable);
+            holder.mSuggestionTextView.text = spannable
         } else {
-            holder.mSuggestionTextView.setText(suggestion);
+            holder.mSuggestionTextView.text = suggestion
         }
-        setFadeAnimation(holder.itemView);
+        setFadeAnimation(holder.itemView)
     }
 
-    @Override
-    public int getItemCount() {
-        return mItems.size();
+    override fun getItemCount(): Int = mItems.size
+
+    fun updateSuggestions(suggestions: List<String>, queryText: String?) {
+        mItems = suggestions
+        mQueryText = queryText
+        notifyDataSetChanged()
     }
 
-    public void updateSuggestions(List<String> suggestions, String queryText) {
-        mItems = suggestions;
-        mQueryText = queryText;
-        notifyDataSetChanged();
+    class AutoCompleteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val mSuggestionTextView: TextView = itemView.findViewById(R.id.suggestionTextView)
     }
 
-    static class AutoCompleteViewHolder extends RecyclerView.ViewHolder {
-
-        private TextView mSuggestionTextView;
-
-        AutoCompleteViewHolder(View itemView) {
-            super(itemView);
-            mSuggestionTextView = itemView.findViewById(R.id.suggestionTextView);
-        }
+    interface OnSuggestionClickListener {
+        fun onClick(suggestion: String)
     }
 
-    public interface OnSuggestionClickListener {
-        void onClick(String suggestion);
-    }
-
-    private void setFadeAnimation(View view) {
-        AlphaAnimation anim = new AlphaAnimation(0.0f, 1.0f);
-        anim.setDuration(300);
-        view.startAnimation(anim);
+    private fun setFadeAnimation(view: View) {
+        val anim = AlphaAnimation(0.0f, 1.0f)
+        anim.duration = 300
+        view.startAnimation(anim)
     }
 }

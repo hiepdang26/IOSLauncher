@@ -1,144 +1,152 @@
-package com.cloudx.ios17.features.weather;
+package com.cloudx.ios17.features.weather
 
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.content.res.Resources;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.util.DisplayMetrics;
+import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
+import android.graphics.drawable.BitmapDrawable
+import android.util.DisplayMetrics
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.utils.Constants
+import timber.log.Timber
 
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.Constants;
-import timber.log.Timber;
+object WeatherIconUtils {
 
-public class WeatherIconUtils {
-    private static final String TAG = "WeatherIconUtils";
-    private static boolean D = Constants.DEBUG;
+    private const val TAG = "WeatherIconUtils"
+    private val D = Constants.DEBUG
 
-    public static int getWeatherIconResource(Context context, String iconSet, int conditionCode) {
-        if (iconSet.startsWith("ext:") || iconSet.equals(Constants.MONOCHROME)) {
-            return 0;
+    @JvmStatic
+    fun getWeatherIconResource(context: Context, iconSet: String, conditionCode: Int): Int {
+        if (iconSet.startsWith("ext:") || iconSet == Constants.MONOCHROME) {
+            return 0
         }
 
-        final Resources res = context.getResources();
-        final int resId = res.getIdentifier(
-                "weather_" + iconSet + "_" + WeatherUtils.addOffsetToConditionCodeFromWeatherContract(conditionCode),
-                "drawable", context.getPackageName());
+        val res = context.resources
+        val resId = res.getIdentifier(
+            "weather_${iconSet}_${WeatherUtils.addOffsetToConditionCodeFromWeatherContract(conditionCode)}",
+            "drawable",
+            context.packageName
+        )
 
         if (resId != 0) {
-            return resId;
+            return resId
         }
 
-        // Use the default color set unknown icon
-        return R.drawable.weather_color_na;
+        return R.drawable.weather_color_na
     }
 
-    public static Bitmap getWeatherIconBitmap(Context context, String iconSet, int color, int conditionCode) {
-        return getWeatherIconBitmap(context, iconSet, color, conditionCode, 0);
-    }
+    @JvmStatic
+    fun getWeatherIconBitmap(
+        context: Context,
+        iconSet: String,
+        color: Int,
+        conditionCode: Int
+    ): Bitmap? = getWeatherIconBitmap(context, iconSet, color, conditionCode, 0)
 
-    public static Bitmap getWeatherIconBitmap(Context context, String iconSet, int color, int conditionCode,
-            int density) {
-        boolean isMonoSet = Constants.MONOCHROME.equals(iconSet);
-        Resources res = null;
-        int resId = 0;
-        int fixedConditionCode = WeatherUtils.addOffsetToConditionCodeFromWeatherContract(conditionCode);
+    @JvmStatic
+    fun getWeatherIconBitmap(
+        context: Context,
+        iconSet: String,
+        color: Int,
+        conditionCode: Int,
+        density: Int
+    ): Bitmap? {
+        var resolvedIconSet = iconSet
+        val isMonoSet = Constants.MONOCHROME == resolvedIconSet
+        var res: Resources? = null
+        var resId = 0
+        val fixedConditionCode = WeatherUtils.addOffsetToConditionCodeFromWeatherContract(conditionCode)
 
-        if (iconSet.startsWith("ext:")) {
-            String packageName = iconSet.substring(4);
+        if (resolvedIconSet.startsWith("ext:")) {
+            val packageName = resolvedIconSet.substring(4)
             try {
-                res = context.getPackageManager().getResourcesForApplication(packageName);
-                resId = res.getIdentifier("weather_" + fixedConditionCode, "drawable", packageName);
-            } catch (PackageManager.NameNotFoundException e) {
-                // fall back to colored icons
-                iconSet = Constants.COLOR_STD;
+                res = context.packageManager.getResourcesForApplication(packageName)
+                resId = res.getIdentifier("weather_$fixedConditionCode", "drawable", packageName)
+            } catch (e: PackageManager.NameNotFoundException) {
+                resolvedIconSet = Constants.COLOR_STD
             }
         }
         if (resId == 0) {
-            String identifier = isMonoSet
-                    ? "weather_" + fixedConditionCode
-                    : "weather_" + iconSet + "_" + fixedConditionCode;
-            res = context.getResources();
-            resId = res.getIdentifier(identifier, "drawable", context.getPackageName());
+            val identifier =
+                if (isMonoSet) "weather_$fixedConditionCode" else "weather_${resolvedIconSet}_$fixedConditionCode"
+            res = context.resources
+            resId = res.getIdentifier(identifier, "drawable", context.packageName)
         }
 
         if (resId == 0) {
-            resId = isMonoSet ? R.drawable.weather_na : R.drawable.weather_color_na;
+            resId = if (isMonoSet) R.drawable.weather_na else R.drawable.weather_color_na
         }
 
-        return getOverlaidBitmap(res, resId, isMonoSet ? color : 0, density);
+        return getOverlaidBitmap(requireNotNull(res), resId, if (isMonoSet) color else 0, density)
     }
 
-    public static Bitmap getOverlaidBitmap(Resources res, int resId, int color) {
-        return getOverlaidBitmap(res, resId, color, 0);
+    @JvmStatic
+    fun getOverlaidBitmap(res: Resources, resId: Int, color: Int): Bitmap? {
+        return getOverlaidBitmap(res, resId, color, 0)
     }
 
-    public static Bitmap getOverlaidBitmap(Resources res, int resId, int color, int density) {
-        Bitmap src = getBitmapFromResource(res, resId, density);
+    @JvmStatic
+    fun getOverlaidBitmap(res: Resources, resId: Int, color: Int, density: Int): Bitmap? {
+        val src = getBitmapFromResource(res, resId, density)
         if (color == 0 || src == null) {
-            return src;
+            return src
         }
 
-        final Bitmap dest = Bitmap.createBitmap(src.getWidth(), src.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(dest);
-        final Paint paint = new Paint();
+        val dest = Bitmap.createBitmap(src.width, src.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(dest)
+        val paint = Paint()
 
-        // Overlay the selected color and set the imageview
-        paint.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP));
-        c.drawBitmap(src, 0, 0, paint);
-        return dest;
+        paint.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP)
+        canvas.drawBitmap(src, 0f, 0f, paint)
+        return dest
     }
 
-    public static Bitmap getBitmapFromResource(Resources res, int resId, int density) {
+    @JvmStatic
+    fun getBitmapFromResource(res: Resources, resId: Int, density: Int): Bitmap? {
         if (density == 0) {
-            if (D)
-                Timber.tag(TAG).d("Decoding resource id = " + resId + " for default density");
-            return BitmapFactory.decodeResource(res, resId);
+            if (D) {
+                Timber.tag(TAG).d("Decoding resource id = $resId for default density")
+            }
+            return BitmapFactory.decodeResource(res, resId)
         }
 
-        if (D)
-            Timber.tag(TAG).d("Decoding resource id = " + resId + " for density = " + density);
-        Drawable d = res.getDrawableForDensity(resId, density);
-        if (d instanceof BitmapDrawable) {
-            BitmapDrawable bd = (BitmapDrawable) d;
-            return bd.getBitmap();
+        if (D) {
+            Timber.tag(TAG).d("Decoding resource id = $resId for density = $density")
+        }
+        val drawable = res.getDrawableForDensity(resId, density) ?: return null
+        if (drawable is BitmapDrawable) {
+            return drawable.bitmap
         }
 
-        Bitmap result = Bitmap.createBitmap(d.getIntrinsicWidth(), d.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(result);
-        d.setBounds(0, 0, result.getWidth(), result.getHeight());
-        d.draw(canvas);
-        canvas.setBitmap(null);
+        val result = Bitmap.createBitmap(
+            drawable.intrinsicWidth,
+            drawable.intrinsicHeight,
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(result)
+        drawable.setBounds(0, 0, result.width, result.height)
+        drawable.draw(canvas)
+        canvas.setBitmap(null)
 
-        return result;
+        return result
     }
 
-    public static int getNextHigherDensity(Context context) {
-        Resources res = context.getResources();
-        int density = res.getDisplayMetrics().densityDpi;
+    @JvmStatic
+    fun getNextHigherDensity(context: Context): Int {
+        val density = context.resources.displayMetrics.densityDpi
 
-        if (density == DisplayMetrics.DENSITY_LOW) {
-            return DisplayMetrics.DENSITY_MEDIUM;
-        } else if (density == DisplayMetrics.DENSITY_MEDIUM) {
-            return DisplayMetrics.DENSITY_HIGH;
-        } else if (density == DisplayMetrics.DENSITY_HIGH) {
-            return DisplayMetrics.DENSITY_XHIGH;
-        } else if (density == DisplayMetrics.DENSITY_XHIGH) {
-            return DisplayMetrics.DENSITY_XXHIGH;
-        } else if (density == DisplayMetrics.DENSITY_XXHIGH) {
-            return DisplayMetrics.DENSITY_XXXHIGH;
+        return when (density) {
+            DisplayMetrics.DENSITY_LOW -> DisplayMetrics.DENSITY_MEDIUM
+            DisplayMetrics.DENSITY_MEDIUM -> DisplayMetrics.DENSITY_HIGH
+            DisplayMetrics.DENSITY_HIGH -> DisplayMetrics.DENSITY_XHIGH
+            DisplayMetrics.DENSITY_XHIGH -> DisplayMetrics.DENSITY_XXHIGH
+            DisplayMetrics.DENSITY_XXHIGH -> DisplayMetrics.DENSITY_XXXHIGH
+            else -> density
         }
-
-        // fallback: use current density
-        return density;
     }
 }

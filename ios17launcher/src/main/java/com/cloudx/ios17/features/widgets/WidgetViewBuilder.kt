@@ -1,72 +1,72 @@
-package com.cloudx.ios17.features.widgets;
+package com.cloudx.ios17.features.widgets
 
-import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProviderInfo;
-import android.content.Context;
-import android.os.Bundle;
-import android.widget.LinearLayout;
-import androidx.annotation.NonNull;
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.content.Context
+import android.os.Bundle
+import android.widget.LinearLayout
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.customviews.RoundedWidgetView
+import com.cloudx.ios17.core.utils.isWorkspaceDarkText
+import com.cloudx.ios17.features.launcher.LauncherActivity
+import timber.log.Timber
 
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.core.utils.ThemesKt;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import timber.log.Timber;
+object WidgetViewBuilder {
+    private const val TAG = "WidgetViewBuilder"
+    const val WIDGET_OPTION_DARK_TEXT = "com.cloudx.ios17.WIDGET_OPTION_DARK_TEXT"
 
-public class WidgetViewBuilder {
+    @JvmStatic
+    fun create(
+        launcherActivity: LauncherActivity,
+        roundedWidgetView: RoundedWidgetView
+    ): RoundedWidgetView? {
+        if (BlissLauncher.getApplication(launcherActivity).appWidgetHost == null) {
+            return null
+        }
+        roundedWidgetView.post {
+            updateWidgetOption(
+                launcherActivity,
+                roundedWidgetView,
+                roundedWidgetView.appWidgetInfo
+            )
+        }
 
-    private static final String TAG = "WidgetViewBuilder";
+        val layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        val margin = launcherActivity.resources.getDimensionPixelSize(R.dimen.widget_margin)
+        layoutParams.setMargins(0, margin, 0, margin)
+        roundedWidgetView.layoutParams = layoutParams
 
-    public static final String WIDGET_OPTION_DARK_TEXT = "com.cloudx.ios17.WIDGET_OPTION_DARK_TEXT";
-
-    public static RoundedWidgetView create(LauncherActivity launcherActivity,
-                                           @NonNull RoundedWidgetView roundedWidgetView) {
-        if (BlissLauncher.getApplication(launcherActivity).getAppWidgetHost() == null)
-            return null;
-        roundedWidgetView.post(
-                () -> updateWidgetOption(launcherActivity, roundedWidgetView, roundedWidgetView.getAppWidgetInfo()));
-
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        int margin = launcherActivity.getResources().getDimensionPixelSize(R.dimen.widget_margin);
-        layoutParams.setMargins(0, margin, 0, margin);
-        roundedWidgetView.setLayoutParams(layoutParams);
-
-        roundedWidgetView.setOnLongClickListener(v -> {
-            AppWidgetProviderInfo widgetProviderInfo = roundedWidgetView.getAppWidgetInfo();
-            if ((widgetProviderInfo.resizeMode
-                    & AppWidgetProviderInfo.RESIZE_VERTICAL) == AppWidgetProviderInfo.RESIZE_VERTICAL) {
-                launcherActivity.showWidgetResizeContainer(roundedWidgetView);
+        roundedWidgetView.setOnLongClickListener {
+            val widgetProviderInfo = roundedWidgetView.appWidgetInfo
+            if ((widgetProviderInfo.resizeMode and AppWidgetProviderInfo.RESIZE_VERTICAL) ==
+                AppWidgetProviderInfo.RESIZE_VERTICAL
+            ) {
+                launcherActivity.showWidgetResizeContainer(roundedWidgetView)
             } else {
-                Timber.tag(TAG).i(launcherActivity.getString(R.string.widget_is_not_resizable));
+                Timber.tag(TAG).i(launcherActivity.getString(R.string.widget_is_not_resizable))
             }
-            return true;
-        });
+            true
+        }
 
-        return roundedWidgetView;
+        return roundedWidgetView
     }
 
-    private static void updateWidgetOption(Context context, RoundedWidgetView roundedWidgetView,
-            AppWidgetProviderInfo info) {
-        Bundle newOps = new Bundle();
-        newOps.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,
-                BlissLauncher.getApplication(context).getDeviceProfile().getMaxWidgetWidth());
-        newOps.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH,
-                BlissLauncher.getApplication(context).getDeviceProfile().getMaxWidgetWidth());
-        newOps.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, info.minHeight);
-        newOps.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,
-                BlissLauncher.getApplication(context).getDeviceProfile().getMaxWidgetHeight());
-        newOps.putBoolean(WIDGET_OPTION_DARK_TEXT, ThemesKt.isWorkspaceDarkText(context));
-        roundedWidgetView.updateAppWidgetOptions(newOps);
+    private fun updateWidgetOption(
+        context: Context,
+        roundedWidgetView: RoundedWidgetView,
+        info: AppWidgetProviderInfo
+    ) {
+        val deviceProfile = BlissLauncher.getApplication(context).deviceProfile
+        val newOptions = Bundle()
+        newOptions.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, deviceProfile.maxWidgetWidth)
+        newOptions.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, deviceProfile.maxWidgetWidth)
+        newOptions.putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, info.minHeight)
+        newOptions.putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, deviceProfile.maxWidgetHeight)
+        newOptions.putBoolean(WIDGET_OPTION_DARK_TEXT, isWorkspaceDarkText(context))
+        roundedWidgetView.updateAppWidgetOptions(newOptions)
     }
 }

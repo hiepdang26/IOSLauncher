@@ -1,84 +1,54 @@
-package com.cloudx.ios17.core.utils;
+package com.cloudx.ios17.core.utils
 
-/**
- * Copyright (C) 2015 The Android Open Source Project
- *
- * <p>Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
- * except in compliance with the License. You may obtain a copy of the License at
- *
- * <p>http://www.apache.org/licenses/LICENSE-2.0
- *
- * <p>Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing permissions and
- * limitations under the License.
- */
-import android.content.ComponentName;
-import android.content.Context;
-import android.os.Process;
-import android.os.UserHandle;
+import android.content.ComponentName
+import android.content.Context
+import android.os.Process
+import com.cloudx.ios17.core.UserManagerCompat
+import java.util.Arrays
 
-import com.cloudx.ios17.core.UserManagerCompat;
-import com.cloudx.ios17.core.UserManagerCompat;
-import com.cloudx.ios17.core.UserManagerCompat;
-import com.cloudx.ios17.core.UserManagerCompat;
+open class ComponentKey {
+    @JvmField
+    val componentName: ComponentName
 
-import java.util.Arrays;
+    @JvmField
+    val user: android.os.UserHandle
 
-public class ComponentKey {
+    private val mHashCode: Int
 
-    public final ComponentName componentName;
-    public final UserHandle user;
-
-    private final int mHashCode;
-
-    public ComponentKey(ComponentName componentName, UserHandle user) {
-        Preconditions.assertNotNull(componentName);
-        Preconditions.assertNotNull(user);
-        this.componentName = componentName;
-        this.user = user;
-        mHashCode = Arrays.hashCode(new Object[]{componentName, user});
+    constructor(componentName: ComponentName, user: android.os.UserHandle) {
+        Preconditions.assertNotNull(componentName)
+        Preconditions.assertNotNull(user)
+        this.componentName = componentName
+        this.user = user
+        mHashCode = Arrays.hashCode(arrayOf(componentName, user))
     }
 
-    /**
-     * Creates a new component key from an encoded component key string in the form
-     * of [flattenedComponentString#userId]. If the userId is not present, then it
-     * defaults to the current user.
-     */
-    public ComponentKey(Context context, String componentKeyStr) {
-        int userDelimiterIndex = componentKeyStr.indexOf("#");
+    constructor(context: Context, componentKeyStr: String) {
+        val userDelimiterIndex = componentKeyStr.indexOf("#")
         if (userDelimiterIndex != -1) {
-            String componentStr = componentKeyStr.substring(0, userDelimiterIndex);
-            Long componentUser = Long.valueOf(componentKeyStr.substring(userDelimiterIndex + 1));
-            componentName = ComponentName.unflattenFromString(componentStr);
-            user = UserManagerCompat.getInstance(context).getUserForSerialNumber(componentUser.longValue());
+            val componentStr = componentKeyStr.substring(0, userDelimiterIndex)
+            val componentUser = componentKeyStr.substring(userDelimiterIndex + 1).toLong()
+            val parsedComponent = ComponentName.unflattenFromString(componentStr)
+            val parsedUser = UserManagerCompat.getInstance(context).getUserForSerialNumber(componentUser)
+            Preconditions.assertNotNull(parsedComponent)
+            Preconditions.assertNotNull(parsedUser)
+            componentName = parsedComponent!!
+            user = parsedUser!!
         } else {
-            // No user provided, default to the current user
-            componentName = ComponentName.unflattenFromString(componentKeyStr);
-            user = Process.myUserHandle();
+            val parsedComponent = ComponentName.unflattenFromString(componentKeyStr)
+            Preconditions.assertNotNull(parsedComponent)
+            componentName = parsedComponent!!
+            user = Process.myUserHandle()
         }
-        Preconditions.assertNotNull(componentName);
-        Preconditions.assertNotNull(user);
-        mHashCode = Arrays.hashCode(new Object[]{componentName, user});
+        mHashCode = Arrays.hashCode(arrayOf(componentName, user))
     }
 
-    @Override
-    public int hashCode() {
-        return mHashCode;
+    override fun hashCode(): Int = mHashCode
+
+    override fun equals(other: Any?): Boolean {
+        val otherKey = other as ComponentKey
+        return otherKey.componentName == componentName && otherKey.user == user
     }
 
-    @Override
-    public boolean equals(Object o) {
-        ComponentKey other = (ComponentKey) o;
-        return other.componentName.equals(componentName) && other.user.equals(user);
-    }
-
-    /**
-     * Encodes a component key as a string of the form
-     * [flattenedComponentString#userId].
-     */
-    @Override
-    public String toString() {
-        return componentName.flattenToString() + "#" + user;
-    }
+    override fun toString(): String = componentName.flattenToString() + "#" + user
 }

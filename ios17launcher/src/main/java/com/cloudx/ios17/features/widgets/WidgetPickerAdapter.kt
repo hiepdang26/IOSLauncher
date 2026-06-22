@@ -1,135 +1,120 @@
-package com.cloudx.ios17.features.widgets;
+package com.cloudx.ios17.features.widgets
 
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.graphics.drawable.Drawable;
-import android.os.Bundle;
-import android.os.UserHandle;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.TextView;
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
-import com.cloudx.ios17.R;
-import java.util.ArrayList;
-import java.util.List;
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
+import android.graphics.drawable.Drawable
+import android.os.Bundle
+import android.os.UserHandle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.cloudx.ios17.R
 
-public class WidgetPickerAdapter extends RecyclerView.Adapter<WidgetPickerAdapter.WidgetsViewHolder> {
+class WidgetPickerAdapter(private val mContext: Context) :
+    RecyclerView.Adapter<WidgetPickerAdapter.WidgetsViewHolder>() {
 
-    private Context mContext;
-    private List<Item> mItems = new ArrayList<>();
+    private var mItems: List<Item> = ArrayList()
+    private val mOnClickListener = mContext as OnClickListener
 
-    private OnClickListener mOnClickListener;
-    private static final String TAG = "AddedWidgetsAdapter";
-
-    public WidgetPickerAdapter(Context context) {
-        this.mContext = context;
-        mOnClickListener = (OnClickListener) mContext;
-    }
-
-    @NonNull
-    @Override
-    public WidgetsViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
-        View view = LayoutInflater.from(mContext).inflate(R.layout.item_all_widget, viewGroup, false);
-        WidgetsViewHolder widgetsViewHolder = new WidgetsViewHolder(view);
-        widgetsViewHolder.itemView.setOnClickListener(v -> {
-            int position = widgetsViewHolder.getAdapterPosition();
+    override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): WidgetsViewHolder {
+        val view = LayoutInflater.from(mContext).inflate(R.layout.item_all_widget, viewGroup, false)
+        val widgetsViewHolder = WidgetsViewHolder(view)
+        widgetsViewHolder.itemView.setOnClickListener {
+            val position = widgetsViewHolder.adapterPosition
             if (position != RecyclerView.NO_POSITION) {
-                mOnClickListener.onClick(mItems.get(position));
+                mOnClickListener.onClick(mItems[position])
             }
-        });
-        return widgetsViewHolder;
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull WidgetsViewHolder widgetsViewHolder, int i) {
-        Item info = mItems.get(i);
-        widgetsViewHolder.icon.setImageDrawable(info.icon);
-        widgetsViewHolder.label.setText(info.label);
-    }
-
-    @Override
-    public int getItemCount() {
-        return mItems.size();
-    }
-
-    public void setItems(List<Item> items) {
-        this.mItems = items;
-        notifyDataSetChanged();
-    }
-
-    public static class WidgetsViewHolder extends RecyclerView.ViewHolder {
-
-        ImageView icon;
-        TextView label;
-
-        public WidgetsViewHolder(@NonNull View itemView) {
-            super(itemView);
-            icon = itemView.findViewById(R.id.widget_icon);
-            label = itemView.findViewById(R.id.widget_label);
         }
+        return widgetsViewHolder
     }
 
-    public static class Item {
-        public UserHandle profile;
-        CharSequence label;
-        Drawable icon;
-        String packageName;
-        String className;
-        Bundle extras;
+    override fun onBindViewHolder(widgetsViewHolder: WidgetsViewHolder, position: Int) {
+        val info = mItems[position]
+        widgetsViewHolder.icon.setImageDrawable(info.icon)
+        widgetsViewHolder.label.text = info.label
+    }
+
+    override fun getItemCount(): Int = mItems.size
+
+    fun setItems(items: List<Item>) {
+        mItems = items
+        notifyDataSetChanged()
+    }
+
+    class WidgetsViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val icon: ImageView = itemView.findViewById(R.id.widget_icon)
+        val label: TextView = itemView.findViewById(R.id.widget_label)
+    }
+
+    class Item {
+        @JvmField
+        var profile: UserHandle? = null
+
+        @JvmField
+        var label: CharSequence? = null
+
+        @JvmField
+        var icon: Drawable? = null
+
+        @JvmField
+        var packageName: String? = null
+
+        @JvmField
+        var className: String? = null
+
+        @JvmField
+        var extras: Bundle? = null
 
         /** Create a list item from given label and icon. */
-        Item(CharSequence label, Drawable icon) {
-            this.label = label;
-            this.icon = icon;
+        constructor(label: CharSequence?, icon: Drawable?) {
+            this.label = label
+            this.icon = icon
         }
 
         /**
-         * Create a list item and fill it with details from the given
-         * {@link ResolveInfo} object.
+         * Create a list item and fill it with details from the given [ResolveInfo] object.
          */
-        Item(PackageManager pm, ResolveInfo resolveInfo) {
-            label = resolveInfo.loadLabel(pm);
+        constructor(pm: PackageManager, resolveInfo: ResolveInfo) {
+            label = resolveInfo.loadLabel(pm)
             if (label == null && resolveInfo.activityInfo != null) {
-                label = resolveInfo.activityInfo.name;
+                label = resolveInfo.activityInfo.name
             }
 
-            icon = resolveInfo.loadIcon(pm);
-            packageName = resolveInfo.activityInfo.applicationInfo.packageName;
-            className = resolveInfo.activityInfo.name;
+            icon = resolveInfo.loadIcon(pm)
+            packageName = resolveInfo.activityInfo.applicationInfo.packageName
+            className = resolveInfo.activityInfo.name
         }
 
         /**
-         * Build the {@link Intent} described by this item. If this item can't create a
-         * valid {@link android.content.ComponentName}, it will return
-         * {@link Intent#ACTION_CREATE_SHORTCUT} filled with the item label.
+         * Build the [Intent] described by this item.
          */
-        Intent getIntent(Intent baseIntent) {
-            Intent intent = new Intent(baseIntent);
+        fun getIntent(baseIntent: Intent): Intent {
+            val intent = Intent(baseIntent)
+            val packageName = packageName
+            val className = className
             if (packageName != null && className != null) {
-                // Valid package and class, so fill details as normal intent
-                intent.setClassName(packageName, className);
-                if (extras != null) {
-                    intent.putExtras(extras);
-                }
+                intent.setClassName(packageName, className)
+                extras?.let { intent.putExtras(it) }
             } else {
-                // No valid package or class, so treat as shortcut with label
-                intent.setAction(Intent.ACTION_CREATE_SHORTCUT);
-                intent.putExtra(Intent.EXTRA_SHORTCUT_NAME, label);
+                intent.action = Intent.ACTION_CREATE_SHORTCUT
+                intent.putExtra(Intent.EXTRA_SHORTCUT_NAME, label)
             }
-            return intent;
+            return intent
         }
 
-        public CharSequence getLabel() {
-            return label;
-        }
+        fun getLabel(): CharSequence? = label
     }
 
     interface OnClickListener {
-        void onClick(Item item);
+        fun onClick(item: Item)
+    }
+
+    companion object {
+        private const val TAG = "AddedWidgetsAdapter"
     }
 }

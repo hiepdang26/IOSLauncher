@@ -1,222 +1,227 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.os.Build;
-import android.text.TextUtils;
-import android.util.DisplayMetrics;
-import android.util.TypedValue;
-import android.view.View;
-import android.view.ViewGroup;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.apache.commons.lang3.StringUtils;
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.os.Build
+import android.text.TextUtils
+import android.util.DisplayMetrics
+import android.util.TypedValue
+import android.view.View
+import android.view.ViewGroup
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.concurrent.Executor
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.regex.Pattern
+import kotlin.math.ceil
+import kotlin.math.roundToInt
+import org.apache.commons.lang3.StringUtils
+import timber.log.Timber
 
-import timber.log.Timber;
+object Utilities {
+    private const val TAG = "Utilities"
 
-public class Utilities {
-
-    private static final String TAG = "Utilities";
-
-    private static final Pattern sTrimPattern = Pattern
-            .compile("^[\\s|\\p{javaSpaceChar}]*(.*)[\\s|\\p{javaSpaceChar}]*$");
+    private val sTrimPattern: Pattern =
+        Pattern.compile("^[\\s|\\p{javaSpaceChar}]*(.*)[\\s|\\p{javaSpaceChar}]*$")
 
     /** Use hard coded values to compile with android source. */
-    public static final boolean ATLEAST_R = Build.VERSION.SDK_INT >= 30;
+    @JvmField
+    val ATLEAST_R = Build.VERSION.SDK_INT >= 30
 
-    public static final boolean ATLEAST_OREO = Build.VERSION.SDK_INT >= 26;
+    @JvmField
+    val ATLEAST_OREO = Build.VERSION.SDK_INT >= 26
 
-    public static final boolean ATLEAST_NOUGAT_MR1 = Build.VERSION.SDK_INT >= 25;
+    @JvmField
+    val ATLEAST_NOUGAT_MR1 = Build.VERSION.SDK_INT >= 25
 
-    public static final boolean ATLEAST_NOUGAT = Build.VERSION.SDK_INT >= 24;
+    @JvmField
+    val ATLEAST_NOUGAT = Build.VERSION.SDK_INT >= 24
 
-    public static final boolean ATLEAST_MARSHMALLOW = Build.VERSION.SDK_INT >= 23;
+    @JvmField
+    val ATLEAST_MARSHMALLOW = Build.VERSION.SDK_INT >= 23
 
-    // These values are same as that in {@link AsyncTask}.
-    private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
-    private static final int CORE_POOL_SIZE = CPU_COUNT + 1;
-    private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
-    private static final int KEEP_ALIVE = 1;
+    private val CPU_COUNT = Runtime.getRuntime().availableProcessors()
+    private val CORE_POOL_SIZE = CPU_COUNT + 1
+    private val MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1
+    private const val KEEP_ALIVE = 1L
+
     /**
-     * An {@link Executor} to be used with async task with no limit on the queue
-     * size.
+     * An [Executor] to be used with async task with no limit on the queue size.
      */
-    public static final Executor THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE,
-            KEEP_ALIVE, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+    @JvmField
+    val THREAD_POOL_EXECUTOR: Executor = ThreadPoolExecutor(
+        CORE_POOL_SIZE,
+        MAXIMUM_POOL_SIZE,
+        KEEP_ALIVE,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue()
+    )
 
     /** Compresses the bitmap to a byte array for serialization. */
-    public static byte[] flattenBitmap(Bitmap bitmap) {
-        // Try go guesstimate how much space the icon will take when serialized
-        // to avoid unnecessary allocations/copies during the write.
-        int size = bitmap.getWidth() * bitmap.getHeight() * 4;
-        ByteArrayOutputStream out = new ByteArrayOutputStream(size);
-        try {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-            out.flush();
-            out.close();
-            return out.toByteArray();
-        } catch (IOException e) {
-            Timber.tag(TAG).w("Could not write bitmap");
-            return null;
+    @JvmStatic
+    fun flattenBitmap(bitmap: Bitmap): ByteArray? {
+        val size = bitmap.width * bitmap.height * 4
+        val out = ByteArrayOutputStream(size)
+        return try {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            out.flush()
+            out.close()
+            out.toByteArray()
+        } catch (_: IOException) {
+            Timber.tag(TAG).w("Could not write bitmap")
+            null
         }
     }
 
-    public static float dpiFromPx(int size, DisplayMetrics metrics) {
-        float densityRatio = (float) metrics.densityDpi / DisplayMetrics.DENSITY_DEFAULT;
-        return (size / densityRatio);
+    @JvmStatic
+    fun dpiFromPx(size: Int, metrics: DisplayMetrics): Float {
+        val densityRatio = metrics.densityDpi.toFloat() / DisplayMetrics.DENSITY_DEFAULT
+        return size / densityRatio
     }
 
-    public static int pxFromDp(float size, DisplayMetrics metrics) {
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, size, metrics));
+    @JvmStatic
+    fun pxFromDp(size: Float, metrics: DisplayMetrics): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, size, metrics).roundToInt()
+
+    @JvmStatic
+    fun pxFromDp(dp: Int, context: Context): Float {
+        val metrics = context.resources.displayMetrics
+        return dp * (metrics.densityDpi / 160f)
     }
 
-    public static float pxFromDp(int dp, Context context) {
-        DisplayMetrics metrics = context.getResources().getDisplayMetrics();
-        return dp * (metrics.densityDpi / 160f);
-    }
-
-    public static int pxFromSp(float size, DisplayMetrics metrics) {
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, size, metrics));
-    }
+    @JvmStatic
+    fun pxFromSp(size: Float, metrics: DisplayMetrics): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, size, metrics).roundToInt()
 
     /** Calculates the height of a given string at a specific text size. */
-    public static int calculateTextHeight(float textSizePx) {
-        Paint p = new Paint();
-        p.setTextSize(textSizePx);
-        Paint.FontMetrics fm = p.getFontMetrics();
-        return (int) Math.ceil(fm.bottom - fm.top);
+    @JvmStatic
+    fun calculateTextHeight(textSizePx: Float): Int {
+        val paint = Paint()
+        paint.textSize = textSizePx
+        val fontMetrics = paint.fontMetrics
+        return ceil((fontMetrics.bottom - fontMetrics.top).toDouble()).toInt()
     }
 
-    public static String convertMonthToString() {
-        Calendar cal = Calendar.getInstance();
-        SimpleDateFormat month_date = new SimpleDateFormat("MMM");
-        return month_date.format(cal.getTime());
+    @JvmStatic
+    fun convertMonthToString(): String {
+        val cal = Calendar.getInstance()
+        val monthDate = SimpleDateFormat("MMM", Locale.getDefault())
+        return monthDate.format(cal.time)
     }
 
     /**
      * Trims the string, removing all whitespace at the beginning and end of the
      * string. Non-breaking whitespaces are also removed.
      */
-    public static String trim(CharSequence s) {
+    @JvmStatic
+    fun trim(s: CharSequence?): String? {
         if (s == null) {
-            return null;
+            return null
         }
 
-        // Just strip any sequence of whitespace or java space characters from the
-        // beginning and end
-        Matcher m = sTrimPattern.matcher(s);
-        return m.replaceAll("$1");
+        val matcher = sTrimPattern.matcher(s)
+        return matcher.replaceAll("$1")
     }
 
-    public static ArrayList<View> getAllChildrenViews(View view) {
-        if (!(view instanceof ViewGroup)) {
-            ArrayList<View> viewArrayList = new ArrayList<View>();
-            viewArrayList.add(view);
-
-            return viewArrayList;
+    @JvmStatic
+    fun getAllChildrenViews(view: View): ArrayList<View> {
+        if (view !is ViewGroup) {
+            return arrayListOf(view)
         }
 
-        ArrayList<View> result = new ArrayList<View>();
+        val result = ArrayList<View>()
+        for (i in 0 until view.childCount) {
+            val child = view.getChildAt(i)
 
-        ViewGroup viewGroup = (ViewGroup) view;
-        for (int i = 0; i < viewGroup.getChildCount(); i++) {
+            val viewArrayList = ArrayList<View>()
+            viewArrayList.add(view)
+            viewArrayList.addAll(getAllChildrenViews(child))
 
-            View child = viewGroup.getChildAt(i);
-
-            ArrayList<View> viewArrayList = new ArrayList<View>();
-            viewArrayList.add(view);
-            viewArrayList.addAll(getAllChildrenViews(child));
-
-            result.addAll(viewArrayList);
+            result.addAll(viewArrayList)
         }
 
-        return result;
+        return result
     }
 
-    public static Bitmap drawableToBitmap(Drawable drawable) {
-        return Utilities.drawableToBitmap(drawable, true);
-    }
+    @JvmStatic
+    fun drawableToBitmap(drawable: Drawable?): Bitmap? = drawableToBitmap(drawable, true)
 
-    public static Bitmap drawableToBitmap(Drawable drawable, boolean forceCreate) {
-        return drawableToBitmap(drawable, forceCreate, 0);
-    }
+    @JvmStatic
+    fun drawableToBitmap(drawable: Drawable?, forceCreate: Boolean): Bitmap? =
+        drawableToBitmap(drawable, forceCreate, 0)
 
-    public static Bitmap drawableToBitmap(Drawable drawable, boolean forceCreate, int fallbackSize) {
-        if (!forceCreate && drawable instanceof BitmapDrawable) {
-            return ((BitmapDrawable) drawable).getBitmap();
+    @JvmStatic
+    fun drawableToBitmap(drawable: Drawable?, forceCreate: Boolean, fallbackSize: Int): Bitmap? {
+        val safeDrawable = drawable!!
+        if (!forceCreate && safeDrawable is BitmapDrawable) {
+            return safeDrawable.bitmap
         }
 
-        int width = drawable.getIntrinsicWidth();
-        int height = drawable.getIntrinsicHeight();
+        var width = safeDrawable.intrinsicWidth
+        var height = safeDrawable.intrinsicHeight
 
         if (width <= 0 || height <= 0) {
             if (fallbackSize > 0) {
-                width = height = fallbackSize;
+                width = fallbackSize
+                height = fallbackSize
             } else {
-                return null;
+                return null
             }
         }
 
-        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-
-        Canvas canvas = new Canvas(bitmap);
-        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
-        drawable.draw(canvas);
-        return bitmap;
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        safeDrawable.setBounds(0, 0, canvas.width, canvas.height)
+        safeDrawable.draw(canvas)
+        return bitmap
     }
 
-    public static boolean isBootCompleted() {
-        return "1".equals(getSystemProperty("sys.boot_completed", "1"));
-    }
+    @JvmStatic
+    fun isBootCompleted(): Boolean = "1" == getSystemProperty("sys.boot_completed", "1")
 
-    public static String getSystemProperty(String property, String defaultValue) {
+    @JvmStatic
+    fun getSystemProperty(property: String, defaultValue: String): String {
         try {
-            Class clazz = Class.forName("android.os.SystemProperties");
-            Method getter = clazz.getDeclaredMethod("get", String.class);
-            String value = (String) getter.invoke(null, property);
+            val clazz = Class.forName("android.os.SystemProperties")
+            val getter = clazz.getDeclaredMethod("get", String::class.java)
+            val value = getter.invoke(null, property) as String?
             if (!TextUtils.isEmpty(value)) {
-                return value;
+                return value!!
             }
-        } catch (Exception e) {
-            Timber.tag(TAG).d("Unable to read system properties");
+        } catch (_: Exception) {
+            Timber.tag(TAG).d("Unable to read system properties")
         }
-        return defaultValue;
+        return defaultValue
     }
 
     /**
      * Utility method to determine whether the given point, in local coordinates, is
      * inside the view, where the area of the view is expanded by the slop factor.
-     * This method is called while processing touch-move events to determine if the
-     * event is still within the view.
      */
-    public static boolean pointInView(View v, float localX, float localY, float slop) {
-        return localX >= -slop && localY >= -slop && localX < (v.getWidth() + slop) && localY < (v.getHeight() + slop);
-    }
+    @JvmStatic
+    fun pointInView(v: View, localX: Float, localY: Float, slop: Float): Boolean =
+        localX >= -slop &&
+            localY >= -slop &&
+            localX < v.width + slop &&
+            localY < v.height + slop
 
     /**
-     * Ensures that a value is within given bounds. Specifically: If value is less
-     * than lowerBound, return lowerBound; else if value is greater than upperBound,
-     * return upperBound; else return value unchanged.
+     * Ensures that a value is within given bounds.
      */
-    public static int boundToRange(int value, int lowerBound, int upperBound) {
-        return Math.max(lowerBound, Math.min(value, upperBound));
-    }
+    @JvmStatic
+    fun boundToRange(value: Int, lowerBound: Int, upperBound: Int): Int =
+        maxOf(lowerBound, minOf(value, upperBound))
 
-    public static String stripCaseAndAccents(String input) {
-        return StringUtils.stripAccents(input.toLowerCase());
-    }
+    @JvmStatic
+    fun stripCaseAndAccents(input: String): String =
+        StringUtils.stripAccents(input.lowercase(Locale.getDefault()))
 }

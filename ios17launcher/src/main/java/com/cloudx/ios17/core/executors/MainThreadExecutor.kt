@@ -1,52 +1,34 @@
-package com.cloudx.ios17.core.executors;
+package com.cloudx.ios17.core.executors
 
-import android.os.Handler;
-import android.os.Looper;
-import androidx.annotation.NonNull;
-import java.util.List;
-import java.util.concurrent.AbstractExecutorService;
-import java.util.concurrent.TimeUnit;
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.AbstractExecutorService
+import java.util.concurrent.TimeUnit
 
-public class MainThreadExecutor extends AbstractExecutorService {
+class MainThreadExecutor : AbstractExecutorService() {
+    private val mHandler = Handler(Looper.getMainLooper())
 
-    private final Handler mHandler;
-
-    public MainThreadExecutor() {
-        mHandler = new Handler(Looper.getMainLooper());
+    override fun shutdown() {
+        throw UnsupportedOperationException()
     }
 
-    @Override
-    public void shutdown() {
-        throw new UnsupportedOperationException();
+    override fun shutdownNow(): List<Runnable> {
+        throw UnsupportedOperationException()
     }
 
-    @NonNull
-    @Override
-    public List<Runnable> shutdownNow() {
-        throw new UnsupportedOperationException();
+    override fun isShutdown(): Boolean = false
+
+    override fun isTerminated(): Boolean = false
+
+    override fun awaitTermination(timeout: Long, unit: TimeUnit): Boolean {
+        throw UnsupportedOperationException()
     }
 
-    @Override
-    public boolean isShutdown() {
-        return false;
-    }
-
-    @Override
-    public boolean isTerminated() {
-        return false;
-    }
-
-    @Override
-    public boolean awaitTermination(long timeout, @NonNull TimeUnit unit) throws InterruptedException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void execute(@NonNull Runnable runnable) {
-        if (mHandler.getLooper() == Looper.myLooper()) {
-            runnable.run();
+    override fun execute(runnable: Runnable) {
+        if (mHandler.looper == Looper.myLooper()) {
+            runnable.run()
         } else {
-            mHandler.post(runnable);
+            mHandler.post(runnable)
         }
     }
 }

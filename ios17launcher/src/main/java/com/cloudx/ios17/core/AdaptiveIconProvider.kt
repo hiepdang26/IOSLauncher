@@ -1,186 +1,145 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.content.res.AssetManager;
-import android.content.res.Resources;
-import android.content.res.XmlResourceParser;
-import android.graphics.drawable.Drawable;
-
-import androidx.core.content.res.ResourcesCompat;
-
-import org.xmlpull.v1.XmlPullParser;
-
-import com.cloudx.ios17.core.customviews.AdaptiveIconDrawableCompat;
-import com.cloudx.ios17.core.utils.ResourceUtils;
-import timber.log.Timber;
+import android.content.Context
+import android.content.res.Resources
+import android.content.res.XmlResourceParser
+import android.graphics.drawable.Drawable
+import androidx.core.content.res.ResourcesCompat
+import com.cloudx.ios17.core.customviews.AdaptiveIconDrawableCompat
+import com.cloudx.ios17.core.utils.ResourceUtils
+import org.xmlpull.v1.XmlPullParser
+import timber.log.Timber
 
 /**
  * Created by falcon on 19/4/18.
  */
+class AdaptiveIconProvider {
 
-public class AdaptiveIconProvider {
-
-    private static final String TAG = "AdaptiveIconProvider";
-
-    private static final String[] IC_DIRS = new String[]{"mipmap", "drawable"};
-    private static final String[] IC_CONFIGS = new String[]{"-anydpi-v26", "-v26", ""};
-
-    public Drawable load(Context context, String packageName) {
+    fun load(context: Context?, packageName: String): Drawable? {
         if (context == null) {
-            throw new IllegalStateException("Loader.with(Context) must be called before loading an icon.");
+            throw IllegalStateException("Loader.with(Context) must be called before loading an icon.")
         }
 
-        PackageManager packageManager = context.getPackageManager();
-        Drawable background = null, foreground = null;
+        val packageManager = context.packageManager
+        var background: Drawable? = null
+        var foreground: Drawable? = null
 
         try {
-            Resources resources = packageManager.getResourcesForApplication(packageName);
-            Resources.Theme theme = resources.newTheme();
-            ResourceUtils.setFakeConfig(resources, 26); // Build.VERSION_CODES.O = 26
+            val resources = packageManager.getResourcesForApplication(packageName)
+            val theme = resources.newTheme()
+            ResourceUtils.setFakeConfig(resources, 26)
 
-            AssetManager assetManager = resources.getAssets();
+            val assetManager = resources.assets
 
-            XmlResourceParser manifestParser;
-            String iconName = null;
-            int iconId = 0;
+            var iconId = 0
             try {
-                manifestParser = assetManager.openXmlResourceParser("AndroidManifest.xml");
-                int eventType;
+                val manifestParser = assetManager.openXmlResourceParser("AndroidManifest.xml")
+                var matcher = "application"
+                var eventType: Int
+                while (manifestParser.nextToken().also { eventType = it } != XmlPullParser.END_DOCUMENT) {
+                    if (eventType == XmlPullParser.START_TAG && manifestParser.name == matcher) {
+                        Timber.tag(TAG).d("Manifest Parser Count: %s", manifestParser.attributeCount)
 
-                String matcher = "application";
-                while ((eventType = manifestParser.nextToken()) != XmlPullParser.END_DOCUMENT) {
-                    if (eventType == XmlPullParser.START_TAG && manifestParser.getName().equals(matcher)) {
-                        Timber.tag(TAG).d("Manifest Parser Count: %s", manifestParser.getAttributeCount());
-
-                        for (int i = 0; i < manifestParser.getAttributeCount(); i++) {
-                            Timber.tag(TAG).d("Icon parser: %s", manifestParser.getAttributeName(i));
-                            if (manifestParser.getAttributeName(i).equalsIgnoreCase("icon")) {
-                                iconId = Integer.parseInt(manifestParser.getAttributeValue(i).substring(1));
-                                Timber.tag(TAG).d("Iconid:%s", iconId);
-                                break;
+                        for (i in 0 until manifestParser.attributeCount) {
+                            Timber.tag(TAG).d("Icon parser: %s", manifestParser.getAttributeName(i))
+                            if (manifestParser.getAttributeName(i).equals("icon", ignoreCase = true)) {
+                                iconId = manifestParser.getAttributeValue(i).substring(1).toInt()
+                                Timber.tag(TAG).d("Iconid:%s", iconId)
+                                break
                             }
                         }
                         if (iconId != 0) {
-                            iconName = resources.getResourceName(iconId);
-                            Timber.tag("AdaptiveIcon").d("Iconname: %s", iconName);
+                            var iconName = resources.getResourceName(iconId)
+                            Timber.tag("AdaptiveIcon").d("Iconname: %s", iconName)
                             if (iconName.contains("/")) {
-                                iconName = iconName.split("/")[1];
+                                iconName = iconName.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()[1]
                             }
-                            break;
+                            break
                         } else {
-                            matcher = "activity";
+                            matcher = "activity"
                         }
                     }
                 }
-                manifestParser.close();
-            } catch (Exception ignored) {
+                manifestParser.close()
+            } catch (ignored: Exception) {
             }
 
-            XmlResourceParser parser = null;
+            var parser: XmlResourceParser? = null
             if (iconId != 0) {
                 try {
-                    parser = resources.getXml(iconId);
-                } catch (Resources.NotFoundException e) {
-                    e.printStackTrace();
-                    parser = null;
+                    parser = resources.getXml(iconId)
+                } catch (e: Resources.NotFoundException) {
+                    e.printStackTrace()
+                    parser = null
                 }
             }
 
-            /*
-             * for (int dir = 0; dir < IC_DIRS.length && parser == null; dir++) { for (int
-             * config = 0; config < IC_CONFIGS.length && parser == null; config++) { for
-             * (String name : (iconName != null && !iconName.equals("ic_launcher")) ? new
-             * String[]{iconName, "ic_launcher", "ic_launcher_round"} : new
-             * String[]{"ic_launcher", "ic_launcher_round"}) { try { String path = "res/" +
-             * IC_DIRS[dir] + IC_CONFIGS[config] + "/" + name + ".xml"; Log.i(TAG, "path: "
-             * + path); parser = assetManager.openXmlResourceParser(path); } catch
-             * (Exception e) { e.printStackTrace(); }
-             * 
-             * if (parser != null) { break; } } } }
-             */
-
-            int backgroundRes = -1, foregroundRes = -1;
+            var backgroundRes = -1
+            var foregroundRes = -1
             if (parser != null) {
-                int event;
-                while ((event = parser.getEventType()) != XmlPullParser.END_DOCUMENT) {
+                var event: Int
+                while (parser.eventType.also { event = it } != XmlPullParser.END_DOCUMENT) {
                     Timber.tag(TAG)
-                            .i(packageName + ":parserName: " + parser.getName() + " " + parser.getAttributeCount());
+                        .i("$packageName:parserName: ${parser.name} ${parser.attributeCount}")
                     if (event == XmlPullParser.START_TAG) {
-                        switch (parser.getName()) {
-                            case "background" :
-                                try {
-                                    backgroundRes = parser.getAttributeResourceValue(
-                                            "http://schemas.android.com/apk/res/android", "drawable", 0);
-                                } catch (Exception e) {
-                                    try {
-                                        backgroundRes = parser.getAttributeResourceValue(
-                                                "http://schemas.android.com/apk/res/android", "mipmap", 0);
-                                    } catch (Exception ignored) {
-                                    }
-                                }
-                                break;
-                            case "foreground" :
-                                try {
-                                    foregroundRes = parser.getAttributeResourceValue(
-                                            "http://schemas.android.com/apk/res/android", "drawable", 0);
-                                } catch (Exception e) {
-                                    try {
-                                        foregroundRes = parser.getAttributeResourceValue(
-                                                "http://schemas.android.com/apk/res/android", "mipmap", 0);
-                                    } catch (Exception ignored) {
-                                    }
-                                }
-                                break;
+                        when (parser.name) {
+                            "background" ->
+                                backgroundRes = getAdaptiveIconLayerResource(parser, "drawable")
+                                    .takeIf { it != 0 }
+                                    ?: getAdaptiveIconLayerResource(parser, "mipmap")
+
+                            "foreground" ->
+                                foregroundRes = getAdaptiveIconLayerResource(parser, "drawable")
+                                    .takeIf { it != 0 }
+                                    ?: getAdaptiveIconLayerResource(parser, "mipmap")
                         }
                     }
-                    parser.next();
+                    parser.next()
                 }
 
-                parser.close();
+                parser.close()
             }
 
             if (backgroundRes != -1) {
-                Timber.tag(TAG).d("BackgroundRes: %s", backgroundRes);
-                Timber.tag(TAG).d("BackgroundResName: %s", resources.getResourceName(backgroundRes));
+                Timber.tag(TAG).d("BackgroundRes: %s", backgroundRes)
+                Timber.tag(TAG).d("BackgroundResName: %s", resources.getResourceName(backgroundRes))
                 try {
-                    background = ResourcesCompat.getDrawable(resources, backgroundRes, theme);
-                } catch (Resources.NotFoundException e) {
-                    e.printStackTrace();
-                    /*
-                     * try { background = ResourcesCompat.getDrawable(resources,
-                     * resources.getIdentifier("ic_launcher_background", "mipmap", packageName),
-                     * theme); } catch (Resources.NotFoundException e1) { try { background =
-                     * ResourcesCompat.getDrawable(resources,
-                     * resources.getIdentifier("ic_launcher_background", "drawable", packageName),
-                     * theme); } catch (Resources.NotFoundException ignored) { } }
-                     */
+                    background = ResourcesCompat.getDrawable(resources, backgroundRes, theme)
+                } catch (e: Resources.NotFoundException) {
+                    e.printStackTrace()
                 }
             }
 
             if (foregroundRes != -1) {
                 try {
-                    foreground = ResourcesCompat.getDrawable(resources, foregroundRes, theme);
-                } catch (Resources.NotFoundException e) {
-                    e.printStackTrace();
-                    /*
-                     * try { foreground = ResourcesCompat.getDrawable(resources,
-                     * resources.getIdentifier("ic_launcher_foreground", "mipmap", packageName),
-                     * theme); } catch (Resources.NotFoundException e1) { try { foreground =
-                     * ResourcesCompat.getDrawable(resources,
-                     * resources.getIdentifier("ic_launcher_foreground", "drawable", packageName),
-                     * theme); } catch (Resources.NotFoundException ignored) { } }
-                     */
+                    foreground = ResourcesCompat.getDrawable(resources, foregroundRes, theme)
+                } catch (e: Resources.NotFoundException) {
+                    e.printStackTrace()
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
-        if (foreground != null && background != null) {
-            return new AdaptiveIconDrawableCompat(background, foreground);
+        return if (foreground != null && background != null) {
+            AdaptiveIconDrawableCompat(background, foreground)
         } else {
-            return null;
+            null
         }
+    }
+
+    private fun getAdaptiveIconLayerResource(parser: XmlResourceParser, attributeName: String): Int {
+        return try {
+            parser.getAttributeResourceValue("http://schemas.android.com/apk/res/android", attributeName, 0)
+        } catch (ignored: Exception) {
+            0
+        }
+    }
+
+    companion object {
+        private const val TAG = "AdaptiveIconProvider"
+
+        private val IC_DIRS = arrayOf("mipmap", "drawable")
+        private val IC_CONFIGS = arrayOf("-anydpi-v26", "-v26", "")
     }
 }

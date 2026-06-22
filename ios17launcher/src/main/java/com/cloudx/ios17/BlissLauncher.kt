@@ -1,142 +1,135 @@
-package com.cloudx.ios17;
+package com.cloudx.ios17
 
-import android.app.Application;
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.database.ContentObserver;
-import android.net.Uri;
-import android.os.Handler;
-import android.provider.Settings;
-import android.util.Log;
+import android.app.Application
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Context
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Handler
+import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import android.util.Log
+import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.IconsHandler
+import com.cloudx.ios17.core.blur.BlurWallpaperProvider
+import com.cloudx.ios17.core.customviews.WidgetHost
+import com.cloudx.ios17.features.launcher.AppProvider
+import com.cloudx.ios17.features.notification.NotificationService
+import foundation.e.lib.telemetry.Telemetry
+import timber.log.Timber
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+open class BlissLauncher : Application() {
 
-import com.cloudx.ios17.core.IconsHandler;
-import com.cloudx.ios17.core.IconsHandler;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.DeviceProfile;
-import com.cloudx.ios17.core.IconsHandler;
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider;
-import com.cloudx.ios17.core.customviews.WidgetHost;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.features.notification.NotificationService;
-import com.cloudx.ios17.core.IconsHandler;
-import foundation.e.lib.telemetry.Telemetry;
-import timber.log.Timber;
+    private var iconsPackHandler: IconsHandler? = null
+    private var deviceProfileInternal: DeviceProfile? = null
+    private var mAppProvider: AppProvider? = null
 
-public class BlissLauncher extends Application {
-    public static final Uri NOTIFICATION_BADGING_URI = Settings.Secure.getUriFor("notification_badging");
-
-    private IconsHandler iconsPackHandler;
-    private DeviceProfile deviceProfile;
-
-    private AppProvider mAppProvider;
-
-    private static WidgetHost sAppWidgetHost;
-    private static AppWidgetManager sAppWidgetManager;
-
-    private static class ReleaseTree extends Timber.Tree {
-
-        @Override
-        protected void log(int priority, @Nullable String tag, @NonNull String message, @Nullable Throwable throwable) {
+    private class ReleaseTree : Timber.Tree() {
+        override fun log(priority: Int, tag: String?, message: String, throwable: Throwable?) {
             if (priority < Log.INFO) {
-                return;
+                return
             }
 
-            Log.println(priority, tag, message);
+            Log.println(priority, tag, message)
         }
     }
 
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        sAppWidgetManager = AppWidgetManager.getInstance(getApplicationContext());
-        sAppWidgetHost = new WidgetHost(getApplicationContext(), R.id.APPWIDGET_HOST_ID);
-        sAppWidgetHost.startListening();
+    override fun onCreate() {
+        super.onCreate()
+        sAppWidgetManager = AppWidgetManager.getInstance(applicationContext)
+        sAppWidgetHost = WidgetHost(applicationContext, R.id.APPWIDGET_HOST_ID)
+        sAppWidgetHost?.startListening()
 
-        connectAppProvider();
-        BlurWallpaperProvider.Companion.getInstance(this);
+        connectAppProvider()
+        BlurWallpaperProvider.getInstance(this)
 
-        ContentObserver notificationSettingsObserver = new ContentObserver(new Handler()) {
-            @Override
-            public void onChange(boolean selfChange) {
-                onNotificationSettingsChanged();
+        val notificationSettingsObserver: ContentObserver = object : ContentObserver(Handler()) {
+            override fun onChange(selfChange: Boolean) {
+                onNotificationSettingsChanged()
             }
-        };
-        getContentResolver().registerContentObserver(NOTIFICATION_BADGING_URI, false, notificationSettingsObserver);
+        }
+        contentResolver.registerContentObserver(NOTIFICATION_BADGING_URI, false, notificationSettingsObserver)
 
         if (!BuildConfig.DEBUG) {
-            Telemetry.init(BuildConfig.SENTRY_DSN, this, true);
-            Timber.plant(new ReleaseTree());
+            Telemetry.init(BuildConfig.SENTRY_DSN, this, true)
+            Timber.plant(ReleaseTree())
         } else {
-            Timber.plant(new Timber.DebugTree());
+            Timber.plant(Timber.DebugTree())
         }
     }
 
-    private void onNotificationSettingsChanged() {
-        boolean areNotificationDotsEnabled = Settings.Secure.getInt(getContentResolver(),
-                NOTIFICATION_BADGING_URI.getLastPathSegment(), 1) == 1;
+    private fun onNotificationSettingsChanged() {
+        val areNotificationDotsEnabled = Settings.Secure.getInt(
+            contentResolver,
+            NOTIFICATION_BADGING_URI.lastPathSegment,
+            1
+        ) == 1
         if (areNotificationDotsEnabled) {
-            NotificationService.requestRebind(new ComponentName(this, NotificationService.class));
+            NotificationListenerService.requestRebind(ComponentName(this, NotificationService::class.java))
         }
     }
 
-    public static BlissLauncher getApplication(Context context) {
-        return (BlissLauncher) context.getApplicationContext();
-    }
-
-    public DeviceProfile getDeviceProfile() {
-        if (deviceProfile == null) {
-            deviceProfile = new DeviceProfile(this);
-        }
-        return deviceProfile;
-    }
-
-    public void resetDeviceProfile() {
-        deviceProfile = new DeviceProfile(this);
-    }
-
-    public IconsHandler getIconsHandler() {
-        if (iconsPackHandler == null) {
-            iconsPackHandler = new IconsHandler(this);
+    val deviceProfile: DeviceProfile
+        get() {
+            if (deviceProfileInternal == null) {
+                deviceProfileInternal = DeviceProfile(this)
+            }
+            return requireNotNull(deviceProfileInternal)
         }
 
-        return iconsPackHandler;
+    fun resetDeviceProfile() {
+        deviceProfileInternal = DeviceProfile(this)
     }
 
-    public void resetIconsHandler() {
-        iconsPackHandler = new IconsHandler(this);
-    }
-
-    private void connectAppProvider() {
-        mAppProvider = AppProvider.getInstance(this);
-    }
-
-    public AppProvider getAppProvider() {
-        if (mAppProvider == null) {
-            connectAppProvider();
+    val iconsHandler: IconsHandler
+        get() {
+            if (iconsPackHandler == null) {
+                iconsPackHandler = IconsHandler(this)
+            }
+            return requireNotNull(iconsPackHandler)
         }
-        return mAppProvider;
+
+    fun resetIconsHandler() {
+        iconsPackHandler = IconsHandler(this)
     }
 
-    public WidgetHost getAppWidgetHost() {
-        return sAppWidgetHost;
+    private fun connectAppProvider() {
+        mAppProvider = AppProvider.getInstance(this)
     }
 
-    public AppWidgetManager getAppWidgetManager() {
-        return sAppWidgetManager;
+    val appProvider: AppProvider
+        get() {
+            if (mAppProvider == null) {
+                connectAppProvider()
+            }
+            return requireNotNull(mAppProvider)
+        }
+
+    val appWidgetHost: WidgetHost
+        get() = requireNotNull(sAppWidgetHost)
+
+    val appWidgetManager: AppWidgetManager
+        get() = requireNotNull(sAppWidgetManager)
+
+    override fun onTerminate() {
+        super.onTerminate()
+        sAppWidgetHost?.stopListening()
+        sAppWidgetHost = null
     }
 
-    @Override
-    public void onTerminate() {
-        super.onTerminate();
-        sAppWidgetHost.stopListening();
-        sAppWidgetHost = null;
-    }
+    companion object {
+        @JvmField
+        val NOTIFICATION_BADGING_URI: Uri = Settings.Secure.getUriFor("notification_badging")
 
-    public static long getLongPressTimeout() {
-        return 500;
+        private var sAppWidgetHost: WidgetHost? = null
+        private var sAppWidgetManager: AppWidgetManager? = null
+
+        @JvmStatic
+        fun getApplication(context: Context): BlissLauncher =
+            context.applicationContext as BlissLauncher
+
+        @JvmStatic
+        fun getLongPressTimeout(): Long = 500
     }
 }

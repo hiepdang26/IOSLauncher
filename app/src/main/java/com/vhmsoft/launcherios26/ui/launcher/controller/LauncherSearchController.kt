@@ -9,10 +9,12 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibrarySearchAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
@@ -48,6 +50,11 @@ class LauncherSearchController(
         binding.workspace.cancelSearchButton.setOnClickListener {
             hideSearchOverlay()
         }
+        binding.workspace.searchMicIcon.setOnClickListener {
+            if (!binding.workspace.searchEditText.text.isNullOrEmpty()) {
+                binding.workspace.searchEditText.text?.clear()
+            }
+        }
         binding.workspace.cancelLibrarySearchButton.setOnClickListener {
             hideLibrarySearchOverlay()
         }
@@ -75,6 +82,7 @@ class LauncherSearchController(
             adapter = searchAdapter
             itemAnimator = null
             setHasFixedSize(true)
+            searchAdapter.setIconSizeDp(72)
             post {
                 searchAdapter.setItemHeight(dp(SEARCH_ICON_CELL_HEIGHT_DP))
             }
@@ -284,6 +292,7 @@ class LauncherSearchController(
                 }
                 .take(SEARCH_RESULT_LIMIT)
         }
+        applySearchQueryState(hasQuery = normalizedQuery.isNotEmpty())
         searchAdapter.submitApps(results)
     }
 
@@ -341,16 +350,16 @@ class LauncherSearchController(
     }
 
     private fun applySearchAppearance() {
-        val overlayColor = if (darkMode) 0x2E000000 else 0x14FFFFFF
-        val fieldColor = if (darkMode) 0x66324B5C else 0x733B5B6A
-        val resultsColor = if (darkMode) 0x5A42484B else 0x705F6663
+        val overlayColor = Color.TRANSPARENT
+        val fieldColor = if (darkMode) 0x72FFFFFF else 0x8AFFFFFF.toInt()
+        val resultsColor = if (darkMode) 0x62FFFFFF else 0x78FFFFFF
         val textColor = Color.WHITE
-        val hintColor = 0xC8FFFFFF.toInt()
+        val hintColor = 0xD8FFFFFF.toInt()
         val tint = ColorStateList.valueOf(textColor)
 
         binding.workspace.searchOverlay.setBackgroundColor(overlayColor)
-        binding.workspace.searchField.background = roundedBackground(fieldColor, 20)
-        binding.workspace.searchResultsRecyclerView.background = roundedBackground(resultsColor, 16)
+        binding.workspace.searchField.background = roundedBackground(fieldColor, 28)
+        binding.workspace.searchResultsRecyclerView.background = roundedBackground(resultsColor, 28)
         binding.workspace.searchFieldIcon.imageTintList = tint
         binding.workspace.searchMicIcon.imageTintList = tint
         binding.workspace.searchEditText.setTextColor(textColor)
@@ -363,6 +372,33 @@ class LauncherSearchController(
         binding.workspace.librarySearchEditText.setTextColor(textColor)
         binding.workspace.librarySearchEditText.setHintTextColor(hintColor)
         binding.workspace.cancelLibrarySearchButton.setTextColor(textColor)
+    }
+
+    private fun applySearchQueryState(hasQuery: Boolean) {
+        binding.workspace.searchMicIcon.setImageResource(
+            if (hasQuery) R.drawable.ic_clear_circle_18 else R.drawable.ic_mic_18
+        )
+
+        val recyclerView = binding.workspace.searchResultsRecyclerView
+        val layoutParams = recyclerView.layoutParams as? LinearLayout.LayoutParams ?: return
+        val targetHeight = if (hasQuery) 0 else dp(SEARCH_SUGGESTION_PANEL_HEIGHT_DP)
+        val targetWeight = if (hasQuery) 1f else 0f
+        if (layoutParams.height != targetHeight || layoutParams.weight != targetWeight) {
+            layoutParams.height = targetHeight
+            layoutParams.weight = targetWeight
+            recyclerView.layoutParams = layoutParams
+        }
+        val bottomPadding = if (hasQuery) {
+            dp(SEARCH_RESULT_EXPANDED_BOTTOM_PADDING_DP)
+        } else {
+            dp(SEARCH_PANEL_VERTICAL_PADDING_DP)
+        }
+        recyclerView.setPadding(
+            recyclerView.paddingLeft,
+            dp(SEARCH_PANEL_VERTICAL_PADDING_DP),
+            recyclerView.paddingRight,
+            bottomPadding
+        )
     }
 
     private fun roundedBackground(
@@ -380,7 +416,10 @@ class LauncherSearchController(
 
     private companion object {
         const val SEARCH_COLUMNS = 4
-        const val SEARCH_ICON_CELL_HEIGHT_DP = 104
+        const val SEARCH_ICON_CELL_HEIGHT_DP = 108
+        const val SEARCH_SUGGESTION_PANEL_HEIGHT_DP = 260
+        const val SEARCH_PANEL_VERTICAL_PADDING_DP = 20
+        const val SEARCH_RESULT_EXPANDED_BOTTOM_PADDING_DP = 170
         const val SEARCH_SUGGESTION_COUNT = 8
         const val SEARCH_RESULT_LIMIT = 40
         const val LIBRARY_SEARCH_ENTER_X_DP = 34

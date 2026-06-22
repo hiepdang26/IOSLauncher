@@ -14,7 +14,7 @@ class DepthManager(private val launcher: com.cloudx.ios17.features.launcher.Laun
             .getMethod("setWallpaperZoomOut", IBinder::class.java, Float::class.java)
 
     init {
-        launcher.rootView.addOnAttachStateChangeListener(
+        launcher.getRootView().addOnAttachStateChangeListener(
             object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(v: View) {
                     updateDepth()
@@ -26,7 +26,7 @@ class DepthManager(private val launcher: com.cloudx.ios17.features.launcher.Laun
     }
 
     fun updateDepth() {
-        val windowToken = launcher.rootView.windowToken
+        val windowToken = launcher.getRootView().windowToken
         if (windowToken != null) {
             setWallpaperZoomOut.invoke(wallpaperManager, windowToken, 1)
         }

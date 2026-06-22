@@ -34,17 +34,18 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         super.onDraw(canvas)
     }
 
-    override fun setInsets(insets: Rect) {
+    override fun setInsets(insets: Rect?) {
+        val safeInsets = InsettableRectPolicy.nonNull(insets)
         val deviceProfile = com.cloudx.ios17.BlissLauncher.getApplication(mContext).deviceProfile
         val lp = layoutParams
-        lp.height = deviceProfile.hotseatCellHeightPx + insets.bottom
+        lp.height = deviceProfile.hotseatCellHeightPx + safeInsets.bottom
         val horizontalPadding = Utilities.pxFromDp(14f, resources.displayMetrics)
         val verticalPadding = Utilities.pxFromDp(10f, resources.displayMetrics)
         setPadding(
             horizontalPadding,
             verticalPadding,
             horizontalPadding,
-            insets.bottom + verticalPadding
+            safeInsets.bottom + verticalPadding
         )
         layoutParams = lp
     }

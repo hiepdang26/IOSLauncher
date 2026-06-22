@@ -1,162 +1,157 @@
-package com.cloudx.ios17.features.weather;
+package com.cloudx.ios17.features.weather
 
-import android.app.AlertDialog;
-import android.app.ProgressDialog;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.os.Bundle;
-import android.os.Handler;
-import android.preference.EditTextPreference;
-import android.text.TextUtils;
-import android.util.AttributeSet;
-import android.view.View;
-import android.widget.Button;
-import android.widget.Toast;
+import android.app.AlertDialog
+import android.app.ProgressDialog
+import android.content.Context
+import android.content.DialogInterface
+import android.os.Bundle
+import android.os.Handler
+import android.preference.EditTextPreference
+import android.text.TextUtils
+import android.util.AttributeSet
+import android.view.View
+import android.widget.Toast
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.Preferences
+import java.util.HashSet
+import lineageos.weather.LineageWeatherManager
+import lineageos.weather.WeatherLocation
+import timber.log.Timber
 
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.Preferences;
-import java.util.HashSet;
-import java.util.List;
+class CustomLocationPreference : EditTextPreference, LineageWeatherManager.LookupCityRequestListener {
 
-import com.cloudx.ios17.core.Preferences;
-import lineageos.weather.LineageWeatherManager;
-import lineageos.weather.WeatherLocation;
-import timber.log.Timber;
+    private var mProgressDialog: ProgressDialog? = null
+    private var mCustomLocationRequestId = 0
+    private lateinit var mHandler: Handler
 
-public class CustomLocationPreference extends EditTextPreference
-        implements
-            LineageWeatherManager.LookupCityRequestListener {
-    public CustomLocationPreference(Context context) {
-        super(context);
+    constructor(context: Context) : super(context)
+
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
+
+    constructor(context: Context, attrs: AttributeSet?, defStyle: Int) : super(context, attrs, defStyle)
+
+    override fun showDialog(state: Bundle?) {
+        super.showDialog(state)
+        mHandler = Handler(context.mainLooper)
+
+        val dialog = dialog as AlertDialog
+        val okButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE)
+        okButton.setOnClickListener {
+            this@CustomLocationPreference.onClick(dialog, DialogInterface.BUTTON_POSITIVE)
+            val customLocationToLookUp = editText.text.toString()
+            if (TextUtils.equals(customLocationToLookUp, "")) {
+                return@setOnClickListener
+            }
+            val weatherManager = LineageWeatherManager.getInstance(context)
+            mProgressDialog = ProgressDialog(context).apply {
+                setProgressStyle(ProgressDialog.STYLE_SPINNER)
+                setMessage(context.getString(R.string.weather_progress_title))
+                setOnCancelListener { weatherManager.cancelRequest(mCustomLocationRequestId) }
+            }
+            mCustomLocationRequestId =
+                weatherManager.lookupCity(customLocationToLookUp, this@CustomLocationPreference)
+            mProgressDialog?.show()
+        }
     }
 
-    public CustomLocationPreference(Context context, AttributeSet attrs) {
-        super(context, attrs);
-    }
+    override fun onBindDialogView(view: View) {
+        super.onBindDialogView(view)
 
-    public CustomLocationPreference(Context context, AttributeSet attrs, int defStyle) {
-        super(context, attrs, defStyle);
-    }
-
-    private ProgressDialog mProgressDialog;
-    private int mCustomLocationRequestId;
-    private Handler mHandler;
-
-    private static final String TAG = "CustomLocationPreferenc";
-
-    @Override
-    protected void showDialog(Bundle state) {
-        super.showDialog(state);
-        mHandler = new Handler(getContext().getMainLooper());
-
-        final AlertDialog d = (AlertDialog) getDialog();
-        final Button okButton = d.getButton(DialogInterface.BUTTON_POSITIVE);
-        okButton.setOnClickListener(v -> {
-            CustomLocationPreference.this.onClick(d, DialogInterface.BUTTON_POSITIVE);
-            final String customLocationToLookUp = getEditText().getText().toString();
-            if (TextUtils.equals(customLocationToLookUp, ""))
-                return;
-            final LineageWeatherManager weatherManager = LineageWeatherManager.getInstance(getContext());
-            mProgressDialog = new ProgressDialog(getContext());
-            mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-            mProgressDialog.setMessage(getContext().getString(R.string.weather_progress_title));
-            mProgressDialog.setOnCancelListener(dialog -> weatherManager.cancelRequest(mCustomLocationRequestId));
-            mCustomLocationRequestId = weatherManager.lookupCity(customLocationToLookUp, CustomLocationPreference.this);
-            mProgressDialog.show();
-        });
-    }
-
-    @Override
-    protected void onBindDialogView(View view) {
-        super.onBindDialogView(view);
-
-        String location = Preferences.getCustomWeatherLocationCity(getContext());
+        val location = Preferences.getCustomWeatherLocationCity(context)
         if (location != null) {
-            getEditText().setText(location);
-            getEditText().setSelection(location.length());
+            editText.setText(location)
+            editText.setSelection(location.length)
         } else {
-            getEditText().setText("");
+            editText.setText("")
         }
     }
 
-    @Override
-    protected void onDialogClosed(boolean positiveResult) {
-        // we handle persisting the selected location below, so pretend cancel
-        super.onDialogClosed(false);
+    override fun onDialogClosed(positiveResult: Boolean) {
+        super.onDialogClosed(false)
     }
 
-    private void handleResultDisambiguation(final List<WeatherLocation> results) {
-        CharSequence[] items = buildItemList(results);
-        new AlertDialog.Builder(getContext()).setSingleChoiceItems(items, -1, (dialog, which) -> {
-            applyLocation(results.get(which));
-            dialog.dismiss();
-        }).setNegativeButton(android.R.string.cancel, null).setTitle(R.string.weather_select_location).show();
-    }
-
-    private CharSequence[] buildItemList(List<WeatherLocation> results) {
-        boolean needCountry = false, needPostal = false;
-        String firstCountry = results.get(0).getCountry();
-        HashSet<String> postalIds = new HashSet<>();
-
-        for (WeatherLocation result : results) {
-            if (!TextUtils.equals(result.getCountry(), firstCountry)) {
-                needCountry = true;
+    private fun handleResultDisambiguation(results: List<WeatherLocation>) {
+        val items = buildItemList(results)
+        AlertDialog.Builder(context)
+            .setSingleChoiceItems(items, -1) { dialog, which ->
+                applyLocation(results[which])
+                dialog.dismiss()
             }
-            String postalId = result.getCountryId() + "##" + result.getCity();
+            .setNegativeButton(android.R.string.cancel, null)
+            .setTitle(R.string.weather_select_location)
+            .show()
+    }
+
+    private fun buildItemList(results: List<WeatherLocation>): Array<CharSequence> {
+        var needCountry = false
+        var needPostal = false
+        val firstCountry = results[0].country
+        val postalIds = HashSet<String>()
+
+        for (result in results) {
+            if (!TextUtils.equals(result.country, firstCountry)) {
+                needCountry = true
+            }
+            val postalId = result.countryId + "##" + result.city
             if (postalIds.contains(postalId)) {
-                needPostal = true;
+                needPostal = true
             }
-            postalIds.add(postalId);
+            postalIds.add(postalId)
             if (needPostal && needCountry) {
-                break;
+                break
             }
         }
 
-        int count = results.size();
-        CharSequence[] items = new CharSequence[count];
-        for (int i = 0; i < count; i++) {
-            WeatherLocation result = results.get(i);
-            StringBuilder builder = new StringBuilder();
-            if (needPostal && result.getPostalCode() != null) {
-                builder.append(result.getPostalCode()).append(" ");
+        val count = results.size
+        val items = arrayOfNulls<CharSequence>(count)
+        for (i in 0 until count) {
+            val result = results[i]
+            val builder = StringBuilder()
+            if (needPostal && result.postalCode != null) {
+                builder.append(result.postalCode).append(" ")
             }
-            builder.append(result.getCity());
+            builder.append(result.city)
             if (needCountry) {
-                String country = result.getCountry() != null ? result.getCountry() : result.getCountryId();
-                builder.append(" (").append(country).append(")");
+                val country = result.country ?: result.countryId
+                builder.append(" (").append(country).append(")")
             }
-            items[i] = builder.toString();
+            items[i] = builder.toString()
         }
-        return items;
+        @Suppress("UNCHECKED_CAST")
+        return items as Array<CharSequence>
     }
 
-    private void applyLocation(final WeatherLocation result) {
-        if (Preferences.setCustomWeatherLocation(getContext(), result)) {
-            String cityName = result.getCity();
-            String state = result.getState();
-            String country = result.getCountry();
-            setText(cityName + "," + state + "/" + country);
+    private fun applyLocation(result: WeatherLocation) {
+        if (Preferences.setCustomWeatherLocation(context, result)) {
+            val cityName = result.city
+            val state = result.state
+            val country = result.country
+            text = "$cityName,$state/$country"
         }
-        final AlertDialog d = (AlertDialog) getDialog();
-        d.dismiss();
+        val dialog = dialog as AlertDialog
+        dialog.dismiss()
     }
 
-    @Override
-    public void onLookupCityRequestCompleted(int status, final List<WeatherLocation> locations) {
-        mHandler.post(() -> {
-            final Context context = getContext();
-            Timber.tag(TAG).i("onLookupCityRequestCompleted: " + status + " " + (locations == null));
+    override fun onLookupCityRequestCompleted(status: Int, locations: List<WeatherLocation>?) {
+        mHandler.post {
+            val context = context
+            Timber.tag(TAG).i("onLookupCityRequestCompleted: $status ${locations == null}")
             if (locations == null || locations.isEmpty()) {
-                Toast.makeText(context, context.getString(R.string.weather_retrieve_location_dialog_title),
-                        Toast.LENGTH_SHORT).show();
-            } else if (locations.size() > 1) {
-                handleResultDisambiguation(locations);
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.weather_retrieve_location_dialog_title),
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else if (locations.size > 1) {
+                handleResultDisambiguation(locations)
             } else {
-                applyLocation(locations.get(0));
+                applyLocation(locations[0])
             }
-            mProgressDialog.dismiss();
-        });
+            mProgressDialog?.dismiss()
+        }
+    }
+
+    companion object {
+        private const val TAG = "CustomLocationPreferenc"
     }
 }

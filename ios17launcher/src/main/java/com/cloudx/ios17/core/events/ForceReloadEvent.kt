@@ -1,9 +1,7 @@
-package com.cloudx.ios17.core.events;
+package com.cloudx.ios17.core.events
 
-public class ForceReloadEvent extends Event {
-    public static final int TYPE = 801;
-
-    public ForceReloadEvent() {
-        super(TYPE);
+class ForceReloadEvent : Event(TYPE) {
+    companion object {
+        const val TYPE = 801
     }
 }

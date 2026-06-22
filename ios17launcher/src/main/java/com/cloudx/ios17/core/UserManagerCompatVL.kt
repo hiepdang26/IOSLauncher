@@ -1,114 +1,86 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.os.UserHandle;
-import android.os.UserManager;
-import android.util.ArrayMap;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.LongArrayMap;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.UserHandle
+import android.os.UserManager
+import android.util.ArrayMap
+import com.cloudx.ios17.core.utils.Constants
+import com.cloudx.ios17.core.utils.LongArrayMap
+import java.util.ArrayList
+import java.util.Collections
 
-public class UserManagerCompatVL extends UserManagerCompat {
+open class UserManagerCompatVL(context: Context) : UserManagerCompat() {
+    protected val mUserManager: UserManager =
+        context.getSystemService(Context.USER_SERVICE) as UserManager
+    private val mPm: PackageManager = context.packageManager
+    private val mContext: Context = context
 
-    protected final UserManager mUserManager;
-    private final PackageManager mPm;
-    private final Context mContext;
+    protected var mUsers: LongArrayMap<UserHandle>? = null
+    protected var mUserToSerialMap: ArrayMap<UserHandle, Long>? = null
 
-    protected LongArrayMap<UserHandle> mUsers;
-    // Create a separate reverse map as LongArrayMap.indexOfValue checks if objects
-    // are same
-    // and not {@link Object#equals}
-    protected ArrayMap<UserHandle, Long> mUserToSerialMap;
-
-    UserManagerCompatVL(Context context) {
-        mUserManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
-        mPm = context.getPackageManager();
-        mContext = context;
-    }
-
-    @Override
-    public long getSerialNumberForUser(UserHandle user) {
-        synchronized (this) {
-            if (mUserToSerialMap != null) {
-                Long serial = mUserToSerialMap.get(user);
-                return serial == null ? 0 : serial;
-            }
+    override fun getSerialNumberForUser(user: UserHandle): Long {
+        synchronized(this) {
+            mUserToSerialMap?.get(user)?.let { return it }
         }
-        return mUserManager.getSerialNumberForUser(user);
+        return mUserManager.getSerialNumberForUser(user)
     }
 
-    @Override
-    public UserHandle getUserForSerialNumber(long serialNumber) {
-        synchronized (this) {
-            if (mUsers != null) {
-                return mUsers.get(serialNumber);
-            }
+    override fun getUserForSerialNumber(serialNumber: Long): UserHandle? {
+        synchronized(this) {
+            mUsers?.get(serialNumber)?.let { return it }
         }
-        return mUserManager.getUserForSerialNumber(serialNumber);
+        return mUserManager.getUserForSerialNumber(serialNumber)
     }
 
-    @Override
-    public boolean isQuietModeEnabled(UserHandle user) {
-        return false;
-    }
+    override fun isQuietModeEnabled(user: UserHandle): Boolean = false
 
-    @Override
-    public boolean isUserUnlocked(UserHandle user) {
-        return true;
-    }
+    override fun isUserUnlocked(user: UserHandle): Boolean = true
 
-    @Override
-    public boolean isDemoUser() {
-        return false;
-    }
+    override fun isDemoUser(): Boolean = false
 
-    @Override
-    public void enableAndResetCache() {
-        synchronized (this) {
-            mUsers = new LongArrayMap<>();
-            mUserToSerialMap = new ArrayMap<>();
-            List<UserHandle> users = mUserManager.getUserProfiles();
-            if (users != null) {
-                for (UserHandle user : users) {
-                    long serial = mUserManager.getSerialNumberForUser(user);
-                    mUsers.put(serial, user);
-                    mUserToSerialMap.put(user, serial);
+    override fun enableAndResetCache() {
+        synchronized(this) {
+            val users = LongArrayMap<UserHandle>()
+            val serialMap = ArrayMap<UserHandle, Long>()
+            val profiles = mUserManager.userProfiles
+            if (profiles != null) {
+                for (user in profiles) {
+                    val serial = mUserManager.getSerialNumberForUser(user)
+                    users.put(serial, user)
+                    serialMap[user] = serial
                 }
             }
+            mUsers = users
+            mUserToSerialMap = serialMap
         }
     }
 
-    @Override
-    public List<UserHandle> getUserProfiles() {
-        synchronized (this) {
-            if (mUsers != null) {
-                return new ArrayList<>(mUserToSerialMap.keySet());
+    override fun getUserProfiles(): List<UserHandle> {
+        synchronized(this) {
+            val serialMap = mUserToSerialMap
+            if (mUsers != null && serialMap != null) {
+                return ArrayList(serialMap.keys)
             }
         }
 
-        List<UserHandle> users = mUserManager.getUserProfiles();
-        return users == null ? Collections.emptyList() : users;
+        val users = mUserManager.userProfiles
+        return users ?: Collections.emptyList()
     }
 
-    @Override
-    public CharSequence getBadgedLabelForUser(CharSequence label, UserHandle user) {
+    override fun getBadgedLabelForUser(label: CharSequence, user: UserHandle?): CharSequence {
         if (user == null) {
-            return label;
+            return label
         }
-        return mPm.getUserBadgedLabel(label, user);
+        return mPm.getUserBadgedLabel(label, user)
     }
 
-    @Override
-    public long getUserCreationTime(UserHandle user) {
-        SharedPreferences prefs = Preferences.getPrefs(mContext);
-        String key = Constants.USER_CREATION_TIME_KEY + getSerialNumberForUser(user);
+    override fun getUserCreationTime(user: UserHandle): Long {
+        val prefs = Preferences.getPrefs(mContext)
+        val key = Constants.USER_CREATION_TIME_KEY + getSerialNumberForUser(user)
         if (!prefs.contains(key)) {
-            Preferences.setUserCreationTime(mContext, key);
+            Preferences.setUserCreationTime(mContext, key)
         }
-        return prefs.getLong(key, 0);
+        return prefs.getLong(key, 0)
     }
 }

@@ -1,35 +1,28 @@
-package com.cloudx.ios17.core.database.daos;
+package com.cloudx.ios17.core.database.daos
 
-import androidx.room.Dao;
-import androidx.room.Insert;
-import androidx.room.OnConflictStrategy;
-import androidx.room.Query;
-
-import com.cloudx.ios17.core.database.model.WidgetItem;
-import com.cloudx.ios17.core.database.model.WidgetItem;
-import com.cloudx.ios17.core.database.model.WidgetItem;
-import com.cloudx.ios17.core.database.model.WidgetItem;
-
-import java.util.List;
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.cloudx.ios17.core.database.model.WidgetItem
 
 @Dao
-public interface WidgetDao {
-
+interface WidgetDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    long insert(WidgetItem widgetItem);
+    fun insert(widgetItem: WidgetItem): Long
 
     @Query("UPDATE widget_items SET height = :height WHERE id = :id")
-    void updateHeight(int id, int height);
+    fun updateHeight(id: Int, height: Int)
 
     @Query("SELECT height FROM widget_items WHERE id = :id")
-    int getHeight(int id);
+    fun getHeight(id: Int): Int
 
     @Query("SELECT * FROM widget_items")
-    List<WidgetItem> getAll();
+    fun getAll(): List<WidgetItem>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insertAll(List<WidgetItem> widgetItems);
+    fun insertAll(widgetItems: List<WidgetItem>)
 
     @Query("DELETE FROM widget_items WHERE id = :id")
-    void delete(int id);
+    fun delete(id: Int)
 }

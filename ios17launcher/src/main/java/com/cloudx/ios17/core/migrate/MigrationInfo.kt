@@ -1,14 +1,14 @@
-package com.cloudx.ios17.core.migrate;
+package com.cloudx.ios17.core.migrate
 
-import java.util.List;
+class MigrationInfo : Comparable<MigrationInfo> {
+    @JvmField
+    var startVersion: Int = 0
 
-public class MigrationInfo implements Comparable<MigrationInfo> {
-    public int startVersion;
-    public int endVersion;
-    public List<MigrateComponentInfo> components;
+    @JvmField
+    var endVersion: Int = 0
 
-    @Override
-    public int compareTo(MigrationInfo o) {
-        return this.startVersion - o.startVersion;
-    }
+    @JvmField
+    var components: List<MigrateComponentInfo>? = null
+
+    override fun compareTo(other: MigrationInfo): Int = startVersion - other.startVersion
 }

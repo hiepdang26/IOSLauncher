@@ -1,13 +1,11 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.graphics.Rect;
-import android.view.View;
+import android.graphics.Rect
 
 /**
- * Allows the implementing {@link View} to not draw underneath system bars.
- * e.g., notification bar on top and home key area on the bottom.
+ * Allows the implementing view to not draw underneath system bars, e.g. the
+ * notification bar on top and home key area on the bottom.
  */
-public interface Insettable {
-
-    void setInsets(Rect insets);
+interface Insettable {
+    fun setInsets(insets: Rect?)
 }

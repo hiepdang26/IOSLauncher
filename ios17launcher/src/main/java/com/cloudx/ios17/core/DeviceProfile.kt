@@ -1,414 +1,470 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.graphics.Matrix;
-import android.graphics.Path;
-import android.graphics.Point;
-import android.graphics.Rect;
-import android.graphics.RectF;
-import android.util.DisplayMetrics;
-import android.view.Display;
-import android.view.WindowManager;
+import android.content.Context
+import android.content.res.Configuration
+import android.content.res.Resources
+import android.graphics.Matrix
+import android.graphics.Path
+import android.graphics.Point
+import android.graphics.Rect
+import android.graphics.RectF
+import android.util.DisplayMetrics
+import android.view.WindowManager
+import com.cloudx.ios17.core.customviews.PathParser
+import com.cloudx.ios17.core.utils.AdaptiveIconUtils
 
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
+class DeviceProfile(context: Context) {
 
-import java.util.ArrayList;
+    private val widthCm: Float
+    private val ratio: Float
+    private val preferredHomeIconSizeDp: Int
+    private var statusBarHeight = 0
 
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
-import com.cloudx.ios17.core.customviews.PathParser;
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
+    @JvmField
+    var cellHeightWithoutPaddingPx = 0
 
-public class DeviceProfile {
+    @JvmField
+    var hotseatCellHeightWithoutPaddingPx = 0
 
-    private static final int TYPE_WORKSPACE = 0;
-    private static final int TYPE_FOLDER = 1;
-    private static final int TYPE_HOTSEAT = 2;
-    private static final String LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences";
-    private static final String KEY_HOME_GRID_ROWS = "home_grid_rows";
-    private static final String KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp";
-    private static final float ICON_SIZE_DEFINED_IN_APP_DP = 48;
-    private static final int DEFAULT_HOME_GRID_ROWS = 6;
-    private static final int MIN_HOME_GRID_ROWS = 5;
-    private static final int MAX_HOME_GRID_ROWS = 6;
-    private static final int DEFAULT_HOME_ICON_SIZE_DP = 64;
-    private static final int MIN_HOME_ICON_SIZE_DP = 52;
-    private static final int MAX_HOME_ICON_SIZE_DP = 78;
+    @JvmField
+    var fillResIconDpi = 0
 
-    public static Path path;
-    private final float widthCm;
-    private final float ratio;
-    private final int preferredHomeIconSizeDp;
-    private int statusBarHeight;
-    public int cellHeightWithoutPaddingPx;
-    public int hotseatCellHeightWithoutPaddingPx;
-    public int fillResIconDpi;
-
-    public interface LauncherLayoutChangeListener {
-        void onLauncherLayoutChanged();
+    interface LauncherLayoutChangeListener {
+        fun onLauncherLayoutChanged()
     }
 
-    /**
-     * Number of icons per row and column in the workspace.
-     */
-    public int numRows;
-    public int numColumns;
-    public int maxAppsPerPage;
+    /** Number of icons per row and column in the workspace. */
+    @JvmField
+    var numRows = 0
 
-    /**
-     * Number of icons per row and column in the folder.
-     */
-    public int numFolderRows;
-    public int numFolderColumns;
+    @JvmField
+    var numColumns = 0
 
-    /**
-     * Number of icons inside the hotseat area.
-     */
-    public int numHotseatIcons;
+    @JvmField
+    var maxAppsPerPage = 0
 
-    // Device properties in current orientation
-    public final int widthPx;
-    public final int heightPx;
-    public final int availableWidthPx;
-    public final int availableHeightPx;
+    /** Number of icons per row and column in the folder. */
+    @JvmField
+    var numFolderRows = 0
 
-    // Page indicator
-    public int pageIndicatorSizePx;
-    public int pageIndicatorTopPaddingPx;
-    public int pageIndicatorBottomPaddingPx;
+    @JvmField
+    var numFolderColumns = 0
 
-    // Workspace icons
-    public int iconSizePx;
-    public int iconTextSizePx;
-    public int iconDrawablePaddingPx;
+    /** Number of icons inside the hotseat area. */
+    @JvmField
+    var numHotseatIcons = 0
 
-    // Calendar icon
-    public int dateTextSize;
-    public int monthTextSize;
-    public int dateTextviewHeight;
-    public int monthTextviewHeight;
-    public int calendarIconWidth;
-    public int dateTextBottomPadding;
-    public int dateTextTopPadding;
+    // Device properties in current orientation.
+    @JvmField
+    val widthPx: Int
 
-    // Uninstall icon
-    public int uninstallIconSizePx;
-    public int uninstallIconPadding;
+    @JvmField
+    val heightPx: Int
 
-    public int cellWidthPx;
-    public int cellHeightPx;
-    public int workspaceCellPaddingXPx;
+    @JvmField
+    val availableWidthPx: Int
 
-    // Widget
-    public int maxWidgetWidth;
-    public int maxWidgetHeight;
+    @JvmField
+    val availableHeightPx: Int
 
-    // Folder
-    public int folderBackgroundOffset;
-    public int folderIconSizePx;
-    public int folderIconPreviewPadding;
+    // Page indicator.
+    @JvmField
+    var pageIndicatorSizePx = 0
 
-    // Folder cell
-    public int folderCellWidthPx;
-    public int folderCellHeightPx;
+    @JvmField
+    var pageIndicatorTopPaddingPx = 0
 
-    // Folder child
-    public int folderChildIconSizePx;
-    public int folderChildTextSizePx;
-    public int folderChildDrawablePaddingPx;
+    @JvmField
+    var pageIndicatorBottomPaddingPx = 0
 
-    // Hotseat
-    public int hotseatCellWidthPx;
-    public int hotseatCellHeightPx;
-    // In portrait: size = height, in landscape: size = width
-    public int hotseatBarSizePx;
-    public int hotseatBarTopPaddingPx;
-    public int hotseatBarBottomPaddingPx;
+    // Workspace icons.
+    @JvmField
+    var iconSizePx = 0
 
-    public int hotseatBarLeftNavBarLeftPaddingPx;
-    public int hotseatBarLeftNavBarRightPaddingPx;
+    @JvmField
+    var iconTextSizePx = 0
 
-    public int hotseatBarRightNavBarLeftPaddingPx;
-    public int hotseatBarRightNavBarRightPaddingPx;
+    @JvmField
+    var iconDrawablePaddingPx = 0
 
-    // All apps
-    public int allAppsCellHeightPx;
-    public int allAppsNumCols;
-    public int allAppsNumPredictiveCols;
-    public int allAppsButtonVisualSize;
-    public int allAppsIconSizePx;
-    public int allAppsIconDrawablePaddingPx;
-    public float allAppsIconTextSizePx;
+    // Calendar icon.
+    @JvmField
+    var dateTextSize = 0
 
-    // Drop Target
-    public int dropTargetBarSizePx;
+    @JvmField
+    var monthTextSize = 0
 
-    // Insets
-    private Rect mInsets = new Rect();
+    @JvmField
+    var dateTextviewHeight = 0
 
-    // Listeners
-    private ArrayList<LauncherLayoutChangeListener> mListeners = new ArrayList<>();
+    @JvmField
+    var monthTextviewHeight = 0
 
-    private static final String TAG = "DeviceProfile";
+    @JvmField
+    var calendarIconWidth = 0
 
-    public DeviceProfile(Context context) {
+    @JvmField
+    var dateTextBottomPadding = 0
 
-        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-        Display display = wm.getDefaultDisplay();
-        DisplayMetrics dm = new DisplayMetrics();
-        display.getMetrics(dm);
+    @JvmField
+    var dateTextTopPadding = 0
 
-        Point smallestSize = new Point();
-        Point largestSize = new Point();
-        display.getCurrentSizeRange(smallestSize, largestSize);
+    // Uninstall icon.
+    @JvmField
+    var uninstallIconSizePx = 0
 
-        availableWidthPx = smallestSize.x;
-        availableHeightPx = largestSize.y;
+    @JvmField
+    var uninstallIconPadding = 0
 
-        Point realSize = new Point();
-        display.getRealSize(realSize);
+    @JvmField
+    var cellWidthPx = 0
 
-        widthPx = realSize.x;
-        double x = widthPx / dm.densityDpi;
-        ratio = (float) dm.densityDpi / dm.xdpi;
-        widthCm = (float) (x * 2.540001f);
-        heightPx = realSize.y;
+    @JvmField
+    var cellHeightPx = 0
 
-        context = getContext(context, Configuration.ORIENTATION_PORTRAIT);
-        Resources res = context.getResources();
+    @JvmField
+    var workspaceCellPaddingXPx = 0
 
-        // status bar height
-        statusBarHeight = 0;
-        int resourceId = res.getIdentifier("status_bar_height", "dimen", "android");
+    // Widget.
+    @JvmField
+    var maxWidgetWidth = 0
+
+    @JvmField
+    var maxWidgetHeight = 0
+
+    // Folder.
+    @JvmField
+    var folderBackgroundOffset = 0
+
+    @JvmField
+    var folderIconSizePx = 0
+
+    @JvmField
+    var folderIconPreviewPadding = 0
+
+    // Folder cell.
+    @JvmField
+    var folderCellWidthPx = 0
+
+    @JvmField
+    var folderCellHeightPx = 0
+
+    // Folder child.
+    @JvmField
+    var folderChildIconSizePx = 0
+
+    @JvmField
+    var folderChildTextSizePx = 0
+
+    @JvmField
+    var folderChildDrawablePaddingPx = 0
+
+    // Hotseat.
+    @JvmField
+    var hotseatCellWidthPx = 0
+
+    @JvmField
+    var hotseatCellHeightPx = 0
+
+    // In portrait: size = height, in landscape: size = width.
+    @JvmField
+    var hotseatBarSizePx = 0
+
+    @JvmField
+    var hotseatBarTopPaddingPx = 0
+
+    @JvmField
+    var hotseatBarBottomPaddingPx = 0
+
+    @JvmField
+    var hotseatBarLeftNavBarLeftPaddingPx = 0
+
+    @JvmField
+    var hotseatBarLeftNavBarRightPaddingPx = 0
+
+    @JvmField
+    var hotseatBarRightNavBarLeftPaddingPx = 0
+
+    @JvmField
+    var hotseatBarRightNavBarRightPaddingPx = 0
+
+    // All apps.
+    @JvmField
+    var allAppsCellHeightPx = 0
+
+    @JvmField
+    var allAppsNumCols = 0
+
+    @JvmField
+    var allAppsNumPredictiveCols = 0
+
+    @JvmField
+    var allAppsButtonVisualSize = 0
+
+    @JvmField
+    var allAppsIconSizePx = 0
+
+    @JvmField
+    var allAppsIconDrawablePaddingPx = 0
+
+    @JvmField
+    var allAppsIconTextSizePx = 0f
+
+    // Drop target.
+    @JvmField
+    var dropTargetBarSizePx = 0
+
+    private val mInsets = Rect()
+    private val mListeners = ArrayList<LauncherLayoutChangeListener>()
+
+    init {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val display = wm.defaultDisplay
+        val dm = DisplayMetrics()
+        display.getMetrics(dm)
+
+        val smallestSize = Point()
+        val largestSize = Point()
+        display.getCurrentSizeRange(smallestSize, largestSize)
+
+        availableWidthPx = smallestSize.x
+        availableHeightPx = largestSize.y
+
+        val realSize = Point()
+        display.getRealSize(realSize)
+
+        widthPx = realSize.x
+        val x = widthPx / dm.densityDpi.toDouble()
+        ratio = dm.densityDpi.toFloat() / dm.xdpi
+        widthCm = (x * 2.540001f).toFloat()
+        heightPx = realSize.y
+
+        val portraitContext = getContext(context, Configuration.ORIENTATION_PORTRAIT)
+        val res = portraitContext.resources
+
+        statusBarHeight = 0
+        val resourceId = res.getIdentifier("status_bar_height", "dimen", "android")
         if (resourceId > 0) {
-            statusBarHeight = res.getDimensionPixelSize(resourceId);
+            statusBarHeight = res.getDimensionPixelSize(resourceId)
         }
 
-        ComponentName cn = new ComponentName(context.getPackageName(), this.getClass().getName());
+        pageIndicatorSizePx = Utilities.pxFromDp(8f, dm)
+        pageIndicatorTopPaddingPx = Utilities.pxFromDp(8f, dm)
+        pageIndicatorBottomPaddingPx = Utilities.pxFromDp(8f, dm)
 
-        pageIndicatorSizePx = Utilities.pxFromDp(8, dm);
-        pageIndicatorTopPaddingPx = Utilities.pxFromDp(8, dm);
-        pageIndicatorBottomPaddingPx = Utilities.pxFromDp(8, dm);
+        val layoutPreferences = portraitContext.getSharedPreferences(
+            LAYOUT_PREFERENCES_NAME,
+            Context.MODE_PRIVATE
+        )
 
-        SharedPreferences layoutPreferences = context.getSharedPreferences(LAYOUT_PREFERENCES_NAME,
-                Context.MODE_PRIVATE);
+        numColumns = 4
+        numRows = LauncherHomeLayoutPolicy.normalizeRows(
+            layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
+        )
+        preferredHomeIconSizeDp = clamp(
+            layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP),
+            MIN_HOME_ICON_SIZE_DP,
+            MAX_HOME_ICON_SIZE_DP
+        )
+        numFolderColumns = 3
+        numHotseatIcons = numColumns
+        numFolderRows = numFolderColumns
 
-        numColumns = 4;
-        numRows = clamp(layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS),
-                MIN_HOME_GRID_ROWS, MAX_HOME_GRID_ROWS);
-        preferredHomeIconSizeDp = clamp(layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP),
-                MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP);
-        numFolderColumns = 3;
-        numHotseatIcons = numColumns;
-        numFolderRows = numFolderColumns;
-
-        // Calculate all of the remaining variables.
-        updateAvailableDimensions(dm, res);
-
-        /*
-         * // Now that we have all of the variables calculated, we can tune certain
-         * sizes. float aspectRatio = ((float) Math.max(widthPx, heightPx)) /
-         * Math.min(widthPx, heightPx); boolean isTallDevice =
-         * Float.compare(aspectRatio, TALL_DEVICE_ASPECT_RATIO_THRESHOLD) >= 0; if
-         * (isTallDevice) { // We increase the hotseat size when there is extra space.
-         * // ie. For a display with a large aspect ratio, we can keep the icons on the
-         * workspace // in portrait mode closer together by adding more height to the
-         * hotseat. // Note: This calculation was created after noticing a pattern in
-         * the design spec. int extraSpace = getCellSize().y - iconSizePx -
-         * iconDrawablePaddingPx; hotseatBarSizePx += extraSpace - pageIndicatorSizePx;
-         * 
-         * // Recalculate the available dimensions using the new hotseat size.
-         * updateAvailableDimensions(dm, res); }
-         */
+        updateAvailableDimensions(dm, res)
     }
 
-    private void updateAvailableDimensions(DisplayMetrics dm, Resources res) {
-        updateIconSize(1f, res, dm);
-        path = getRoundedCornerPath(iconSizePx);
+    private fun updateAvailableDimensions(dm: DisplayMetrics, res: Resources) {
+        updateIconSize(1f, res, dm)
+        path = getRoundedCornerPath(iconSizePx)
     }
 
-    private void updateIconSize(float scale, Resources res, DisplayMetrics dm) {
-        iconSizePx = Utilities.pxFromDp(preferredHomeIconSizeDp, dm);
-        iconTextSizePx = (int) (Utilities.pxFromSp(12, dm) * scale);
-        int homeContentHorizontalPaddingPx = Utilities.pxFromDp(36, dm);
-        int pageHorizontalPaddingPx = Utilities.pxFromDp(8, dm);
-        int dockHorizontalPaddingPx = Utilities.pxFromDp(28, dm);
-        int workspaceGridWidthPx = Math.max(numColumns,
-                availableWidthPx - homeContentHorizontalPaddingPx - pageHorizontalPaddingPx);
-        int dockGridWidthPx = Math.max(numColumns,
-                availableWidthPx - homeContentHorizontalPaddingPx - dockHorizontalPaddingPx);
-        cellWidthPx = calculateCellWidth(workspaceGridWidthPx, numColumns);
-        hotseatCellWidthPx = calculateCellWidth(dockGridWidthPx, numColumns);
-        iconDrawablePaddingPx = Math.max(Utilities.pxFromDp(4, dm), (cellWidthPx - iconSizePx) / 2);
+    private fun updateIconSize(scale: Float, res: Resources, dm: DisplayMetrics) {
+        iconSizePx = Utilities.pxFromDp(preferredHomeIconSizeDp.toFloat(), dm)
+        iconTextSizePx = (Utilities.pxFromSp(12f, dm) * scale).toInt()
+        val homeContentHorizontalPaddingPx = Utilities.pxFromDp(36f, dm)
+        val pageHorizontalPaddingPx = Utilities.pxFromDp(8f, dm)
+        val dockHorizontalPaddingPx = Utilities.pxFromDp(28f, dm)
+        val workspaceGridWidthPx = maxOf(
+            numColumns,
+            availableWidthPx - homeContentHorizontalPaddingPx - pageHorizontalPaddingPx
+        )
+        val dockGridWidthPx = maxOf(
+            numColumns,
+            availableWidthPx - homeContentHorizontalPaddingPx - dockHorizontalPaddingPx
+        )
+        cellWidthPx = calculateCellWidth(workspaceGridWidthPx, numColumns)
+        hotseatCellWidthPx = calculateCellWidth(dockGridWidthPx, numColumns)
+        iconDrawablePaddingPx = LauncherHomeLayoutPolicy.iconPadding(
+            cellWidthPx,
+            iconSizePx,
+            Utilities.pxFromDp(4f, dm)
+        )
 
-        int tempUninstallIconSize = iconSizePx * 72 / 192;
-        uninstallIconSizePx = (tempUninstallIconSize > iconDrawablePaddingPx)
-                ? iconDrawablePaddingPx
-                : tempUninstallIconSize;
-        uninstallIconPadding = iconSizePx * 10 / 192;
+        val tempUninstallIconSize = iconSizePx * 72 / 192
+        uninstallIconSizePx =
+            if (tempUninstallIconSize > iconDrawablePaddingPx) {
+                iconDrawablePaddingPx
+            } else {
+                tempUninstallIconSize
+            }
+        uninstallIconPadding = iconSizePx * 10 / 192
 
-        calendarIconWidth = iconSizePx;
-        monthTextviewHeight = iconSizePx * 40 / 192;
-        monthTextSize = iconSizePx * 48 / 192;
-        dateTextviewHeight = iconSizePx * 152 / 192;
-        dateTextSize = iconSizePx * 154 / 192;
+        calendarIconWidth = iconSizePx
+        monthTextviewHeight = iconSizePx * 40 / 192
+        monthTextSize = iconSizePx * 48 / 192
+        dateTextviewHeight = iconSizePx * 152 / 192
+        dateTextSize = iconSizePx * 154 / 192
 
-        dateTextTopPadding = (dateTextviewHeight
-                - (int) (1.14 * Utilities.calculateTextHeight((float) dateTextSize / 2))) / 2;
-        dateTextBottomPadding = (dateTextviewHeight
-                - (int) (0.86 * Utilities.calculateTextHeight((float) dateTextSize / 2))) / 2;
+        dateTextTopPadding =
+            (dateTextviewHeight - (1.14 * Utilities.calculateTextHeight(dateTextSize.toFloat() / 2)).toInt()) / 2
+        dateTextBottomPadding =
+            (dateTextviewHeight - (0.86 * Utilities.calculateTextHeight(dateTextSize.toFloat() / 2)).toInt()) / 2
 
-        cellHeightWithoutPaddingPx = iconSizePx + Utilities.pxFromDp(4, dm)
-                + Utilities.calculateTextHeight(iconTextSizePx);
+        cellHeightWithoutPaddingPx =
+            iconSizePx + Utilities.pxFromDp(4f, dm) + Utilities.calculateTextHeight(iconTextSizePx.toFloat())
 
-        int bottomControlsPx = Utilities.pxFromDp(16 + 54 + 8 + 14, dm)
-                + getPageIndicatorHeight()
-                + iconSizePx
-                + Utilities.pxFromDp(28, dm);
-        int topPaddingPx = Utilities.pxFromDp(78, dm);
-        int availableGridHeightPx = Math.max(cellHeightWithoutPaddingPx * numRows,
-                availableHeightPx - topPaddingPx - bottomControlsPx);
-        cellHeightPx = calculateCellHeight(availableGridHeightPx, numRows);
+        val bottomControlsPx = Utilities.pxFromDp((16 + 54 + 8 + 14).toFloat(), dm) +
+            pageIndicatorHeight +
+            iconSizePx +
+            Utilities.pxFromDp(28f, dm)
+        val topPaddingPx = Utilities.pxFromDp(78f, dm)
+        val availableGridHeightPx = maxOf(
+            cellHeightWithoutPaddingPx * numRows,
+            availableHeightPx - topPaddingPx - bottomControlsPx
+        )
+        cellHeightPx = calculateCellHeight(availableGridHeightPx, numRows)
 
-        // Hotseat
-        hotseatCellHeightWithoutPaddingPx = iconSizePx;
-        hotseatCellHeightPx = iconSizePx + Utilities.pxFromDp(28, dm);
+        hotseatCellHeightWithoutPaddingPx = iconSizePx
+        hotseatCellHeightPx = iconSizePx + Utilities.pxFromDp(28f, dm)
 
-        maxAppsPerPage = numColumns * numRows;
+        maxAppsPerPage = LauncherHomeLayoutPolicy.pageSize(numRows, numColumns)
 
-        // Folder icon
-        folderIconSizePx = iconSizePx;
+        folderIconSizePx = iconSizePx
 
-        fillResIconDpi = getLauncherIconDensity(iconSizePx);
+        fillResIconDpi = getLauncherIconDensity(iconSizePx)
 
-        maxWidgetWidth = availableWidthPx - (2 * Utilities.pxFromDp(8, dm));
-        maxWidgetHeight = getWorkspaceHeight();
+        maxWidgetWidth = availableWidthPx - 2 * Utilities.pxFromDp(8f, dm)
+        maxWidgetHeight = workspaceHeight
     }
 
-    public static int calculateCellWidth(int width, int countX) {
-        return width / countX;
-    }
+    private fun getCurrentWidth(): Int = minOf(widthPx, heightPx)
 
-    public static int calculateCellHeight(int height, int countY) {
-        return height / countY;
-    }
+    private fun getCurrentHeight(): Int = maxOf(widthPx, heightPx)
 
-    private int getCurrentWidth() {
-        return Math.min(widthPx, heightPx);
-    }
+    val workspaceHeight: Int
+        get() = cellHeightPx * numRows
 
-    private int getCurrentHeight() {
-        return Math.max(widthPx, heightPx);
-    }
+    fun getAvailableWidthPx(): Int = availableWidthPx
 
-    public int getWorkspaceHeight() {
-        return cellHeightPx * numRows;
-    }
+    val pageIndicatorHeight: Int
+        get() = pageIndicatorSizePx + pageIndicatorBottomPaddingPx + pageIndicatorTopPaddingPx
 
-    public int getAvailableWidthPx() {
-        return availableWidthPx;
-    }
+    fun getMaxWidgetWidth(): Int = maxWidgetWidth
 
-    public int getPageIndicatorHeight() {
-        return pageIndicatorSizePx + pageIndicatorBottomPaddingPx + pageIndicatorTopPaddingPx;
-    }
+    fun getMaxWidgetHeight(): Int = maxWidgetHeight
 
-    public int getMaxWidgetWidth() {
-        return maxWidgetWidth;
-    }
-
-    public int getMaxWidgetHeight() {
-        return maxWidgetHeight;
-    }
-
-    public int getCellHeight(int containerType) {
-        switch (containerType) {
-            case TYPE_WORKSPACE :
-                return cellHeightPx;
-            case TYPE_FOLDER :
-                return folderCellHeightPx;
-            case TYPE_HOTSEAT :
-                return hotseatCellHeightPx;
-            default :
-                // ??
-                return 0;
+    fun getCellHeight(containerType: Int): Int =
+        when (containerType) {
+            TYPE_WORKSPACE -> cellHeightPx
+            TYPE_FOLDER -> folderCellHeightPx
+            TYPE_HOTSEAT -> hotseatCellHeightPx
+            else -> 0
         }
+
+    fun getRoundedCornerPath(iconSize: Int): Path =
+        resizePath(PathParser.createPathFromPathData(AdaptiveIconUtils.getMaskPath()), iconSize, iconSize)
+
+    private fun resizePath(path: Path, width: Int, height: Int): Path {
+        val bounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
+        val resizedPath = Path(path)
+        val src = RectF()
+        resizedPath.computeBounds(src, true)
+
+        val resizeMatrix = Matrix()
+        resizeMatrix.setRectToRect(src, bounds, Matrix.ScaleToFit.CENTER)
+        resizedPath.transform(resizeMatrix)
+
+        return resizedPath
     }
 
-    private static Context getContext(Context c, int orientation) {
-        Configuration context = new Configuration(c.getResources().getConfiguration());
-        context.orientation = orientation;
-        return c.createConfigurationContext(context);
+    fun hasSoftNavigationBar(context: Context): Boolean {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val display = wm.defaultDisplay
+        val dm = DisplayMetrics()
+        display.getMetrics(dm)
 
-    }
+        val smallestSize = Point()
+        val largestSize = Point()
+        display.getCurrentSizeRange(smallestSize, largestSize)
 
-    public Path getRoundedCornerPath(int iconSize) {
-        return resizePath(PathParser.createPathFromPathData(AdaptiveIconUtils.getMaskPath()), iconSize, iconSize);
-    }
+        val availableHeight = largestSize.y
 
-    private Path resizePath(Path path, int width, int height) {
-        RectF bounds = new RectF(0, 0, width, height);
-        Path resizedPath = new Path(path);
-        RectF src = new RectF();
-        resizedPath.computeBounds(src, true);
+        val realSize = Point()
+        display.getRealSize(realSize)
+        val realHeight = realSize.y
+        val portraitContext = getContext(context, Configuration.ORIENTATION_PORTRAIT)
+        val res = portraitContext.resources
 
-        Matrix resizeMatrix = new Matrix();
-        resizeMatrix.setRectToRect(src, bounds, Matrix.ScaleToFit.CENTER);
-        resizedPath.transform(resizeMatrix);
-
-        return resizedPath;
-    }
-
-    public boolean hasSoftNavigationBar(Context context) {
-        WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-        Display display = wm.getDefaultDisplay();
-        DisplayMetrics dm = new DisplayMetrics();
-        display.getMetrics(dm);
-
-        Point smallestSize = new Point();
-        Point largestSize = new Point();
-        display.getCurrentSizeRange(smallestSize, largestSize);
-
-        int availableHeight = largestSize.y;
-
-        Point realSize = new Point();
-        display.getRealSize(realSize);
-        int realHeight = realSize.y;
-        context = getContext(context, Configuration.ORIENTATION_PORTRAIT);
-        Resources res = context.getResources();
-
-        // status bar height
-        statusBarHeight = 0;
-        int resourceId = res.getIdentifier("status_bar_height", "dimen", "android");
+        statusBarHeight = 0
+        val resourceId = res.getIdentifier("status_bar_height", "dimen", "android")
         if (resourceId > 0) {
-            statusBarHeight = res.getDimensionPixelSize(resourceId);
+            statusBarHeight = res.getDimensionPixelSize(resourceId)
         }
 
-        return (realHeight - availableHeight - statusBarHeight) > 0;
+        return realHeight - availableHeight - statusBarHeight > 0
     }
 
-    private int getLauncherIconDensity(int requiredSize) {
-        // Densities typically defined by an app.
-        int[] densityBuckets = new int[]{DisplayMetrics.DENSITY_LOW, DisplayMetrics.DENSITY_MEDIUM,
-                DisplayMetrics.DENSITY_TV, DisplayMetrics.DENSITY_HIGH, DisplayMetrics.DENSITY_XHIGH,
-                DisplayMetrics.DENSITY_XXHIGH, DisplayMetrics.DENSITY_XXXHIGH};
+    private fun getLauncherIconDensity(requiredSize: Int): Int {
+        val densityBuckets = intArrayOf(
+            DisplayMetrics.DENSITY_LOW,
+            DisplayMetrics.DENSITY_MEDIUM,
+            DisplayMetrics.DENSITY_TV,
+            DisplayMetrics.DENSITY_HIGH,
+            DisplayMetrics.DENSITY_XHIGH,
+            DisplayMetrics.DENSITY_XXHIGH,
+            DisplayMetrics.DENSITY_XXXHIGH
+        )
 
-        int density = DisplayMetrics.DENSITY_XXXHIGH;
-        for (int i = densityBuckets.length - 1; i >= 0; i--) {
-            float expectedSize = ICON_SIZE_DEFINED_IN_APP_DP * densityBuckets[i] / DisplayMetrics.DENSITY_DEFAULT;
+        var density = DisplayMetrics.DENSITY_XXXHIGH
+        for (i in densityBuckets.indices.reversed()) {
+            val expectedSize =
+                ICON_SIZE_DEFINED_IN_APP_DP * densityBuckets[i] / DisplayMetrics.DENSITY_DEFAULT
             if (expectedSize >= requiredSize) {
-                density = densityBuckets[i];
+                density = densityBuckets[i]
             }
         }
 
-        return density;
+        return density
     }
 
-    private static int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
+    companion object {
+        private const val TYPE_WORKSPACE = 0
+        private const val TYPE_FOLDER = 1
+        private const val TYPE_HOTSEAT = 2
+        private const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
+        private const val KEY_HOME_GRID_ROWS = "home_grid_rows"
+        private const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
+        private const val ICON_SIZE_DEFINED_IN_APP_DP = 48f
+        private const val DEFAULT_HOME_GRID_ROWS = LauncherHomeLayoutPolicy.DEFAULT_HOME_GRID_ROWS
+        private const val DEFAULT_HOME_ICON_SIZE_DP = 64
+        private const val MIN_HOME_ICON_SIZE_DP = 52
+        private const val MAX_HOME_ICON_SIZE_DP = 78
+
+        @JvmField
+        var path: Path = Path()
+
+        @JvmStatic
+        fun calculateCellWidth(width: Int, countX: Int): Int = width / countX
+
+        @JvmStatic
+        fun calculateCellHeight(height: Int, countY: Int): Int = height / countY
+
+        private fun getContext(c: Context, orientation: Int): Context {
+            val configuration = Configuration(c.resources.configuration)
+            configuration.orientation = orientation
+            return c.createConfigurationContext(configuration)
+        }
+
+        private fun clamp(value: Int, min: Int, max: Int): Int = maxOf(min, minOf(max, value))
     }
 }

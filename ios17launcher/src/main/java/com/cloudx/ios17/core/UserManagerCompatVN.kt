@@ -1,24 +1,15 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.annotation.TargetApi;
-import android.content.Context;
-import android.os.Build;
-import android.os.UserHandle;
+import android.annotation.TargetApi
+import android.content.Context
+import android.os.Build
+import android.os.UserHandle
 
 @TargetApi(Build.VERSION_CODES.N)
-public class UserManagerCompatVN extends UserManagerCompatVM {
+open class UserManagerCompatVN(context: Context) : UserManagerCompatVM(context) {
+    override fun isQuietModeEnabled(user: UserHandle): Boolean =
+        mUserManager.isQuietModeEnabled(user)
 
-    UserManagerCompatVN(Context context) {
-        super(context);
-    }
-
-    @Override
-    public boolean isQuietModeEnabled(UserHandle user) {
-        return mUserManager.isQuietModeEnabled(user);
-    }
-
-    @Override
-    public boolean isUserUnlocked(UserHandle user) {
-        return mUserManager.isUserUnlocked(user);
-    }
+    override fun isUserUnlocked(user: UserHandle): Boolean =
+        mUserManager.isUserUnlocked(user)
 }

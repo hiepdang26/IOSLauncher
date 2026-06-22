@@ -1,14 +1,8 @@
-package com.cloudx.ios17.core.database.model;
+package com.cloudx.ios17.core.database.model
 
-import android.widget.TextView;
+import android.widget.TextView
 
-/** Created by falcon on 17/3/18. */
-public class CalendarIcon {
-    public TextView monthTextView;
-    public TextView dayTextView;
-
-    public CalendarIcon(TextView monthTextView, TextView dayTextView) {
-        this.monthTextView = monthTextView;
-        this.dayTextView = dayTextView;
-    }
-}
+class CalendarIcon(
+    @JvmField var monthTextView: TextView,
+    @JvmField var dayTextView: TextView
+)

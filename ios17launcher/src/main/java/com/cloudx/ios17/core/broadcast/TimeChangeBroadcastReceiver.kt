@@ -1,39 +1,40 @@
-package com.cloudx.ios17.core.broadcast;
+package com.cloudx.ios17.core.broadcast
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import com.cloudx.ios17.core.events.EventRelay
+import com.cloudx.ios17.core.events.TimeChangedEvent
 
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.events.TimeChangedEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.events.TimeChangedEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.events.TimeChangedEvent;
-import com.cloudx.ios17.core.events.EventRelay;
-import com.cloudx.ios17.core.events.TimeChangedEvent;
-
-public class TimeChangeBroadcastReceiver extends BroadcastReceiver {
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        if (intent.getAction() != null && (intent.getAction().equalsIgnoreCase(Intent.ACTION_TIME_CHANGED)
-                || intent.getAction().equalsIgnoreCase(Intent.ACTION_DATE_CHANGED)
-                || intent.getAction().equalsIgnoreCase(Intent.ACTION_TIMEZONE_CHANGED)))
-            EventRelay.getInstance().push(new TimeChangedEvent());
+class TimeChangeBroadcastReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val action = intent.action
+        if (action != null &&
+            (
+                action.equals(Intent.ACTION_TIME_CHANGED, ignoreCase = true) ||
+                    action.equals(Intent.ACTION_DATE_CHANGED, ignoreCase = true) ||
+                    action.equals(Intent.ACTION_TIMEZONE_CHANGED, ignoreCase = true)
+                )
+        ) {
+            EventRelay.getInstance().push(TimeChangedEvent())
+        }
     }
 
-    public static TimeChangeBroadcastReceiver register(Context context) {
-        IntentFilter timeIntentFilter = new IntentFilter(Intent.ACTION_TIME_CHANGED);
-        timeIntentFilter.addAction(Intent.ACTION_DATE_CHANGED);
-        timeIntentFilter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
-        TimeChangeBroadcastReceiver receiver = new TimeChangeBroadcastReceiver();
-        context.registerReceiver(receiver, timeIntentFilter);
-        return receiver;
-    }
+    companion object {
+        @JvmStatic
+        fun register(context: Context): TimeChangeBroadcastReceiver {
+            val timeIntentFilter = IntentFilter(Intent.ACTION_TIME_CHANGED)
+            timeIntentFilter.addAction(Intent.ACTION_DATE_CHANGED)
+            timeIntentFilter.addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            val receiver = TimeChangeBroadcastReceiver()
+            context.registerReceiver(receiver, timeIntentFilter)
+            return receiver
+        }
 
-    public static void unregister(Context context, TimeChangeBroadcastReceiver receiver) {
-        context.unregisterReceiver(receiver);
+        @JvmStatic
+        fun unregister(context: Context, receiver: TimeChangeBroadcastReceiver) {
+            context.unregisterReceiver(receiver)
+        }
     }
 }

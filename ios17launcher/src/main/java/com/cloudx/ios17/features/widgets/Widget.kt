@@ -1,8 +1,11 @@
-package com.cloudx.ios17.features.widgets;
+package com.cloudx.ios17.features.widgets
 
-import android.appwidget.AppWidgetProviderInfo;
+import android.appwidget.AppWidgetProviderInfo
 
-public class Widget {
-    public int id;
-    public AppWidgetProviderInfo info;
+class Widget {
+    @JvmField
+    var id: Int = 0
+
+    @JvmField
+    var info: AppWidgetProviderInfo? = null
 }

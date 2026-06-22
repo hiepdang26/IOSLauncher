@@ -1,142 +1,116 @@
-/*
- * Copyright 2018 /e/.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package com.cloudx.ios17.core.utils;
+package com.cloudx.ios17.core.utils
 
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ActivityInfo;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.LauncherActivityInfo;
-import android.content.pm.LauncherApps;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.os.UserManager;
-import androidx.annotation.Nullable;
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherActivityInfo
+import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.IconsHandler
+import com.cloudx.ios17.core.database.model.ApplicationItem
+import com.cloudx.ios17.features.launcher.AppProvider
+import java.util.LinkedHashMap
+import timber.log.Timber
 
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.IconsHandler;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.IconsHandler;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.IconsHandler;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.IconsHandler;
-import timber.log.Timber;
+object AppUtils {
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+    private const val TAG = "AppUtils"
 
-public class AppUtils {
-
-    private static final String TAG = "AppUtils";
-    private static volatile LauncherApps sLauncherApps;
+    @Volatile
+    private var sLauncherApps: LauncherApps? = null
 
     /** Uses the PackageManager to find all launchable apps. */
     @SuppressLint("CheckResult")
-    public static Map<String, ApplicationItem> loadAll(Context context) {
+    @JvmStatic
+    fun loadAll(context: Context): Map<String, ApplicationItem> {
+        val manager = context.getSystemService(Context.USER_SERVICE) as android.os.UserManager
+        val launcherApps = getLauncherApps(context)
+        val iconsHandler = BlissLauncher.getApplication(context).iconsHandler
+        val appArrayMap = LinkedHashMap<String, ApplicationItem>()
 
-        UserManager manager = (UserManager) context.getSystemService(Context.USER_SERVICE);
-
-        if (sLauncherApps == null) {
-            sLauncherApps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-        }
-        IconsHandler iconsHandler = BlissLauncher.getApplication(context).getIconsHandler();
-        Map<String, ApplicationItem> appArrayMap = new LinkedHashMap<>();
-
-        // Handle multi-profile support introduced in Android 5 (#542)
-        for (android.os.UserHandle profile : manager.getUserProfiles()) {
-            UserHandle user = new UserHandle(manager.getSerialNumberForUser(profile), profile);
-            Timber.tag(TAG).i("totalAppsBefore: %s", sLauncherApps.getActivityList(null, profile).size());
-            List<LauncherActivityInfo> infos = sLauncherApps.getActivityList(null, profile);
-            for (LauncherActivityInfo activityInfo : infos) {
-                ApplicationInfo appInfo = activityInfo.getApplicationInfo();
+        for (profile in manager.userProfiles) {
+            val user = UserHandle(manager.getSerialNumberForUser(profile), profile)
+            val infos = launcherApps.getActivityList(null, profile)
+            Timber.tag(TAG).i("totalAppsBefore: %s", infos.size)
+            for (activityInfo in infos) {
+                val appInfo = activityInfo.applicationInfo
                 if (AppProvider.DISABLED_PACKAGES.contains(appInfo.packageName)) {
-                    continue;
+                    continue
                 }
-                ApplicationItem applicationItem = new ApplicationItem(activityInfo, user);
-                applicationItem.icon = iconsHandler.getDrawableIconForPackage(activityInfo, user);
-                String componentName = activityInfo.getComponentName().toString();
-                applicationItem.appType = iconsHandler.isClock(componentName)
-                        ? ApplicationItem.TYPE_CLOCK
-                        : (iconsHandler.isCalendar(componentName)
-                                ? ApplicationItem.TYPE_CALENDAR
-                                : ApplicationItem.TYPE_DEFAULT);
-                applicationItem.title = activityInfo.getLabel().toString();
-                applicationItem.container = Constants.CONTAINER_DESKTOP;
-                if (appInfo.packageName.equalsIgnoreCase("com.generalmagic.magicearth")) {
-                    applicationItem.title = context.getString(R.string.app_name_maps);
-                }
-                applicationItem.packageName = appInfo.packageName;
-                appArrayMap.put(applicationItem.id, applicationItem);
+                val applicationItem = createApplicationItem(context, activityInfo, user, iconsHandler, appInfo)
+                appArrayMap[applicationItem.id] = applicationItem
             }
         }
-        Timber.tag(TAG).i("Total Apps Loaded: %s", appArrayMap.size());
-        return appArrayMap;
+        Timber.tag(TAG).i("Total Apps Loaded: %s", appArrayMap.size)
+        return appArrayMap
     }
 
-    @Nullable
-    public static String getPackageNameForIntent(Intent intent, PackageManager pm) {
-        List<ResolveInfo> activities = pm.queryIntentActivities(intent, 0);
-        if (activities.size() == 0)
-            return null;
-        ActivityInfo activity = activities.get(0).activityInfo;
-        return activity.applicationInfo.packageName;
+    @JvmStatic
+    fun getPackageNameForIntent(intent: Intent, pm: PackageManager): String? {
+        val activities = pm.queryIntentActivities(intent, 0)
+        if (activities.isEmpty()) {
+            return null
+        }
+        val activity = activities[0].activityInfo
+        return activity.applicationInfo.packageName
     }
 
-    public static ApplicationItem createAppItem(Context context, String packageName, UserHandle userHandle) {
+    @JvmStatic
+    fun createAppItem(context: Context, packageName: String, userHandle: UserHandle): ApplicationItem? {
         if (AppProvider.DISABLED_PACKAGES.contains(packageName)) {
-            return null;
-        }
-        if (sLauncherApps == null) {
-            sLauncherApps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
+            return null
         }
 
-        IconsHandler iconsHandler = BlissLauncher.getApplication(context).getIconsHandler();
+        val launcherApps = getLauncherApps(context)
+        val iconsHandler = BlissLauncher.getApplication(context).iconsHandler
 
-        List<LauncherActivityInfo> launcherActivityInfos = sLauncherApps.getActivityList(packageName,
-                userHandle.getRealHandle());
-        if (launcherActivityInfos == null || launcherActivityInfos.size() == 0) {
-            return null;
+        val launcherActivityInfos = launcherApps.getActivityList(packageName, userHandle.getRealHandle())
+        if (launcherActivityInfos == null || launcherActivityInfos.isEmpty()) {
+            return null
         }
 
-        LauncherActivityInfo launcherActivityInfo = launcherActivityInfos.get(0);
-        if (launcherActivityInfo != null) {
-            ApplicationItem applicationItem = new ApplicationItem(launcherActivityInfo, userHandle);
-            ApplicationInfo appInfo = launcherActivityInfo.getApplicationInfo();
-            applicationItem.icon = iconsHandler.getDrawableIconForPackage(launcherActivityInfo, userHandle);
-            String componentName = launcherActivityInfo.getComponentName().toString();
-            applicationItem.appType = iconsHandler.isClock(componentName)
-                    ? ApplicationItem.TYPE_CLOCK
-                    : (iconsHandler.isCalendar(componentName)
-                            ? ApplicationItem.TYPE_CALENDAR
-                            : ApplicationItem.TYPE_DEFAULT);
-            applicationItem.title = launcherActivityInfo.getLabel().toString();
-            applicationItem.container = Constants.CONTAINER_DESKTOP;
-            if (appInfo.packageName.equalsIgnoreCase("com.generalmagic.magicearth")) {
-                applicationItem.title = context.getString(R.string.app_name_maps);
+        val launcherActivityInfo = launcherActivityInfos[0] ?: return null
+        val appInfo = launcherActivityInfo.applicationInfo
+        return createApplicationItem(context, launcherActivityInfo, userHandle, iconsHandler, appInfo)
+    }
+
+    private fun getLauncherApps(context: Context): LauncherApps {
+        val cached = sLauncherApps
+        if (cached != null) {
+            return cached
+        }
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        sLauncherApps = launcherApps
+        return launcherApps
+    }
+
+    private fun createApplicationItem(
+        context: Context,
+        activityInfo: LauncherActivityInfo,
+        user: UserHandle,
+        iconsHandler: IconsHandler,
+        appInfo: ApplicationInfo
+    ): ApplicationItem {
+        val applicationItem = ApplicationItem(activityInfo, user)
+        applicationItem.icon = iconsHandler.getDrawableIconForPackage(activityInfo, user)
+        val componentName = activityInfo.componentName.toString()
+        applicationItem.appType =
+            if (iconsHandler.isClock(componentName)) {
+                ApplicationItem.TYPE_CLOCK
+            } else if (iconsHandler.isCalendar(componentName)) {
+                ApplicationItem.TYPE_CALENDAR
+            } else {
+                ApplicationItem.TYPE_DEFAULT
             }
-            applicationItem.packageName = appInfo.packageName;
-            return applicationItem;
+        applicationItem.title = activityInfo.label.toString()
+        applicationItem.container = Constants.CONTAINER_DESKTOP.toLong()
+        if (appInfo.packageName.equals("com.generalmagic.magicearth", ignoreCase = true)) {
+            applicationItem.title = context.getString(R.string.app_name_maps)
         }
-
-        return null;
+        applicationItem.packageName = appInfo.packageName
+        return applicationItem
     }
 }

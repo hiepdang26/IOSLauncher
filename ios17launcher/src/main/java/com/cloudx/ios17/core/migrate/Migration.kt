@@ -1,98 +1,73 @@
-package com.cloudx.ios17.core.migrate;
+package com.cloudx.ios17.core.migrate
 
-import android.content.Context;
-import android.os.Build;
-import android.util.Log;
+import android.content.Context
+import android.os.Build
+import android.util.Log
+import com.cloudx.ios17.core.Preferences
+import com.cloudx.ios17.core.database.DatabaseManager
+import com.cloudx.ios17.core.database.LauncherDB
+import com.google.gson.Gson
+import java.io.IOException
 
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.LauncherDB;
-import com.google.gson.Gson;
+object Migration {
 
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.LauncherDB;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.LauncherDB;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.LauncherDB;
+    private const val TAG = "Migration"
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-
-public class Migration {
-
-    public static volatile Migration instance;
-
-    private static final String TAG = "Migration";
-
-    private Migration() {
-    }
-
-    public static void migrateSafely(Context context) {
-        if (instance == null) {
-            synchronized (Migration.class) {
-                if (instance == null) {
-                    instance = new Migration();
-                }
-            }
-        }
-
+    @JvmStatic
+    fun migrateSafely(context: Context) {
         if (Build.VERSION.SDK_INT > 28) {
-            List<String> dialerComponentList = Arrays.asList(
-                    "com.android.dialer/com.android.dialer.main.impl.MainActivity",
-                    "com.android.dialer/com.android.dialer.app.DialtactsActivity",
-                    "com.android.dialer/com.android.dialer.DialtactsActivity");
+            val dialerComponentList = listOf(
+                "com.android.dialer/com.android.dialer.main.impl.MainActivity",
+                "com.android.dialer/com.android.dialer.app.DialtactsActivity",
+                "com.android.dialer/com.android.dialer.DialtactsActivity"
+            )
 
-            String currentComponent = dialerComponentList.get(0);
-            String dialerComponent = LauncherDB.getDatabase(context).launcherDao()
-                    .getComponentName("com.android.dialer");
+            val currentComponent = dialerComponentList[0]
+            val dialerComponent = LauncherDB.getDatabase(context).launcherDao()
+                .getComponentName("com.android.dialer")
 
-            if (dialerComponent != null && dialerComponentList.contains(dialerComponent)
-                    && !dialerComponent.equals(currentComponent)) {
-                Log.d(TAG, "migrateSafely: Migrating dialer component!");
-                DatabaseManager.getManager(context).migrateComponent(dialerComponent, currentComponent);
+            if (
+                dialerComponent != null &&
+                dialerComponentList.contains(dialerComponent) &&
+                dialerComponent != currentComponent
+            ) {
+                Log.d(TAG, "migrateSafely: Migrating dialer component!")
+                DatabaseManager.getManager(context).migrateComponent(dialerComponent, currentComponent)
             }
         }
 
-        String migrationInfo = instance.readJSONFromAsset(context);
-        CurrentMigration currentMigration = new Gson().fromJson(migrationInfo, CurrentMigration.class);
-        int oldVersion = Preferences.getCurrentMigrationVersion(context);
+        val migrationInfo = readJSONFromAsset(context) ?: return
+        val currentMigration = Gson().fromJson(migrationInfo, CurrentMigration::class.java) ?: return
+        val oldVersion = Preferences.getCurrentMigrationVersion(context)
         if (oldVersion < currentMigration.currentVersion) {
-            List<MigrationInfo> infos = currentMigration.migrate_infos.parallelStream()
-                    .filter(migrationInfo1 -> migrationInfo1.startVersion >= oldVersion).collect(Collectors.toList());
-            Log.i(TAG, "migrateSafely: " + infos.size());
-            Collections.sort(infos);
-            for (MigrationInfo info : infos) {
-                List<MigrateComponentInfo> components = info.components;
-                for (MigrateComponentInfo component : components) {
-                    DatabaseManager.getManager(context).migrateComponent(component.old_component_name,
-                            component.new_component_name);
+            val infos = currentMigration.migrate_infos.orEmpty()
+                .filter { it.startVersion >= oldVersion }
+                .sorted()
+            Log.i(TAG, "migrateSafely: ${infos.size}")
+            for (info in infos) {
+                for (component in info.components.orEmpty()) {
+                    val oldComponentName = component.old_component_name ?: continue
+                    val newComponentName = component.new_component_name ?: continue
+                    DatabaseManager.getManager(context).migrateComponent(
+                        oldComponentName,
+                        newComponentName
+                    )
                 }
             }
-            Preferences.setCurrentMigrationVersion(context, currentMigration.currentVersion);
+            Preferences.setCurrentMigrationVersion(context, currentMigration.currentVersion)
         }
     }
 
-    private String readJSONFromAsset(Context context) {
-        String json = null;
-        try {
-            InputStream is = context.getAssets().open("migrate_info.json");
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            is.close();
-            json = new String(buffer, "UTF-8");
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            return null;
+    private fun readJSONFromAsset(context: Context): String? {
+        return try {
+            context.assets.open("migrate_info.json").use { inputStream ->
+                val buffer = ByteArray(inputStream.available())
+                inputStream.read(buffer)
+                String(buffer, Charsets.UTF_8)
+            }
+        } catch (ex: IOException) {
+            ex.printStackTrace()
+            null
         }
-        return json;
     }
 }

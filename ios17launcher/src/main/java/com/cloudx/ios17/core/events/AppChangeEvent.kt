@@ -1,28 +1,12 @@
-package com.cloudx.ios17.core.events;
+package com.cloudx.ios17.core.events
 
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.UserHandle;
+import com.cloudx.ios17.core.utils.UserHandle
 
-public class AppChangeEvent extends Event {
-
-    private String packageName;
-    private UserHandle userHandle;
-
-    public static final int TYPE = 601;
-
-    public AppChangeEvent(String packageName, UserHandle userHandle) {
-        super(TYPE);
-        this.packageName = packageName;
-        this.userHandle = userHandle;
-    }
-
-    public String getPackageName() {
-        return packageName;
-    }
-
-    public UserHandle getUserHandle() {
-        return userHandle;
+class AppChangeEvent(
+    val packageName: String,
+    val userHandle: UserHandle
+) : Event(TYPE) {
+    companion object {
+        const val TYPE = 601
     }
 }

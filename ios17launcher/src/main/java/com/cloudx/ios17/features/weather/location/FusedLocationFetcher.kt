@@ -1,48 +1,46 @@
-package com.cloudx.ios17.features.weather.location;
+package com.cloudx.ios17.features.weather.location
 
-import android.content.Context;
-import android.location.Location;
-import android.location.LocationManager;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
+import android.content.Context
+import android.location.Location
+import android.location.LocationManager
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.core.location.LocationManagerCompat
+import androidx.core.os.CancellationSignal
+import java.util.concurrent.Executors
+import timber.log.Timber
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.core.location.LocationManagerCompat;
-import androidx.core.os.CancellationSignal;
-
-import java.util.concurrent.Executors;
-
-import timber.log.Timber;
-
-public class FusedLocationFetcher extends LocationFetcher {
-
-    public FusedLocationFetcher(@NonNull Context context, @NonNull Callback callback) {
-        this.context = context;
-        this.callback = callback;
-        locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+class FusedLocationFetcher(context: Context, callback: Callback) : LocationFetcher() {
+    init {
+        this.context = context
+        this.callback = callback
+        locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
-    @Override
-    public void fetchLocation() {
+    override fun fetchLocation() {
         if (!checkPermission()) {
-            Timber.w("Could not fetch location. Missing permission.");
-            return;
+            Timber.w("Could not fetch location. Missing permission.")
+            return
         }
 
-        if (VERSION.SDK_INT >= VERSION_CODES.S) {
-            LocationManagerCompat.getCurrentLocation(locationManager, LocationManager.FUSED_PROVIDER, (CancellationSignal) null,
-                    Executors.newFixedThreadPool(1), this::onLocationFetched);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            LocationManagerCompat.getCurrentLocation(
+                locationManager!!,
+                LocationManager.FUSED_PROVIDER,
+                null as CancellationSignal?,
+                Executors.newFixedThreadPool(1),
+                this::onLocationFetched
+            )
         }
     }
 
-    @RequiresApi(api = VERSION_CODES.S)
-    private void onLocationFetched(@Nullable Location location) {
-        if (location == null && checkPermission()) {
-            location = locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER);
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    private fun onLocationFetched(location: Location?) {
+        var currentLocation = location
+        if (currentLocation == null && checkPermission()) {
+            currentLocation = locationManager?.getLastKnownLocation(LocationManager.FUSED_PROVIDER)
         }
 
-        callback.onNewLocation(location);
+        callback?.onNewLocation(currentLocation)
     }
 }

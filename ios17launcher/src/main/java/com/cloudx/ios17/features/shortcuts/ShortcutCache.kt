@@ -1,74 +1,39 @@
-/*
- * Copyright (C) 2016 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+package com.cloudx.ios17.features.shortcuts
 
-package com.cloudx.ios17.features.shortcuts;
+import android.annotation.TargetApi
+import android.os.Build
+import android.util.ArrayMap
+import android.util.LruCache
 
-import android.annotation.TargetApi;
-import android.os.Build;
-import android.util.ArrayMap;
-import android.util.LruCache;
-import java.util.List;
-
-/**
- * Loads {@link ShortcutInfoCompat}s on demand (e.g. when launcher loads for
- * pinned shortcuts and on long-press for dynamic shortcuts), and caches them
- * for handful of apps in an LruCache while launcher lives.
- */
 @TargetApi(Build.VERSION_CODES.N)
-public class ShortcutCache {
-    private static final int CACHE_SIZE = 30; // Max number shortcuts we cache.
+class ShortcutCache {
+    private val mCachedShortcuts = LruCache<ShortcutKey, ShortcutInfoCompat>(CACHE_SIZE)
+    private val mPinnedShortcuts = ArrayMap<ShortcutKey, ShortcutInfoCompat>()
 
-    private final LruCache<ShortcutKey, ShortcutInfoCompat> mCachedShortcuts;
-    // We always keep pinned shortcuts in the cache.
-    private final ArrayMap<ShortcutKey, ShortcutInfoCompat> mPinnedShortcuts;
-
-    public ShortcutCache() {
-        mCachedShortcuts = new LruCache<>(CACHE_SIZE);
-        mPinnedShortcuts = new ArrayMap<>();
-    }
-
-    /**
-     * Removes shortcuts from the cache when shortcuts change for a given package.
-     *
-     * <p>
-     * Returns a map of ids to their evicted shortcuts.
-     *
-     * @see android.content.pm.LauncherApps.Callback#onShortcutsChanged(String,
-     *      List, UserHandle).
-     */
-    public void removeShortcuts(List<ShortcutInfoCompat> shortcuts) {
-        for (ShortcutInfoCompat shortcut : shortcuts) {
-            ShortcutKey key = ShortcutKey.fromInfo(shortcut);
-            mCachedShortcuts.remove(key);
-            mPinnedShortcuts.remove(key);
+    fun removeShortcuts(shortcuts: List<ShortcutInfoCompat>) {
+        for (shortcut in shortcuts) {
+            val key = ShortcutKey.fromInfo(shortcut)
+            mCachedShortcuts.remove(key)
+            mPinnedShortcuts.remove(key)
         }
     }
 
-    public ShortcutInfoCompat get(ShortcutKey key) {
+    operator fun get(key: ShortcutKey): ShortcutInfoCompat? {
         if (mPinnedShortcuts.containsKey(key)) {
-            return mPinnedShortcuts.get(key);
+            return mPinnedShortcuts[key]
         }
-        return mCachedShortcuts.get(key);
+        return mCachedShortcuts[key]
     }
 
-    public void put(ShortcutKey key, ShortcutInfoCompat shortcut) {
-        if (shortcut.isPinned()) {
-            mPinnedShortcuts.put(key, shortcut);
+    fun put(key: ShortcutKey, shortcut: ShortcutInfoCompat) {
+        if (shortcut.isPinned) {
+            mPinnedShortcuts[key] = shortcut
         } else {
-            mCachedShortcuts.put(key, shortcut);
+            mCachedShortcuts.put(key, shortcut)
         }
+    }
+
+    companion object {
+        private const val CACHE_SIZE = 30
     }
 }

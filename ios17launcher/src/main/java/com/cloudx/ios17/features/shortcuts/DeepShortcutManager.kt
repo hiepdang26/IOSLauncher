@@ -1,246 +1,250 @@
-/*
- * Copyright (C) 2016 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+package com.cloudx.ios17.features.shortcuts
 
-package com.cloudx.ios17.features.shortcuts;
-
-import android.annotation.TargetApi;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.pm.LauncherApps;
-import android.content.pm.LauncherApps.ShortcutQuery;
-import android.content.pm.ShortcutInfo;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
-import android.os.Bundle;
-import android.os.UserHandle;
-
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.Utilities;
-import timber.log.Timber;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import android.annotation.TargetApi
+import android.content.ComponentName
+import android.content.Context
+import android.content.pm.LauncherApps
+import android.content.pm.LauncherApps.ShortcutQuery
+import android.content.pm.ShortcutInfo
+import android.graphics.Rect
+import android.graphics.drawable.Drawable
+import android.os.Bundle
+import android.os.UserHandle
+import com.cloudx.ios17.core.Utilities
+import timber.log.Timber
 
 /**
  * Performs operations related to deep shortcuts, such as querying for them,
  * pinning them, etc.
  */
-public class DeepShortcutManager {
-    private static final String TAG = "DeepShortcutManager";
+class DeepShortcutManager private constructor(context: Context) {
 
-    private static final int FLAG_GET_ALL = ShortcutQuery.FLAG_MATCH_DYNAMIC | ShortcutQuery.FLAG_MATCH_MANIFEST
-            | ShortcutQuery.FLAG_MATCH_PINNED;
+    private val mLauncherApps =
+        context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+    private var mWasLastCallSuccess = false
 
-    private static DeepShortcutManager sInstance;
-    private static final Object sInstanceLock = new Object();
+    fun wasLastCallSuccess(): Boolean = mWasLastCallSuccess
 
-    public static DeepShortcutManager getInstance(Context context) {
-        synchronized (sInstanceLock) {
-            if (sInstance == null) {
-                sInstance = new DeepShortcutManager(context.getApplicationContext());
-            }
-            return sInstance;
-        }
-    }
-
-    private final LauncherApps mLauncherApps;
-    private boolean mWasLastCallSuccess;
-
-    private DeepShortcutManager(Context context) {
-        mLauncherApps = (LauncherApps) context.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-    }
-
-    public boolean wasLastCallSuccess() {
-        return mWasLastCallSuccess;
-    }
-
-    public void onShortcutsChanged(List<ShortcutInfoCompat> shortcuts) {
-        // mShortcutCache.removeShortcuts(shortcuts);
+    fun onShortcutsChanged(shortcuts: List<ShortcutInfoCompat>) {
+        // mShortcutCache.removeShortcuts(shortcuts)
     }
 
     /**
      * Queries for the shortcuts with the package name and provided ids.
      *
-     * <p>
      * This method is intended to get the full details for shortcuts when they are
      * added or updated, because we only get "key" fields in onShortcutsChanged().
      */
-    public List<ShortcutInfoCompat> queryForFullDetails(String packageName, List<String> shortcutIds, UserHandle user) {
-        return query(FLAG_GET_ALL, packageName, null, shortcutIds, user);
-    }
+    fun queryForFullDetails(
+        packageName: String,
+        shortcutIds: List<String>,
+        user: UserHandle
+    ): List<ShortcutInfoCompat> =
+        query(FLAG_GET_ALL, packageName, null, shortcutIds, user)
 
     /**
      * Gets all the manifest and dynamic shortcuts associated with the given package
      * and user, to be displayed in the shortcuts container on long press.
      */
-    public List<ShortcutInfoCompat> queryForShortcutsContainer(ComponentName activity, List<String> ids,
-            UserHandle user) {
-        return query(ShortcutQuery.FLAG_MATCH_MANIFEST | ShortcutQuery.FLAG_MATCH_DYNAMIC, activity.getPackageName(),
-                activity, ids, user);
+    fun queryForShortcutsContainer(
+        activity: ComponentName,
+        ids: List<String>?,
+        user: UserHandle
+    ): List<ShortcutInfoCompat> =
+        query(
+            ShortcutQuery.FLAG_MATCH_MANIFEST or ShortcutQuery.FLAG_MATCH_DYNAMIC,
+            activity.packageName,
+            activity,
+            ids,
+            user
+        )
+
+    /**
+     * Removes the given shortcut from the current list of pinned shortcuts. Runs
+     * on a background thread.
+     */
+    @TargetApi(25)
+    fun unpinShortcut(key: ShortcutKey) {
+        if (Utilities.ATLEAST_NOUGAT_MR1) {
+            val packageName = key.componentName.packageName
+            val id = key.getId()
+            val user = key.user
+            val pinnedIds = extractIds(queryForPinnedShortcuts(packageName, user))
+            pinnedIds.remove(id)
+            try {
+                mLauncherApps.pinShortcuts(packageName, pinnedIds, user)
+                mWasLastCallSuccess = true
+            } catch (e: SecurityException) {
+                Timber.tag(TAG).w(e, "Failed to unpin shortcut")
+                mWasLastCallSuccess = false
+            } catch (e: IllegalStateException) {
+                Timber.tag(TAG).w(e, "Failed to unpin shortcut")
+                mWasLastCallSuccess = false
+            }
+        }
     }
 
     /**
-     * Removes the given shortcut from the current list of pinned shortcuts. (Runs
-     * on background thread)
+     * Adds the given shortcut to the current list of pinned shortcuts. Runs on a
+     * background thread.
      */
     @TargetApi(25)
-    public void unpinShortcut(final ShortcutKey key) {
+    fun pinShortcut(key: ShortcutKey) {
         if (Utilities.ATLEAST_NOUGAT_MR1) {
-            String packageName = key.componentName.getPackageName();
-            String id = key.getId();
-            UserHandle user = key.user;
-            List<String> pinnedIds = extractIds(queryForPinnedShortcuts(packageName, user));
-            pinnedIds.remove(id);
+            val packageName = key.componentName.packageName
+            val id = key.getId()
+            val user = key.user
+            val pinnedIds = extractIds(queryForPinnedShortcuts(packageName, user))
+            pinnedIds.add(id)
             try {
-                mLauncherApps.pinShortcuts(packageName, pinnedIds, user);
-                mWasLastCallSuccess = true;
-            } catch (SecurityException | IllegalStateException e) {
-                Timber.tag(TAG).w(e, "Failed to unpin shortcut");
-                mWasLastCallSuccess = false;
+                mLauncherApps.pinShortcuts(packageName, pinnedIds, user)
+                mWasLastCallSuccess = true
+                Timber.tag(TAG).d("pinShortcut called: $key")
+            } catch (e: SecurityException) {
+                Timber.tag(TAG).w(e, "Failed to pin shortcut")
+                mWasLastCallSuccess = false
+            } catch (e: IllegalStateException) {
+                Timber.tag(TAG).w(e, "Failed to pin shortcut")
+                mWasLastCallSuccess = false
             }
         }
+    }
+
+    @TargetApi(25)
+    fun startShortcut(
+        packageName: String,
+        id: String,
+        sourceBounds: Rect?,
+        startActivityOptions: Bundle?,
+        user: UserHandle
+    ) {
+        if (Utilities.ATLEAST_NOUGAT_MR1) {
+            try {
+                mLauncherApps.startShortcut(packageName, id, sourceBounds, startActivityOptions, user)
+                mWasLastCallSuccess = true
+            } catch (e: SecurityException) {
+                Timber.tag(TAG).w(e, "Failed to start shortcut")
+                mWasLastCallSuccess = false
+            } catch (e: IllegalStateException) {
+                Timber.tag(TAG).w(e, "Failed to start shortcut")
+                mWasLastCallSuccess = false
+            }
+        }
+    }
+
+    @TargetApi(25)
+    fun getShortcutIconDrawable(shortcutInfo: ShortcutInfoCompat, density: Int): Drawable? {
+        if (Utilities.ATLEAST_NOUGAT_MR1) {
+            try {
+                val icon = mLauncherApps.getShortcutIconDrawable(shortcutInfo.shortcutInfo, density)
+                mWasLastCallSuccess = true
+                return icon
+            } catch (e: SecurityException) {
+                Timber.tag(TAG).w(e, "Failed to get shortcut icon")
+                mWasLastCallSuccess = false
+            } catch (e: IllegalStateException) {
+                Timber.tag(TAG).w(e, "Failed to get shortcut icon")
+                mWasLastCallSuccess = false
+            }
+        }
+        return null
     }
 
     /**
-     * Adds the given shortcut to the current list of pinned shortcuts. (Runs on
-     * background thread)
+     * Returns the ids of pinned shortcuts associated with the given package and
+     * user. If packageName is null, returns all pinned shortcuts regardless of package.
      */
-    @TargetApi(25)
-    public void pinShortcut(final ShortcutKey key) {
-        if (Utilities.ATLEAST_NOUGAT_MR1) {
-            String packageName = key.componentName.getPackageName();
-            String id = key.getId();
-            UserHandle user = key.user;
-            List<String> pinnedIds = extractIds(queryForPinnedShortcuts(packageName, user));
-            pinnedIds.add(id);
-            try {
-                mLauncherApps.pinShortcuts(packageName, pinnedIds, user);
-                mWasLastCallSuccess = true;
-                Timber.tag(TAG).d("pinShortcut called: " + key);
-            } catch (SecurityException | IllegalStateException e) {
-                Timber.tag(TAG).w(e, "Failed to pin shortcut");
-                mWasLastCallSuccess = false;
-            }
+    fun queryForPinnedShortcuts(packageName: String?, user: UserHandle): List<ShortcutInfoCompat> =
+        query(ShortcutQuery.FLAG_MATCH_PINNED, packageName, null, null, user)
+
+    fun queryForAllShortcuts(user: UserHandle): List<ShortcutInfoCompat> =
+        query(FLAG_GET_ALL, null, null, null, user)
+
+    private fun extractIds(shortcuts: List<ShortcutInfoCompat>): ArrayList<String> {
+        val shortcutIds = ArrayList<String>(shortcuts.size)
+        for (shortcut in shortcuts) {
+            shortcutIds.add(shortcut.id)
         }
-    }
-
-    @TargetApi(25)
-    public void startShortcut(String packageName, String id, Rect sourceBounds, Bundle startActivityOptions,
-            UserHandle user) {
-        if (Utilities.ATLEAST_NOUGAT_MR1) {
-            try {
-                mLauncherApps.startShortcut(packageName, id, sourceBounds, startActivityOptions, user);
-                mWasLastCallSuccess = true;
-            } catch (SecurityException | IllegalStateException e) {
-                Timber.tag(TAG).w(e, "Failed to start shortcut");
-                mWasLastCallSuccess = false;
-            }
-        }
-    }
-
-    @TargetApi(25)
-    public Drawable getShortcutIconDrawable(ShortcutInfoCompat shortcutInfo, int density) {
-        if (Utilities.ATLEAST_NOUGAT_MR1) {
-            try {
-                Drawable icon = mLauncherApps.getShortcutIconDrawable(shortcutInfo.getShortcutInfo(), density);
-                mWasLastCallSuccess = true;
-                return icon;
-            } catch (SecurityException | IllegalStateException e) {
-                Timber.tag(TAG).w(e, "Failed to get shortcut icon");
-                mWasLastCallSuccess = false;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Returns the id's of pinned shortcuts associated with the given package and
-     * user.
-     *
-     * <p>
-     * If packageName is null, returns all pinned shortcuts regardless of package.
-     */
-    public List<ShortcutInfoCompat> queryForPinnedShortcuts(String packageName, UserHandle user) {
-        return query(ShortcutQuery.FLAG_MATCH_PINNED, packageName, null, null, user);
-    }
-
-    public List<ShortcutInfoCompat> queryForAllShortcuts(UserHandle user) {
-        return query(FLAG_GET_ALL, null, null, null, user);
-    }
-
-    private List<String> extractIds(List<ShortcutInfoCompat> shortcuts) {
-        List<String> shortcutIds = new ArrayList<>(shortcuts.size());
-        for (ShortcutInfoCompat shortcut : shortcuts) {
-            shortcutIds.add(shortcut.getId());
-        }
-        return shortcutIds;
+        return shortcutIds
     }
 
     /**
      * Query the system server for all the shortcuts matching the given parameters.
-     * If packageName == null, we query for all shortcuts with the passed flags,
-     * regardless of app.
-     *
-     * <p>
-     * TODO: Use the cache to optimize this so we don't make an RPC every time.
+     * If packageName == null, query for all shortcuts with the passed flags.
      */
     @TargetApi(25)
-    private List<ShortcutInfoCompat> query(int flags, String packageName, ComponentName activity,
-            List<String> shortcutIds, UserHandle user) {
+    private fun query(
+        flags: Int,
+        packageName: String?,
+        activity: ComponentName?,
+        shortcutIds: List<String>?,
+        user: UserHandle
+    ): List<ShortcutInfoCompat> {
         if (Utilities.ATLEAST_NOUGAT_MR1) {
-            ShortcutQuery q = new ShortcutQuery();
-            q.setQueryFlags(flags);
+            val query = ShortcutQuery()
+            query.setQueryFlags(flags)
             if (packageName != null) {
-                q.setPackage(packageName);
-                q.setActivity(activity);
-                q.setShortcutIds(shortcutIds);
+                query.setPackage(packageName)
+                query.setActivity(activity)
+                query.setShortcutIds(shortcutIds)
             }
-            List<ShortcutInfo> shortcutInfos = null;
-            try {
-                shortcutInfos = mLauncherApps.getShortcuts(q, user);
-                mWasLastCallSuccess = true;
-            } catch (SecurityException | IllegalStateException e) {
-                Timber.tag(TAG).w(e, "Failed to query for shortcuts");
-                mWasLastCallSuccess = false;
+            val shortcutInfos: List<ShortcutInfo>? = try {
+                mLauncherApps.getShortcuts(query, user).also {
+                    mWasLastCallSuccess = true
+                }
+            } catch (e: SecurityException) {
+                Timber.tag(TAG).w(e, "Failed to query for shortcuts")
+                mWasLastCallSuccess = false
+                null
+            } catch (e: IllegalStateException) {
+                Timber.tag(TAG).w(e, "Failed to query for shortcuts")
+                mWasLastCallSuccess = false
+                null
             }
             if (shortcutInfos == null) {
-                return Collections.EMPTY_LIST;
+                return emptyList()
             }
-            List<ShortcutInfoCompat> shortcutInfoCompats = new ArrayList<>(shortcutInfos.size());
-            for (ShortcutInfo shortcutInfo : shortcutInfos) {
-                shortcutInfoCompats.add(new ShortcutInfoCompat(shortcutInfo));
+            val shortcutInfoCompats = ArrayList<ShortcutInfoCompat>(shortcutInfos.size)
+            for (shortcutInfo in shortcutInfos) {
+                shortcutInfoCompats.add(ShortcutInfoCompat(shortcutInfo))
             }
-            return shortcutInfoCompats;
-        } else {
-            return Collections.EMPTY_LIST;
+            return shortcutInfoCompats
         }
+        return emptyList()
     }
 
     @TargetApi(25)
-    public boolean hasHostPermission() {
+    fun hasHostPermission(): Boolean {
         if (Utilities.ATLEAST_NOUGAT_MR1) {
             try {
-                return mLauncherApps.hasShortcutHostPermission();
-            } catch (SecurityException | IllegalStateException e) {
-                Timber.tag(TAG).w(e, "Failed to make shortcut manager call");
+                return mLauncherApps.hasShortcutHostPermission()
+            } catch (e: SecurityException) {
+                Timber.tag(TAG).w(e, "Failed to make shortcut manager call")
+            } catch (e: IllegalStateException) {
+                Timber.tag(TAG).w(e, "Failed to make shortcut manager call")
             }
         }
-        return false;
+        return false
+    }
+
+    companion object {
+        private const val TAG = "DeepShortcutManager"
+
+        private const val FLAG_GET_ALL =
+            ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                ShortcutQuery.FLAG_MATCH_MANIFEST or
+                ShortcutQuery.FLAG_MATCH_PINNED
+
+        private var sInstance: DeepShortcutManager? = null
+        private val sInstanceLock = Any()
+
+        @JvmStatic
+        fun getInstance(context: Context): DeepShortcutManager =
+            synchronized(sInstanceLock) {
+                if (sInstance == null) {
+                    sInstance = DeepShortcutManager(context.applicationContext)
+                }
+                sInstance!!
+            }
     }
 }

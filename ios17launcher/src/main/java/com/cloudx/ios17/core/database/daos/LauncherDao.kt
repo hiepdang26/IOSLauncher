@@ -1,42 +1,32 @@
-package com.cloudx.ios17.core.database.daos;
+package com.cloudx.ios17.core.database.daos
 
-import androidx.room.Dao;
-import androidx.room.Insert;
-import androidx.room.OnConflictStrategy;
-import androidx.room.Query;
-
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.utils.Constants;
-
-import java.util.List;
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.cloudx.ios17.core.database.model.LauncherItem
+import com.cloudx.ios17.core.utils.Constants
 
 @Dao
-public interface LauncherDao {
-
+interface LauncherDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    long insert(LauncherItem launcherItem);
+    fun insert(launcherItem: LauncherItem): Long
 
     @Query("SELECT * FROM launcher_items ORDER BY container, screen_id, cell")
-    List<LauncherItem> getAllItems();
+    fun getAllItems(): List<LauncherItem>
 
     @Query("SELECT item_id FROM launcher_items WHERE package = :packageName")
-    String getComponentName(String packageName);
+    fun getComponentName(packageName: String): String?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    void insertAll(List<LauncherItem> launcherItems);
+    fun insertAll(launcherItems: List<LauncherItem>)
 
     @Query("DELETE FROM launcher_items WHERE item_id = :id")
-    void delete(String id);
+    fun delete(id: String)
 
     @Query("DELETE FROM launcher_items WHERE title = :name and item_type = " + Constants.ITEM_TYPE_SHORTCUT)
-    void deleteShortcut(String name);
+    fun deleteShortcut(name: String)
 
     @Query("UPDATE launcher_items SET item_id = :newComponentName WHERE item_id = :id")
-    int updateComponent(String id, String newComponentName);
+    fun updateComponent(id: String, newComponentName: String): Int
 }

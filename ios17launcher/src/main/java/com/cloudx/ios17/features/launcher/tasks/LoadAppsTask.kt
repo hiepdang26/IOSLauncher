@@ -1,44 +1,22 @@
-package com.cloudx.ios17.features.launcher.tasks;
+package com.cloudx.ios17.features.launcher.tasks
 
-import android.os.AsyncTask;
+import android.os.AsyncTask
+import com.cloudx.ios17.core.database.model.ApplicationItem
+import com.cloudx.ios17.core.utils.AppUtils
+import com.cloudx.ios17.features.launcher.AppProvider
 
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.features.launcher.AppProvider;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.features.launcher.AppProvider;
+class LoadAppsTask : AsyncTask<Void, Void, Map<String, ApplicationItem>>() {
+    private var mAppProvider: AppProvider? = null
 
-import java.util.Map;
-
-public class LoadAppsTask extends AsyncTask<Void, Void, Map<String, ApplicationItem>> {
-
-    private AppProvider mAppProvider;
-
-    public LoadAppsTask() {
-        super();
+    fun setAppProvider(appProvider: AppProvider) {
+        mAppProvider = appProvider
     }
 
-    public void setAppProvider(AppProvider appProvider) {
-        this.mAppProvider = appProvider;
-    }
+    override fun doInBackground(vararg params: Void?): Map<String, ApplicationItem> =
+        AppUtils.loadAll(mAppProvider!!.context)
 
-    @Override
-    protected Map<String, ApplicationItem> doInBackground(Void... voids) {
-        return AppUtils.loadAll(mAppProvider.getContext());
-    }
-
-    @Override
-    protected void onPostExecute(Map<String, ApplicationItem> appItemPair) {
-        super.onPostExecute(appItemPair);
-        if (mAppProvider != null) {
-            mAppProvider.loadAppsOver(appItemPair);
-        }
+    override fun onPostExecute(appItemPair: Map<String, ApplicationItem>) {
+        super.onPostExecute(appItemPair)
+        mAppProvider?.loadAppsOver(appItemPair)
     }
 }

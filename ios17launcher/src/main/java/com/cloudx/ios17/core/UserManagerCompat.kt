@@ -1,49 +1,37 @@
-package com.cloudx.ios17.core;
+package com.cloudx.ios17.core
 
-import android.content.Context;
-import android.os.UserHandle;
-import java.util.List;
+import android.content.Context
+import android.os.UserHandle
 
-public abstract class UserManagerCompat {
-    protected UserManagerCompat() {
-    }
+abstract class UserManagerCompat protected constructor() {
+    abstract fun enableAndResetCache()
+    abstract fun getUserProfiles(): List<UserHandle>
+    abstract fun getSerialNumberForUser(user: UserHandle): Long
+    abstract fun getUserForSerialNumber(serialNumber: Long): UserHandle?
+    abstract fun getBadgedLabelForUser(label: CharSequence, user: UserHandle?): CharSequence
+    abstract fun getUserCreationTime(user: UserHandle): Long
+    abstract fun isQuietModeEnabled(user: UserHandle): Boolean
+    abstract fun isUserUnlocked(user: UserHandle): Boolean
+    abstract fun isDemoUser(): Boolean
 
-    private static final Object sInstanceLock = new Object();
-    private static UserManagerCompat sInstance;
+    companion object {
+        private val sInstanceLock = Any()
+        private var sInstance: UserManagerCompat? = null
 
-    public static UserManagerCompat getInstance(Context context) {
-        synchronized (sInstanceLock) {
-            if (sInstance == null) {
-                if (Utilities.ATLEAST_NOUGAT_MR1) {
-                    sInstance = new UserManagerCompatVNMr1(context.getApplicationContext());
-                } else if (Utilities.ATLEAST_NOUGAT) {
-                    sInstance = new UserManagerCompatVN(context.getApplicationContext());
-                } else if (Utilities.ATLEAST_MARSHMALLOW) {
-                    sInstance = new UserManagerCompatVM(context.getApplicationContext());
-                } else {
-                    sInstance = new UserManagerCompatVL(context.getApplicationContext());
+        @JvmStatic
+        fun getInstance(context: Context): UserManagerCompat {
+            synchronized(sInstanceLock) {
+                if (sInstance == null) {
+                    val appContext = context.applicationContext
+                    sInstance = when {
+                        Utilities.ATLEAST_NOUGAT_MR1 -> UserManagerCompatVNMr1(appContext)
+                        Utilities.ATLEAST_NOUGAT -> UserManagerCompatVN(appContext)
+                        Utilities.ATLEAST_MARSHMALLOW -> UserManagerCompatVM(appContext)
+                        else -> UserManagerCompatVL(appContext)
+                    }
                 }
+                return sInstance!!
             }
-            return sInstance;
         }
     }
-
-    /** Creates a cache for users. */
-    public abstract void enableAndResetCache();
-
-    public abstract List<UserHandle> getUserProfiles();
-
-    public abstract long getSerialNumberForUser(UserHandle user);
-
-    public abstract UserHandle getUserForSerialNumber(long serialNumber);
-
-    public abstract CharSequence getBadgedLabelForUser(CharSequence label, UserHandle user);
-
-    public abstract long getUserCreationTime(UserHandle user);
-
-    public abstract boolean isQuietModeEnabled(UserHandle user);
-
-    public abstract boolean isUserUnlocked(UserHandle user);
-
-    public abstract boolean isDemoUser();
 }

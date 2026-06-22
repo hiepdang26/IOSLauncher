@@ -1,67 +1,62 @@
-package com.cloudx.ios17.core.database.model;
+package com.cloudx.ios17.core.database.model
 
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.LauncherActivityInfo;
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherActivityInfo
+import com.cloudx.ios17.core.utils.Constants
+import com.cloudx.ios17.core.utils.UserHandle
 
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
+class ApplicationItem : LauncherItem {
+    @JvmField
+    var componentName: ComponentName? = null
 
-public class ApplicationItem extends LauncherItem {
+    @JvmField
+    var isSystemApp: Int = FLAG_SYSTEM_UNKNOWN
 
-    public static final int FLAG_SYSTEM_UNKNOWN = 0;
-    public static final int FLAG_SYSTEM_YES = 1 << 0;
-    public static final int FLAG_SYSTEM_NO = 1 << 1;
+    @JvmField
+    var isDisabled: Boolean = false
 
-    public ComponentName componentName;
+    @JvmField
+    var appType: Int = TYPE_DEFAULT
 
-    /** Indicates if the app is a system app or not. */
-    public int isSystemApp;
-
-    public static final int TYPE_CLOCK = 745;
-    public static final int TYPE_CALENDAR = 746;
-    public static final int TYPE_DEFAULT = 111;
-
-    public boolean isDisabled = false;
-
-    /**
-     * Indicates the type of app item ie. Clock or Calendar (in case of none, It
-     * will be )
-     */
-    public int appType;
-
-    public ApplicationItem() {
-        itemType = Constants.ITEM_TYPE_APPLICATION;
+    constructor() : super() {
+        itemType = Constants.ITEM_TYPE_APPLICATION
     }
 
-    /** Must not hold the Context. */
-    public ApplicationItem(LauncherActivityInfo info, UserHandle user) {
-        itemType = Constants.ITEM_TYPE_APPLICATION;
-        this.componentName = info.getComponentName();
-        this.user = user;
-        this.id = user.addUserSuffixToString(this.componentName.flattenToString(), '/');
-        this.container = NO_ID;
-
-        launchIntent = makeLaunchIntent(info);
-
-        isSystemApp = (info.getApplicationInfo().flags & ApplicationInfo.FLAG_SYSTEM) == 0
-                ? FLAG_SYSTEM_NO
-                : FLAG_SYSTEM_YES;
+    constructor(info: LauncherActivityInfo, user: UserHandle) : super() {
+        itemType = Constants.ITEM_TYPE_APPLICATION
+        componentName = info.componentName
+        this.user = user
+        id = user.addUserSuffixToString(componentName!!.flattenToString(), '/')
+        container = NO_ID.toLong()
+        launchIntent = makeLaunchIntent(info)
+        isSystemApp =
+            if (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM == 0) {
+                FLAG_SYSTEM_NO
+            } else {
+                FLAG_SYSTEM_YES
+            }
     }
 
-    public static Intent makeLaunchIntent(LauncherActivityInfo info) {
-        return makeLaunchIntent(info.getComponentName());
-    }
+    companion object {
+        const val FLAG_SYSTEM_UNKNOWN = 0
+        const val FLAG_SYSTEM_YES = 1 shl 0
+        const val FLAG_SYSTEM_NO = 1 shl 1
 
-    public static Intent makeLaunchIntent(ComponentName cn) {
-        return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(cn)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        const val TYPE_CLOCK = 745
+        const val TYPE_CALENDAR = 746
+        const val TYPE_DEFAULT = 111
+
+        @JvmStatic
+        fun makeLaunchIntent(info: LauncherActivityInfo): Intent =
+            makeLaunchIntent(info.componentName)
+
+        @JvmStatic
+        fun makeLaunchIntent(componentName: ComponentName): Intent =
+            Intent(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+                .setComponent(componentName)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     }
 }

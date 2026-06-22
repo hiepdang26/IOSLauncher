@@ -29,7 +29,7 @@ object WidgetMigration {
         val widgetDao = com.cloudx.ios17.core.database.LauncherDB.getDatabase(context).widgetDao()
         var containsInDB = false
 
-        for (widget in widgetDao.all) {
+        for (widget in widgetDao.getAll()) {
             val info = AppWidgetManager.getInstance(context).getAppWidgetInfo(widget.id)
             Timber.tag(TAG).d("Widget Id: ${widget.id} | Widget info: $info")
 

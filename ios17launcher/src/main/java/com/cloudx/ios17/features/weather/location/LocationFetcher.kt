@@ -1,31 +1,37 @@
-package com.cloudx.ios17.features.weather.location;
+package com.cloudx.ios17.features.weather.location
 
-import android.Manifest.permission;
-import android.content.Context;
-import android.content.pm.PackageManager;
-import android.location.Location;
-import android.location.LocationManager;
+import android.Manifest.permission
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
+import androidx.core.app.ActivityCompat
 
-import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
+abstract class LocationFetcher {
+    @JvmField
+    protected var locationManager: LocationManager? = null
 
-public abstract class LocationFetcher {
+    @JvmField
+    protected var callback: Callback? = null
 
-    protected LocationManager locationManager;
-    protected Callback callback;
+    @JvmField
+    protected var context: Context? = null
 
-    protected Context context;
-
-    public interface Callback {
-        void onNewLocation(@Nullable Location location);
+    fun interface Callback {
+        fun onNewLocation(location: Location?)
     }
 
-    public abstract void fetchLocation();
+    abstract fun fetchLocation()
 
-    protected boolean checkPermission() {
-        return ActivityCompat.checkSelfPermission(context,
-                permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || ActivityCompat.checkSelfPermission(context,
-                        permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    protected fun checkPermission(): Boolean {
+        val safeContext = context ?: return false
+        return ActivityCompat.checkSelfPermission(
+            safeContext,
+            permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+            ActivityCompat.checkSelfPermission(
+                safeContext,
+                permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
     }
 }

@@ -1,99 +1,91 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.Rect;
-import android.util.AttributeSet;
-import android.view.View;
-import android.view.ViewDebug;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.ScrollView;
-import com.cloudx.ios17.R;
+import android.content.Context
+import android.graphics.Rect
+import android.util.AttributeSet
+import android.view.View
+import android.view.ViewDebug
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ScrollView
+import com.cloudx.ios17.R
 
-public class InsettableScrollLayout extends ScrollView implements Insettable {
+class InsettableScrollLayout @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : ScrollView(context, attrs), Insettable {
 
     @ViewDebug.ExportedProperty(category = "launcher")
-    protected Rect mInsets = new Rect();
+    protected val mInsets: Rect = Rect()
 
-    public Rect getInsets() {
-        return mInsets;
-    }
+    val insets: Rect
+        get() = mInsets
 
-    public InsettableScrollLayout(Context context, AttributeSet attrs) {
-        super(context, attrs);
-    }
+    fun setFrameLayoutChildInsets(child: View, newInsets: Rect?, oldInsets: Rect?) {
+        val safeNewInsets = InsettableRectPolicy.nonNull(newInsets)
+        val safeOldInsets = InsettableRectPolicy.nonNull(oldInsets)
+        val lp = child.layoutParams as LayoutParams
 
-    public void setFrameLayoutChildInsets(View child, Rect newInsets, Rect oldInsets) {
-        final LayoutParams lp = (LayoutParams) child.getLayoutParams();
-
-        if (child instanceof Insettable) {
-            ((Insettable) child).setInsets(newInsets);
+        if (child is Insettable) {
+            child.setInsets(safeNewInsets)
         } else if (!lp.ignoreInsets) {
-            lp.topMargin += (newInsets.top - oldInsets.top);
-            lp.leftMargin += (newInsets.left - oldInsets.left);
-            lp.rightMargin += (newInsets.right - oldInsets.right);
-            lp.bottomMargin += (newInsets.bottom - oldInsets.bottom);
+            lp.topMargin += safeNewInsets.top - safeOldInsets.top
+            lp.leftMargin += safeNewInsets.left - safeOldInsets.left
+            lp.rightMargin += safeNewInsets.right - safeOldInsets.right
+            lp.bottomMargin += safeNewInsets.bottom - safeOldInsets.bottom
         }
-        child.setLayoutParams(lp);
+        child.layoutParams = lp
     }
 
-    @Override
-    public void setInsets(Rect insets) {
-        final int n = getChildCount();
-        for (int i = 0; i < n; i++) {
-            final View child = getChildAt(i);
-            setFrameLayoutChildInsets(child, insets, mInsets);
+    override fun setInsets(insets: Rect?) {
+        val safeInsets = InsettableRectPolicy.nonNull(insets)
+        val childCount = childCount
+        for (i in 0 until childCount) {
+            setFrameLayoutChildInsets(getChildAt(i), safeInsets, mInsets)
         }
-        mInsets.set(insets);
+        mInsets.set(safeInsets)
     }
 
-    @Override
-    public LayoutParams generateLayoutParams(AttributeSet attrs) {
-        return new LayoutParams(getContext(), attrs);
+    override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
+        return LayoutParams(context, attrs)
     }
 
-    @Override
-    protected LayoutParams generateDefaultLayoutParams() {
-        return new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+    override fun generateDefaultLayoutParams(): LayoutParams {
+        return LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
-    // Override to allow type-checking of LayoutParams.
-    @Override
-    protected boolean checkLayoutParams(ViewGroup.LayoutParams p) {
-        return p instanceof InsettableFrameLayout.LayoutParams;
+    override fun checkLayoutParams(params: ViewGroup.LayoutParams): Boolean {
+        return params is LayoutParams
     }
 
-    @Override
-    protected LayoutParams generateLayoutParams(ViewGroup.LayoutParams p) {
-        return new LayoutParams(p);
+    override fun generateLayoutParams(params: ViewGroup.LayoutParams): LayoutParams {
+        return LayoutParams(params)
     }
 
-    public static class LayoutParams extends FrameLayout.LayoutParams {
-        public boolean ignoreInsets = false;
+    class LayoutParams : FrameLayout.LayoutParams {
+        @JvmField
+        var ignoreInsets: Boolean = false
 
-        public LayoutParams(Context c, AttributeSet attrs) {
-            super(c, attrs);
-            TypedArray a = c.obtainStyledAttributes(attrs, R.styleable.InsettableFrameLayout_Layout);
-            ignoreInsets = a.getBoolean(R.styleable.InsettableFrameLayout_Layout_layout_ignoreInsets, false);
-            a.recycle();
+        constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
+            val typedArray =
+                context.obtainStyledAttributes(attrs, R.styleable.InsettableFrameLayout_Layout)
+            ignoreInsets = typedArray.getBoolean(
+                R.styleable.InsettableFrameLayout_Layout_layout_ignoreInsets,
+                false
+            )
+            typedArray.recycle()
         }
 
-        public LayoutParams(int width, int height) {
-            super(width, height);
-        }
+        constructor(width: Int, height: Int) : super(width, height)
 
-        public LayoutParams(ViewGroup.LayoutParams lp) {
-            super(lp);
-        }
+        constructor(layoutParams: ViewGroup.LayoutParams) : super(layoutParams)
     }
 
-    @Override
-    public void onViewAdded(View child) {
-        super.onViewAdded(child);
-        if (!isAttachedToWindow()) {
-            return;
+    override fun onViewAdded(child: View) {
+        super.onViewAdded(child)
+        if (!isAttachedToWindow) {
+            return
         }
-        setFrameLayoutChildInsets(child, mInsets, new Rect());
+        setFrameLayoutChildInsets(child, mInsets, Rect())
     }
 }

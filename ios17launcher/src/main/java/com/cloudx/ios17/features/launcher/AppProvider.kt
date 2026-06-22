@@ -1,536 +1,538 @@
-package com.cloudx.ios17.features.launcher;
+package com.cloudx.ios17.features.launcher
 
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.LauncherActivityInfo;
-import android.content.pm.LauncherApps;
-import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Process;
-import android.os.UserManager;
-import android.provider.MediaStore;
-import android.util.LongSparseArray;
-
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.broadcast.PackageAddedRemovedHandler;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.executors.AppExecutors;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.GraphicsUtil;
-import com.cloudx.ios17.core.utils.MultiHashMap;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.broadcast.PackageAddedRemovedHandler;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.executors.AppExecutors;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.GraphicsUtil;
-import com.cloudx.ios17.core.utils.MultiHashMap;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.broadcast.PackageAddedRemovedHandler;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.executors.AppExecutors;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.GraphicsUtil;
-import com.cloudx.ios17.core.utils.MultiHashMap;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.features.launcher.tasks.LoadAppsTask;
-import com.cloudx.ios17.features.launcher.tasks.LoadDatabaseTask;
-import com.cloudx.ios17.features.launcher.tasks.LoadShortcutTask;
-import com.cloudx.ios17.features.shortcuts.DeepShortcutManager;
-import com.cloudx.ios17.features.shortcuts.ShortcutInfoCompat;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.Utilities;
-import com.cloudx.ios17.core.broadcast.PackageAddedRemovedHandler;
-import com.cloudx.ios17.core.database.DatabaseManager;
-import com.cloudx.ios17.core.database.model.ApplicationItem;
-import com.cloudx.ios17.core.database.model.FolderItem;
-import com.cloudx.ios17.core.database.model.LauncherItem;
-import com.cloudx.ios17.core.database.model.ShortcutItem;
-import com.cloudx.ios17.core.executors.AppExecutors;
-import com.cloudx.ios17.core.utils.AppUtils;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.GraphicsUtil;
-import com.cloudx.ios17.core.utils.MultiHashMap;
-import com.cloudx.ios17.core.utils.UserHandle;
-import timber.log.Timber;
-
-import java.text.Collator;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherActivityInfo
+import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
+import android.os.Build
+import android.os.Process
+import android.os.UserManager
+import android.provider.MediaStore
+import android.util.LongSparseArray
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.Utilities
+import com.cloudx.ios17.core.broadcast.PackageAddedRemovedHandler
+import com.cloudx.ios17.core.database.DatabaseManager
+import com.cloudx.ios17.core.database.model.ApplicationItem
+import com.cloudx.ios17.core.database.model.FolderItem
+import com.cloudx.ios17.core.database.model.LauncherItem
+import com.cloudx.ios17.core.database.model.ShortcutItem
+import com.cloudx.ios17.core.executors.AppExecutors
+import com.cloudx.ios17.core.utils.AppUtils
+import com.cloudx.ios17.core.utils.Constants
+import com.cloudx.ios17.core.utils.GraphicsUtil
+import com.cloudx.ios17.core.utils.MultiHashMap
+import com.cloudx.ios17.core.utils.UserHandle
+import com.cloudx.ios17.features.launcher.tasks.LoadAppsTask
+import com.cloudx.ios17.features.launcher.tasks.LoadDatabaseTask
+import com.cloudx.ios17.features.launcher.tasks.LoadShortcutTask
+import com.cloudx.ios17.features.shortcuts.DeepShortcutManager
+import com.cloudx.ios17.features.shortcuts.ShortcutInfoCompat
+import java.text.Collator
+import java.util.Arrays
+import java.util.Collections
+import java.util.HashSet
+import timber.log.Timber
 
 // TODO: Find better solution instead of excessively using volatile and synchronized.
 //  - and use RxJava instead of bad async tasks.
-public class AppProvider {
+class AppProvider private constructor(private val mContext: Context) {
 
-    /** Represents all applications that is to be shown in Launcher */
-    List<LauncherItem> mLauncherItems;
+    /** Represents all applications that are shown in Launcher. */
+    private var mLauncherItems: MutableList<LauncherItem>? = null
 
-    /** Represents networkItems stored in database. */
-    private List<LauncherItem> mDatabaseItems;
+    /** Represents launcher items stored in database. */
+    private var mDatabaseItems: List<LauncherItem>? = null
 
-    /** Represents all applications installed in device. */
-    private Map<String, ApplicationItem> mApplicationItems;
+    /** Represents all applications installed on the device. */
+    private var mApplicationItems: Map<String, ApplicationItem> = emptyMap()
 
     /** Represents all shortcuts which user has created. */
-    private Map<String, ShortcutInfoCompat> mShortcutInfoCompats;
+    private var mShortcutInfoCompats: Map<String, ShortcutInfoCompat> = emptyMap()
 
-    private boolean appsLoaded = false;
-    private boolean shortcutsLoaded = false;
-    private boolean databaseLoaded = false;
+    private var appsLoaded = false
+    private var shortcutsLoaded = false
+    private var databaseLoaded = false
 
-    private AppsRepository mAppsRepository;
+    private lateinit var mAppsRepository: AppsRepository
+    private val appsRepository: AppsRepository = AppsRepository.getAppsRepository()
 
-    private static final String MICROG_PACKAGE = "com.google.android.gms";
-    private static final String MUPDF_PACKAGE = "com.artifex.mupdf.mini.app";
-    private static final String PDF_VIEWER_PACKAGE = "foundation.e.pdfviewer";
-    private static final String OPENKEYCHAIN_PACKAGE = "org.sufficientlysecure.keychain";
-    private static final String LIBREOFFICE_PACKAGE = "org.documentfoundation.libreoffice";
-    private static final String LIBREOFFICE_PACKAGE2 = "org.example.libreoffice";
-    private static final String SIM_TOOLKIT = "com.android.stk";
+    private val pendingPackages = MultiHashMap<UserHandle, String>()
 
-    public static HashSet<String> DISABLED_PACKAGES = new HashSet<>();
+    val context: Context
+        get() = mContext
 
-    private MultiHashMap<UserHandle, String> pendingPackages = new MultiHashMap<>();
+    private var isLoading = false
+    private var mStopped = false
+    private var isSdCardReady = false
 
-    static {
-        DISABLED_PACKAGES.add(MICROG_PACKAGE);
-        DISABLED_PACKAGES.add(MUPDF_PACKAGE);
-        DISABLED_PACKAGES.add(PDF_VIEWER_PACKAGE);
-        DISABLED_PACKAGES.add(OPENKEYCHAIN_PACKAGE);
-        DISABLED_PACKAGES.add(LIBREOFFICE_PACKAGE);
-        DISABLED_PACKAGES.add(LIBREOFFICE_PACKAGE2);
-        DISABLED_PACKAGES.add(SIM_TOOLKIT);
+    init {
+        isLoading = false
+        initialise()
     }
 
-    private static final String TAG = "AppProvider";
-    private Context mContext;
-    private static AppProvider sInstance;
-    private boolean isLoading;
-    private boolean mStopped;
-    private boolean isSdCardReady;
+    private fun initialise() {
+        val manager = mContext.getSystemService(Context.USER_SERVICE) as UserManager
+        val launcher = mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
 
-    private AppsRepository appsRepository;
+        launcher.registerCallback(object : LauncherApps.Callback() {
+            override fun onPackageRemoved(packageName: String, user: android.os.UserHandle) {
+                if (packageName.equals(MICROG_PACKAGE, ignoreCase = true) ||
+                    packageName.equals(MUPDF_PACKAGE, ignoreCase = true)
+                ) {
+                    return
+                }
 
-    private AppProvider(Context context) {
-        this.mContext = context;
-        this.appsRepository = AppsRepository.getAppsRepository();
-        isLoading = false;
-        initialise();
+                PackageAddedRemovedHandler.handleEvent(
+                    mContext,
+                    Intent.ACTION_PACKAGE_REMOVED,
+                    packageName,
+                    UserHandle(manager.getSerialNumberForUser(user), user),
+                    false
+                )
+            }
+
+            override fun onPackageAdded(packageName: String, user: android.os.UserHandle) {
+                if (packageName.equals(MICROG_PACKAGE, ignoreCase = true) ||
+                    packageName.equals(MUPDF_PACKAGE, ignoreCase = true)
+                ) {
+                    return
+                }
+
+                PackageAddedRemovedHandler.handleEvent(
+                    mContext,
+                    Intent.ACTION_PACKAGE_ADDED,
+                    packageName,
+                    UserHandle(manager.getSerialNumberForUser(user), user),
+                    false
+                )
+            }
+
+            override fun onPackageChanged(packageName: String, user: android.os.UserHandle) {
+                if (packageName.equals(MICROG_PACKAGE, ignoreCase = true) ||
+                    packageName.equals(MUPDF_PACKAGE, ignoreCase = true)
+                ) {
+                    return
+                }
+
+                PackageAddedRemovedHandler.handleEvent(
+                    mContext,
+                    Intent.ACTION_PACKAGE_CHANGED,
+                    packageName,
+                    UserHandle(manager.getSerialNumberForUser(user), user),
+                    true
+                )
+            }
+
+            override fun onPackagesAvailable(
+                packageNames: Array<String>,
+                user: android.os.UserHandle,
+                replacing: Boolean
+            ) {
+                Timber.tag(TAG).d(
+                    "onPackagesAvailable() called with: packageNames = [${Arrays.toString(packageNames)}], user = [$user], replacing = [$replacing]"
+                )
+                for (packageName in packageNames) {
+                    PackageAddedRemovedHandler.handleEvent(
+                        mContext,
+                        Intent.ACTION_MEDIA_MOUNTED,
+                        packageName,
+                        UserHandle(manager.getSerialNumberForUser(user), user),
+                        false
+                    )
+                }
+            }
+
+            override fun onPackagesUnavailable(
+                packageNames: Array<String>,
+                user: android.os.UserHandle,
+                replacing: Boolean
+            ) {
+                Timber.tag(TAG).d(
+                    "onPackagesUnavailable() called with: packageNames = [${Arrays.toString(packageNames)}], user = [$user], replacing = [$replacing]"
+                )
+                PackageAddedRemovedHandler.handleEvent(
+                    mContext,
+                    Intent.ACTION_MEDIA_UNMOUNTED,
+                    null,
+                    UserHandle(manager.getSerialNumberForUser(user), user),
+                    false
+                )
+            }
+
+            override fun onPackagesSuspended(packageNames: Array<String>, user: android.os.UserHandle) {
+                Timber.tag(TAG).d(
+                    "onPackagesSuspended() called with: packageNames = [${Arrays.toString(packageNames)}], user = [$user]"
+                )
+            }
+
+            override fun onPackagesUnsuspended(packageNames: Array<String>, user: android.os.UserHandle) {
+                super.onPackagesUnsuspended(packageNames, user)
+                Timber.tag(TAG).d(
+                    "onPackagesUnsuspended() called with: packageNames = [${Arrays.toString(packageNames)}], user = [$user]"
+                )
+            }
+        })
+
+        mAppsRepository = AppsRepository.getAppsRepository()
     }
 
-    private void initialise() {
-        final UserManager manager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
-        assert manager != null;
+    @Synchronized
+    fun reload(force: Boolean) {
+        Timber.tag(TAG).d("reload() called")
 
-        final LauncherApps launcher = (LauncherApps) mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-        assert launcher != null;
+        isSdCardReady = Utilities.isBootCompleted()
 
-        launcher.registerCallback(new LauncherApps.Callback() {
-            @Override
-            public void onPackageRemoved(String packageName, android.os.UserHandle user) {
-                if (packageName.equalsIgnoreCase(MICROG_PACKAGE) || packageName.equalsIgnoreCase(MUPDF_PACKAGE)) {
-                    return;
-                }
-
-                PackageAddedRemovedHandler.handleEvent(mContext, "android.intent.action.PACKAGE_REMOVED", packageName,
-                        new UserHandle(manager.getSerialNumberForUser(user), user), false);
-            }
-
-            @Override
-            public void onPackageAdded(String packageName, android.os.UserHandle user) {
-                if (packageName.equalsIgnoreCase(MICROG_PACKAGE) || packageName.equalsIgnoreCase(MUPDF_PACKAGE)) {
-                    return;
-                }
-
-                PackageAddedRemovedHandler.handleEvent(mContext, "android.intent.action.PACKAGE_ADDED", packageName,
-                        new UserHandle(manager.getSerialNumberForUser(user), user), false);
-            }
-
-            @Override
-            public void onPackageChanged(String packageName, android.os.UserHandle user) {
-                if (packageName.equalsIgnoreCase(MICROG_PACKAGE) || packageName.equalsIgnoreCase(MUPDF_PACKAGE)) {
-                    return;
-                }
-
-                PackageAddedRemovedHandler.handleEvent(mContext, "android.intent.action.PACKAGE_CHANGED", packageName,
-                        new UserHandle(manager.getSerialNumberForUser(user), user), true);
-            }
-
-            @Override
-            public void onPackagesAvailable(String[] packageNames, android.os.UserHandle user, boolean replacing) {
-                Timber.tag(TAG).d("onPackagesAvailable() called with: packageNames = [" + Arrays.toString(packageNames)
-                        + "], user = [" + user + "], replacing = [" + replacing + "]");
-                for (String packageName : packageNames) {
-                    PackageAddedRemovedHandler.handleEvent(mContext, "android.intent.action.MEDIA_MOUNTED", packageName,
-                            new UserHandle(manager.getSerialNumberForUser(user), user), false);
-                }
-            }
-
-            @Override
-            public void onPackagesUnavailable(String[] packageNames, android.os.UserHandle user, boolean replacing) {
-                Timber.tag(TAG).d("onPackagesUnavailable() called with: packageNames = ["
-                        + Arrays.toString(packageNames) + "], user = [" + user + "], replacing = [" + replacing + "]");
-                PackageAddedRemovedHandler.handleEvent(mContext, "android.intent.action.MEDIA_UNMOUNTED", null,
-                        new UserHandle(manager.getSerialNumberForUser(user), user), false);
-            }
-
-            @Override
-            public void onPackagesSuspended(String[] packageNames, android.os.UserHandle user) {
-                Timber.tag(TAG).d("onPackagesSuspended() called with: packageNames = [" + Arrays.toString(packageNames)
-                        + "], user = [" + user + "]");
-            }
-
-            @Override
-            public void onPackagesUnsuspended(String[] packageNames, android.os.UserHandle user) {
-                super.onPackagesUnsuspended(packageNames, user);
-                Timber.tag(TAG).d("onPackagesUnsuspended() called with: packageNames = ["
-                        + Arrays.toString(packageNames) + "], user = [" + user + "]");
-            }
-        });
-
-        mAppsRepository = AppsRepository.getAppsRepository();
-    }
-
-    public static AppProvider getInstance(Context context) {
-        if (sInstance == null) {
-            synchronized (AppProvider.class) {
-                if (sInstance == null) {
-                    sInstance = new AppProvider(context);
-                    sInstance.reload(true);
-                }
-            }
-        }
-        return sInstance;
-    }
-
-    public Context getContext() {
-        return mContext;
-    }
-
-    public synchronized void reload(boolean force) {
-        Timber.tag(TAG).d("reload() called");
-
-        isSdCardReady = Utilities.isBootCompleted();
-
-        if (!force && mLauncherItems != null && mLauncherItems.size() > 0) {
-            mAppsRepository.updateAppsRelay(mLauncherItems);
+        val launcherItems = mLauncherItems
+        if (!force && !launcherItems.isNullOrEmpty()) {
+            mAppsRepository.updateAppsRelay(launcherItems)
         }
 
-        initializeAppLoading(new LoadAppsTask());
+        initializeAppLoading(LoadAppsTask())
         if (Utilities.ATLEAST_OREO) {
-            initializeShortcutsLoading(new LoadShortcutTask());
+            initializeShortcutsLoading(LoadShortcutTask())
         } else {
-            shortcutsLoaded = true; // will be loaded from database automatically.
+            shortcutsLoaded = true
         }
-        initializeDatabaseLoading(new LoadDatabaseTask());
+        initializeDatabaseLoading(LoadDatabaseTask())
     }
 
-    private synchronized void initializeAppLoading(LoadAppsTask loader) {
-        Timber.tag(TAG).d("initializeAppLoading() called with: loader = [" + loader + "]");
-        appsLoaded = false;
-        loader.setAppProvider(this);
-        loader.executeOnExecutor(AppExecutors.getInstance().appIO());
+    @Synchronized
+    private fun initializeAppLoading(loader: LoadAppsTask) {
+        Timber.tag(TAG).d("initializeAppLoading() called with: loader = [$loader]")
+        appsLoaded = false
+        loader.setAppProvider(this)
+        loader.executeOnExecutor(AppExecutors.getInstance().appIO())
     }
 
-    private synchronized void initializeShortcutsLoading(LoadShortcutTask loader) {
-        Timber.tag(TAG).d("initializeShortcutsLoading() called with: loader = [" + loader + "]");
-        shortcutsLoaded = false;
-        loader.setAppProvider(this);
-        loader.executeOnExecutor(AppExecutors.getInstance().shortcutIO());
+    @Synchronized
+    private fun initializeShortcutsLoading(loader: LoadShortcutTask) {
+        Timber.tag(TAG).d("initializeShortcutsLoading() called with: loader = [$loader]")
+        shortcutsLoaded = false
+        loader.setAppProvider(this)
+        loader.executeOnExecutor(AppExecutors.getInstance().shortcutIO())
     }
 
-    private synchronized void initializeDatabaseLoading(LoadDatabaseTask loader) {
-        Timber.tag(TAG).d("initializeDatabaseLoading() called with: loader = [" + loader + "]");
-        databaseLoaded = false;
-        loader.setAppProvider(this);
-        loader.executeOnExecutor(AppExecutors.getInstance().diskIO());
+    @Synchronized
+    private fun initializeDatabaseLoading(loader: LoadDatabaseTask) {
+        Timber.tag(TAG).d("initializeDatabaseLoading() called with: loader = [$loader]")
+        databaseLoaded = false
+        loader.setAppProvider(this)
+        loader.executeOnExecutor(AppExecutors.getInstance().diskIO())
     }
 
-    public synchronized void loadAppsOver(Map<String, ApplicationItem> appItemsPair) {
-        Timber.tag(TAG).d("loadAppsOver() called %s", mStopped);
-        mApplicationItems = appItemsPair;
-        appsLoaded = true;
-        handleAllProviderLoaded();
+    @Synchronized
+    fun loadAppsOver(appItemsPair: Map<String, ApplicationItem>) {
+        Timber.tag(TAG).d("loadAppsOver() called %s", mStopped)
+        mApplicationItems = appItemsPair
+        appsLoaded = true
+        handleAllProviderLoaded()
     }
 
-    public synchronized void loadShortcutsOver(Map<String, ShortcutInfoCompat> shortcuts) {
-        Timber.tag(TAG).d("loadShortcutsOver() called with: shortcuts = [" + shortcuts + "]" + mStopped);
-        mShortcutInfoCompats = shortcuts;
-        shortcutsLoaded = true;
-        handleAllProviderLoaded();
+    @Synchronized
+    fun loadShortcutsOver(shortcuts: Map<String, ShortcutInfoCompat>) {
+        Timber.tag(TAG).d("loadShortcutsOver() called with: shortcuts = [$shortcuts]$mStopped")
+        mShortcutInfoCompats = shortcuts
+        shortcutsLoaded = true
+        handleAllProviderLoaded()
     }
 
-    public synchronized void loadDatabaseOver(List<LauncherItem> databaseItems) {
-        Timber.tag(TAG).d("loadDatabaseOver() called with: databaseItems = [" + Thread.currentThread().getName() + "]"
-                + mStopped);
-        this.mDatabaseItems = databaseItems;
-        databaseLoaded = true;
-        handleAllProviderLoaded();
+    @Synchronized
+    fun loadDatabaseOver(databaseItems: List<LauncherItem>) {
+        Timber.tag(TAG).d("loadDatabaseOver() called with: databaseItems = [${Thread.currentThread().name}]$mStopped")
+        mDatabaseItems = databaseItems
+        databaseLoaded = true
+        handleAllProviderLoaded()
     }
 
-    private synchronized void handleAllProviderLoaded() {
+    @Synchronized
+    private fun handleAllProviderLoaded() {
         if (appsLoaded && shortcutsLoaded && databaseLoaded) {
-            if (mDatabaseItems == null || mDatabaseItems.size() <= 0) {
-                mLauncherItems = prepareDefaultLauncherItems();
+            val databaseItems = mDatabaseItems
+            mLauncherItems = if (databaseItems.isNullOrEmpty()) {
+                prepareDefaultLauncherItems()
             } else {
-                mLauncherItems = prepareLauncherItems();
+                prepareLauncherItems(databaseItems)
             }
-            mAppsRepository.updateAppsRelay(mLauncherItems);
+            mAppsRepository.updateAppsRelay(mLauncherItems.orEmpty())
         }
     }
 
-    private List<LauncherItem> prepareLauncherItems() {
-        Timber.tag(TAG).d("prepareLauncherItems() called");
+    private fun prepareLauncherItems(databaseItems: List<LauncherItem>): MutableList<LauncherItem> {
+        Timber.tag(TAG).d("prepareLauncherItems() called")
 
-        /** Indices of folder in {@link #mLauncherItems}. */
-        LongSparseArray<Integer> foldersIndex = new LongSparseArray<>();
-        List<LauncherItem> mLauncherItems = new ArrayList<>();
-        Collection<ApplicationItem> applicationItems = mApplicationItems.values();
+        val foldersIndex = LongSparseArray<Int>()
+        val launcherItems = ArrayList<LauncherItem>()
+        val applicationItems = ArrayList(mApplicationItems.values)
 
-        Timber.tag(TAG).i("Total number of apps: %s", applicationItems.size());
-        Timber.tag(TAG).i("Total number of items in database: %s", mDatabaseItems.size());
-        for (LauncherItem databaseItem : mDatabaseItems) {
+        Timber.tag(TAG).i("Total number of apps: %s", applicationItems.size)
+        Timber.tag(TAG).i("Total number of items in database: %s", databaseItems.size)
+        for (databaseItem in databaseItems) {
             if (databaseItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
-                ApplicationItem applicationItem = mApplicationItems.get(databaseItem.id);
+                var applicationItem = mApplicationItems[databaseItem.id]
                 if (applicationItem == null) {
-                    UserHandle userHandle = new UserHandle();
-                    if ((isAppOnSdcard(databaseItem.packageName, userHandle) || !isSdCardReady)
-                            && !DISABLED_PACKAGES.contains(databaseItem.packageName)) {
-                        Timber.tag(TAG).d("Missing package: %s", databaseItem.packageName);
-                        Timber.tag(TAG).d("Is App on Sdcard %s", isAppOnSdcard(databaseItem.packageName, userHandle));
-                        Timber.tag(TAG).d("Is Sdcard ready %s", isSdCardReady);
+                    val userHandle = UserHandle()
+                    if ((isAppOnSdcard(databaseItem.packageName, userHandle) || !isSdCardReady) &&
+                        !DISABLED_PACKAGES.contains(databaseItem.packageName)
+                    ) {
+                        Timber.tag(TAG).d("Missing package: %s", databaseItem.packageName)
+                        Timber.tag(TAG).d("Is App on Sdcard %s", isAppOnSdcard(databaseItem.packageName, userHandle))
+                        Timber.tag(TAG).d("Is Sdcard ready %s", isSdCardReady)
 
-                        pendingPackages.addToList(userHandle, databaseItem.packageName);
-                        applicationItem = new ApplicationItem();
-                        applicationItem.id = databaseItem.id;
-                        applicationItem.title = databaseItem.title;
-                        applicationItem.user = userHandle;
-                        applicationItem.componentName = databaseItem.getTargetComponent();
-                        applicationItem.packageName = databaseItem.packageName;
-                        applicationItem.icon = getContext().getDrawable(R.drawable.default_icon);
-                        applicationItem.isDisabled = true;
+                        val packageName = databaseItem.packageName
+                        if (packageName != null) {
+                            pendingPackages.addToList(userHandle, packageName)
+                        }
+                        applicationItem = ApplicationItem().apply {
+                            id = databaseItem.id
+                            title = databaseItem.title
+                            user = userHandle
+                            componentName = databaseItem.getTargetComponent()
+                            this.packageName = databaseItem.packageName
+                            icon = context.getDrawable(R.drawable.default_icon)
+                            isDisabled = true
+                        }
                     } else {
-                        DatabaseManager.getManager(mContext).removeLauncherItem(databaseItem.id);
-                        continue;
+                        DatabaseManager.getManager(mContext).removeLauncherItem(databaseItem.id)
+                        continue
                     }
                 }
 
-                applicationItem.container = databaseItem.container;
-                applicationItem.screenId = databaseItem.screenId;
-                applicationItem.cell = databaseItem.cell;
-                applicationItem.keyId = databaseItem.keyId;
-                if (applicationItem.container == Constants.CONTAINER_DESKTOP
-                        || applicationItem.container == Constants.CONTAINER_HOTSEAT) {
-                    mLauncherItems.add(applicationItem);
+                applicationItem.container = databaseItem.container
+                applicationItem.screenId = databaseItem.screenId
+                applicationItem.cell = databaseItem.cell
+                applicationItem.keyId = databaseItem.keyId
+                if (applicationItem.container == Constants.CONTAINER_DESKTOP.toLong() ||
+                    applicationItem.container == Constants.CONTAINER_HOTSEAT.toLong()
+                ) {
+                    launcherItems.add(applicationItem)
                 } else {
-                    Integer index = foldersIndex.get(applicationItem.container);
+                    val index = foldersIndex[applicationItem.container]
                     if (index != null) {
-                        FolderItem folderItem = (FolderItem) mLauncherItems.get(index);
-                        folderItem.items.add(applicationItem);
+                        val folderItem = launcherItems[index] as FolderItem
+                        folderItem.items?.add(applicationItem)
                     } else {
-                        Timber.tag("AppProvider").e("folder not found for item: %s", applicationItem.id);
+                        Timber.tag(TAG).e("folder not found for item: %s", applicationItem.id)
                     }
                 }
             } else if (databaseItem.itemType == Constants.ITEM_TYPE_SHORTCUT) {
-                ShortcutItem shortcutItem;
-                if (Utilities.ATLEAST_OREO) {
-                    shortcutItem = prepareShortcutForOreo(databaseItem);
+                val shortcutItem = if (Utilities.ATLEAST_OREO) {
+                    prepareShortcutForOreo(databaseItem)
                 } else {
-                    shortcutItem = prepareShortcutForNougat(databaseItem);
+                    prepareShortcutForNougat(databaseItem)
                 }
 
                 if (shortcutItem == null) {
-                    DatabaseManager.getManager(mContext).removeLauncherItem(databaseItem.id);
-                    continue;
+                    DatabaseManager.getManager(mContext).removeLauncherItem(databaseItem.id)
+                    continue
                 }
 
-                if (shortcutItem.container == Constants.CONTAINER_DESKTOP
-                        || shortcutItem.container == Constants.CONTAINER_HOTSEAT) {
-                    mLauncherItems.add(shortcutItem);
+                if (shortcutItem.container == Constants.CONTAINER_DESKTOP.toLong() ||
+                    shortcutItem.container == Constants.CONTAINER_HOTSEAT.toLong()
+                ) {
+                    launcherItems.add(shortcutItem)
                 } else {
-                    FolderItem folderItem = (FolderItem) mLauncherItems.get(foldersIndex.get(shortcutItem.container));
+                    val folderItem = launcherItems[foldersIndex[shortcutItem.container]!!] as FolderItem
                     if (folderItem.items == null) {
-                        folderItem.items = new ArrayList<>();
+                        folderItem.items = ArrayList()
                     }
-                    folderItem.items.add(shortcutItem);
+                    folderItem.items?.add(shortcutItem)
                 }
             } else if (databaseItem.itemType == Constants.ITEM_TYPE_FOLDER) {
-                FolderItem folderItem = new FolderItem();
-                folderItem.id = databaseItem.id;
-                folderItem.title = databaseItem.title;
-                folderItem.container = databaseItem.container;
-                folderItem.cell = databaseItem.cell;
-                folderItem.items = new ArrayList<>();
-                folderItem.screenId = databaseItem.screenId;
-                foldersIndex.put(Long.parseLong(folderItem.id), mLauncherItems.size());
-                mLauncherItems.add(folderItem);
+                val folderItem = FolderItem().apply {
+                    id = databaseItem.id
+                    title = databaseItem.title
+                    container = databaseItem.container
+                    cell = databaseItem.cell
+                    items = ArrayList()
+                    screenId = databaseItem.screenId
+                }
+                foldersIndex.put(folderItem.id.toLong(), launcherItems.size)
+                launcherItems.add(folderItem)
             }
         }
 
-        List<Integer> folderItemsIndex = new ArrayList<>();
-        for (int i = 0; i < foldersIndex.size(); i++) {
-            int itemIndex = foldersIndex.get(foldersIndex.keyAt(i));
-            folderItemsIndex.add(itemIndex);
+        val folderItemsIndex = ArrayList<Int>()
+        for (i in 0 until foldersIndex.size()) {
+            val itemIndex = foldersIndex[foldersIndex.keyAt(i)]!!
+            folderItemsIndex.add(itemIndex)
         }
-        Collections.sort(folderItemsIndex);
-        for (int i = folderItemsIndex.size() - 1; i >= 0; i--) {
-            int itemIndex = folderItemsIndex.get(i);
-            FolderItem folderItem = (FolderItem) mLauncherItems.get(itemIndex);
-            if (folderItem.items == null || folderItem.items.size() == 0) {
-                DatabaseManager.getManager(mContext).removeLauncherItem(folderItem.id);
-                mLauncherItems.remove(itemIndex);
+        Collections.sort(folderItemsIndex)
+        for (i in folderItemsIndex.size - 1 downTo 0) {
+            val itemIndex = folderItemsIndex[i]
+            val folderItem = launcherItems[itemIndex] as FolderItem
+            if (folderItem.items.isNullOrEmpty()) {
+                DatabaseManager.getManager(mContext).removeLauncherItem(folderItem.id)
+                launcherItems.removeAt(itemIndex)
             } else {
-                folderItem.icon = new GraphicsUtil(mContext).generateFolderIcon(mContext, folderItem);
+                folderItem.icon = GraphicsUtil(mContext).generateFolderIcon(mContext, folderItem)
             }
         }
 
-        applicationItems.removeAll(mDatabaseItems);
-        List<ApplicationItem> mutableList = new ArrayList<>(applicationItems);
-        Collections.sort(mutableList, (app1, app2) -> {
-            Collator collator = Collator.getInstance();
-            return collator.compare(app1.title.toString(), app2.title.toString());
-        });
-        mLauncherItems.addAll(mutableList);
-        return mLauncherItems;
+        applicationItems.removeAll(databaseItems.toSet())
+        val mutableList = ArrayList(applicationItems)
+        mutableList.sortWith { app1, app2 ->
+            Collator.getInstance().compare(app1.title.toString(), app2.title.toString())
+        }
+        launcherItems.addAll(mutableList)
+        return launcherItems
     }
 
-    private boolean isAppOnSdcard(String packageName, UserHandle userHandle) {
-        ApplicationInfo info = null;
-        try {
+    private fun isAppOnSdcard(packageName: String?, userHandle: UserHandle): Boolean {
+        packageName ?: return false
+        return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                info = ((LauncherApps) mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE)).getApplicationInfo(
-                        packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES, userHandle.getRealHandle());
-                return info != null && (info.flags & ApplicationInfo.FLAG_EXTERNAL_STORAGE) != 0;
+                val info = (mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps)
+                    .getApplicationInfo(
+                        packageName,
+                        PackageManager.MATCH_UNINSTALLED_PACKAGES,
+                        userHandle.getRealHandle()
+                    )
+                info != null && info.flags and ApplicationInfo.FLAG_EXTERNAL_STORAGE != 0
             } else {
-                info = getContext().getPackageManager().getApplicationInfo(packageName,
-                        PackageManager.MATCH_UNINSTALLED_PACKAGES);
-                return info != null && info.enabled;
+                val info = context.packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.MATCH_UNINSTALLED_PACKAGES
+                )
+                info != null && info.enabled
             }
-        } catch (PackageManager.NameNotFoundException e) {
-            e.printStackTrace();
-            return false;
+        } catch (e: PackageManager.NameNotFoundException) {
+            e.printStackTrace()
+            false
         }
     }
 
-    private ShortcutItem prepareShortcutForNougat(LauncherItem databaseItem) {
-        ShortcutItem shortcutItem = new ShortcutItem();
-        shortcutItem.id = databaseItem.id;
-        shortcutItem.packageName = databaseItem.packageName;
-        shortcutItem.title = databaseItem.title.toString();
-        shortcutItem.icon_blob = databaseItem.icon_blob;
-        Bitmap bitmap = BitmapFactory.decodeByteArray(databaseItem.icon_blob, 0, databaseItem.icon_blob.length);
-        shortcutItem.icon = new BitmapDrawable(mContext.getResources(), bitmap);
-        shortcutItem.launchIntent = databaseItem.getIntent();
-        shortcutItem.launchIntentUri = databaseItem.launchIntentUri;
-        shortcutItem.container = databaseItem.container;
-        shortcutItem.screenId = databaseItem.screenId;
-        shortcutItem.cell = databaseItem.cell;
-        shortcutItem.user = new UserHandle();
-        return shortcutItem;
+    private fun prepareShortcutForNougat(databaseItem: LauncherItem): ShortcutItem {
+        val shortcutItem = ShortcutItem()
+        shortcutItem.id = databaseItem.id
+        shortcutItem.packageName = databaseItem.packageName
+        shortcutItem.title = databaseItem.title.toString()
+        shortcutItem.icon_blob = databaseItem.icon_blob
+        val iconBlob = databaseItem.icon_blob!!
+        val bitmap = BitmapFactory.decodeByteArray(iconBlob, 0, iconBlob.size)
+        shortcutItem.icon = BitmapDrawable(mContext.resources, bitmap)
+        shortcutItem.launchIntent = databaseItem.getIntent()
+        shortcutItem.launchIntentUri = databaseItem.launchIntentUri
+        shortcutItem.container = databaseItem.container
+        shortcutItem.screenId = databaseItem.screenId
+        shortcutItem.cell = databaseItem.cell
+        shortcutItem.user = UserHandle()
+        return shortcutItem
     }
 
-    private ShortcutItem prepareShortcutForOreo(LauncherItem databaseItem) {
-        ShortcutInfoCompat info = mShortcutInfoCompats.get(databaseItem.id);
+    private fun prepareShortcutForOreo(databaseItem: LauncherItem): ShortcutItem? {
+        val info = mShortcutInfoCompats[databaseItem.id]
         if (info == null) {
-            Timber.tag(TAG).d("prepareShortcutForOreo() called with: databaseItem = [" + databaseItem + "]");
-            return null;
+            Timber.tag(TAG).d("prepareShortcutForOreo() called with: databaseItem = [$databaseItem]")
+            return null
         }
 
-        ShortcutItem shortcutItem = new ShortcutItem();
-        shortcutItem.id = info.getId();
-        shortcutItem.packageName = info.getPackage();
-        shortcutItem.title = info.getShortLabel().toString();
-        Drawable icon = DeepShortcutManager.getInstance(mContext).getShortcutIconDrawable(info,
-                mContext.getResources().getDisplayMetrics().densityDpi);
-        shortcutItem.icon = BlissLauncher.getApplication(mContext).getIconsHandler().convertIcon(icon);
-        shortcutItem.launchIntent = info.makeIntent();
-        shortcutItem.container = databaseItem.container;
-        shortcutItem.screenId = databaseItem.screenId;
-        shortcutItem.cell = databaseItem.cell;
-        shortcutItem.user = new UserHandle();
-        return shortcutItem;
+        val shortcutItem = ShortcutItem()
+        shortcutItem.id = info.id
+        shortcutItem.packageName = info.`package`
+        shortcutItem.title = info.shortLabel.toString()
+        val icon = DeepShortcutManager.getInstance(mContext)
+            .getShortcutIconDrawable(info, mContext.resources.displayMetrics.densityDpi)
+        shortcutItem.icon = BlissLauncher.getApplication(mContext).iconsHandler.convertIcon(icon)
+        shortcutItem.launchIntent = info.makeIntent()
+        shortcutItem.container = databaseItem.container
+        shortcutItem.screenId = databaseItem.screenId
+        shortcutItem.cell = databaseItem.cell
+        shortcutItem.user = UserHandle()
+        return shortcutItem
     }
 
-    private List<LauncherItem> prepareDefaultLauncherItems() {
-        List<LauncherItem> mLauncherItems = new ArrayList<>();
-        List<LauncherItem> pinnedItems = new ArrayList<>();
-        PackageManager pm = mContext.getPackageManager();
-        Intent[] intents = {new Intent(Intent.ACTION_DIAL), new Intent(Intent.ACTION_VIEW, Uri.parse("sms:")),
-                new Intent(Intent.ACTION_VIEW, Uri.parse("http:")), new Intent(MediaStore.ACTION_IMAGE_CAPTURE)};
-        for (int i = 0; i < intents.length; i++) {
-            String packageName = AppUtils.getPackageNameForIntent(intents[i], pm);
-            LauncherApps launcherApps = (LauncherApps) mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE);
-            List<LauncherActivityInfo> list = launcherApps.getActivityList(packageName, Process.myUserHandle());
-            for (LauncherActivityInfo launcherActivityInfo : list) {
-                ApplicationItem applicationItem = mApplicationItems
-                        .get(launcherActivityInfo.getComponentName().flattenToString());
+    private fun prepareDefaultLauncherItems(): MutableList<LauncherItem> {
+        val launcherItems = ArrayList<LauncherItem>()
+        val pinnedItems = ArrayList<LauncherItem>()
+        val pm = mContext.packageManager
+        val intents = arrayOf(
+            Intent(Intent.ACTION_DIAL),
+            Intent(Intent.ACTION_VIEW, Uri.parse("sms:")),
+            Intent(Intent.ACTION_VIEW, Uri.parse("http:")),
+            Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        )
+        for (i in intents.indices) {
+            val packageName = AppUtils.getPackageNameForIntent(intents[i], pm)
+            val launcherApps = mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val list: List<LauncherActivityInfo> = launcherApps.getActivityList(packageName, Process.myUserHandle())
+            for (launcherActivityInfo in list) {
+                val applicationItem = mApplicationItems[launcherActivityInfo.componentName.flattenToString()]
                 if (applicationItem != null) {
-                    applicationItem.container = Constants.CONTAINER_HOTSEAT;
-                    applicationItem.cell = i;
-                    pinnedItems.add(applicationItem);
-                    break;
+                    applicationItem.container = Constants.CONTAINER_HOTSEAT.toLong()
+                    applicationItem.cell = i
+                    pinnedItems.add(applicationItem)
+                    break
                 }
             }
         }
 
-        for (Map.Entry<String, ApplicationItem> stringApplicationItemEntry : mApplicationItems.entrySet()) {
-            if (!pinnedItems.contains(stringApplicationItemEntry.getValue())) {
-                mLauncherItems.add(stringApplicationItemEntry.getValue());
+        for ((_, applicationItem) in mApplicationItems) {
+            if (!pinnedItems.contains(applicationItem)) {
+                launcherItems.add(applicationItem)
             }
         }
 
-        mLauncherItems.sort((app1, app2) -> {
-            Collator collator = Collator.getInstance();
-            return collator.compare(app1.title.toString(), app2.title.toString());
-        });
+        launcherItems.sortWith { app1, app2 ->
+            Collator.getInstance().compare(app1.title.toString(), app2.title.toString())
+        }
 
-        mLauncherItems.addAll(pinnedItems);
-        return mLauncherItems;
+        launcherItems.addAll(pinnedItems)
+        return launcherItems
     }
 
-    public AppsRepository getAppsRepository() {
-        return appsRepository;
+    fun getAppsRepository(): AppsRepository = appsRepository
+
+    fun clear() {
+        sInstance = null
+        mLauncherItems = ArrayList()
+        mAppsRepository.updateAppsRelay(Collections.emptyList())
     }
 
-    public void clear() {
-        this.sInstance = null;
-        mLauncherItems = new ArrayList<>();
-        mAppsRepository.updateAppsRelay(Collections.emptyList());
-    }
+    @Synchronized
+    fun isRunning(): Boolean = !mStopped
 
-    public synchronized boolean isRunning() {
-        return !mStopped;
+    companion object {
+        private const val MICROG_PACKAGE = "com.google.android.gms"
+        private const val MUPDF_PACKAGE = "com.artifex.mupdf.mini.app"
+        private const val PDF_VIEWER_PACKAGE = "foundation.e.pdfviewer"
+        private const val OPENKEYCHAIN_PACKAGE = "org.sufficientlysecure.keychain"
+        private const val LIBREOFFICE_PACKAGE = "org.documentfoundation.libreoffice"
+        private const val LIBREOFFICE_PACKAGE2 = "org.example.libreoffice"
+        private const val SIM_TOOLKIT = "com.android.stk"
+        private const val TAG = "AppProvider"
+
+        @JvmField
+        val DISABLED_PACKAGES: HashSet<String> = hashSetOf(
+            MICROG_PACKAGE,
+            MUPDF_PACKAGE,
+            PDF_VIEWER_PACKAGE,
+            OPENKEYCHAIN_PACKAGE,
+            LIBREOFFICE_PACKAGE,
+            LIBREOFFICE_PACKAGE2,
+            SIM_TOOLKIT
+        )
+
+        @Volatile
+        private var sInstance: AppProvider? = null
+
+        @JvmStatic
+        fun getInstance(context: Context): AppProvider {
+            if (sInstance == null) {
+                synchronized(AppProvider::class.java) {
+                    if (sInstance == null) {
+                        sInstance = AppProvider(context)
+                        sInstance!!.reload(true)
+                    }
+                }
+            }
+            return sInstance!!
+        }
     }
 }

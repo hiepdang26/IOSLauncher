@@ -1,95 +1,84 @@
-package com.cloudx.ios17.features.notification;
+package com.cloudx.ios17.features.notification
 
-import static com.cloudx.ios17.BlissLauncher.NOTIFICATION_BADGING_URI;
+import android.content.Intent
+import android.database.ContentObserver
+import android.os.Handler
+import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import com.cloudx.ios17.BlissLauncher
+import com.cloudx.ios17.core.utils.ListUtil
+import java.util.Collections
 
-import android.content.Intent;
-import android.database.ContentObserver;
-import android.os.Handler;
-import android.provider.Settings;
-import android.service.notification.NotificationListenerService;
-import android.service.notification.StatusBarNotification;
+class NotificationService : NotificationListenerService() {
 
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.utils.ListUtil;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.utils.ListUtil;
-import com.cloudx.ios17.core.utils.ListUtil;
-import com.cloudx.ios17.BlissLauncher;
-import com.cloudx.ios17.core.utils.ListUtil;
+    private lateinit var mNotificationRepository: NotificationRepository
+    private var mAreDotsDisabled = false
 
-import java.util.Collections;
-
-/** Created by falcon on 14/3/18. */
-public class NotificationService extends NotificationListenerService {
-
-    private static boolean sIsConnected = false;
-
-    NotificationRepository mNotificationRepository;
-
-    private boolean mAreDotsDisabled;
-    private final ContentObserver mNotificationSettingsObserver = new ContentObserver(new Handler()) {
-        @Override
-        public void onChange(boolean selfChange) {
-            onNotificationSettingsChanged();
+    private val mNotificationSettingsObserver: ContentObserver = object : ContentObserver(Handler()) {
+        override fun onChange(selfChange: Boolean) {
+            onNotificationSettingsChanged()
         }
-    };
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        mNotificationRepository = NotificationRepository.getNotificationRepository();
-
-        getContentResolver().registerContentObserver(BlissLauncher.NOTIFICATION_BADGING_URI, false, mNotificationSettingsObserver);
-        onNotificationSettingsChanged();
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        getContentResolver().unregisterContentObserver(mNotificationSettingsObserver);
-        mNotificationRepository.updateNotification(Collections.emptyList());
+    override fun onCreate() {
+        super.onCreate()
+        mNotificationRepository = NotificationRepository.getNotificationRepository()
+
+        contentResolver.registerContentObserver(
+            BlissLauncher.NOTIFICATION_BADGING_URI,
+            false,
+            mNotificationSettingsObserver
+        )
+        onNotificationSettingsChanged()
     }
 
-    private void onNotificationSettingsChanged() {
-        mAreDotsDisabled = Settings.Secure.getInt(getContentResolver(), BlissLauncher.NOTIFICATION_BADGING_URI.getLastPathSegment(),
-                1) != 1;
+    override fun onDestroy() {
+        super.onDestroy()
+        contentResolver.unregisterContentObserver(mNotificationSettingsObserver)
+        mNotificationRepository.updateNotification(Collections.emptyList())
+    }
+
+    private fun onNotificationSettingsChanged() {
+        mAreDotsDisabled = Settings.Secure.getInt(
+            contentResolver,
+            BlissLauncher.NOTIFICATION_BADGING_URI.lastPathSegment,
+            1
+        ) != 1
         if (mAreDotsDisabled && sIsConnected) {
-            requestUnbind();
-            updateNotifications();
+            requestUnbind()
+            updateNotifications()
         }
     }
 
-    @Override
-    public void onListenerConnected() {
-        sIsConnected = true;
-        updateNotifications();
+    override fun onListenerConnected() {
+        sIsConnected = true
+        updateNotifications()
     }
 
-    @Override
-    public void onListenerDisconnected() {
-        sIsConnected = false;
+    override fun onListenerDisconnected() {
+        sIsConnected = false
     }
 
-    @Override
-    public void onNotificationPosted(StatusBarNotification sbn) {
-        updateNotifications();
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        updateNotifications()
     }
 
-    @Override
-    public void onNotificationRemoved(StatusBarNotification sbn) {
-        updateNotifications();
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        updateNotifications()
     }
 
-    private void updateNotifications() {
+    private fun updateNotifications() {
         if (mAreDotsDisabled) {
-            mNotificationRepository.updateNotification(Collections.emptyList());
-            return;
+            mNotificationRepository.updateNotification(Collections.emptyList())
+            return
         }
-        mNotificationRepository.updateNotification(ListUtil.asSafeList(getActiveNotifications()));
+        mNotificationRepository.updateNotification(ListUtil.asSafeList(*activeNotifications))
     }
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        return START_STICKY;
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+
+    companion object {
+        private var sIsConnected = false
     }
 }

@@ -1,18 +1,11 @@
-package com.cloudx.ios17.core.events;
+package com.cloudx.ios17.core.events
 
-import com.cloudx.ios17.core.database.model.ShortcutItem;
+import com.cloudx.ios17.core.database.model.ShortcutItem
 
-public class ShortcutAddEvent extends Event {
-    private ShortcutItem mShortcutItem;
-
-    public static final int TYPE = 603;
-
-    public ShortcutAddEvent(ShortcutItem shortcutItem) {
-        super(TYPE);
-        this.mShortcutItem = shortcutItem;
-    }
-
-    public ShortcutItem getShortcutItem() {
-        return mShortcutItem;
+class ShortcutAddEvent(
+    val shortcutItem: ShortcutItem
+) : Event(TYPE) {
+    companion object {
+        const val TYPE = 603
     }
 }

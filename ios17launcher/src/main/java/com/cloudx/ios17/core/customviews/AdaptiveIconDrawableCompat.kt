@@ -1,1069 +1,791 @@
-package com.cloudx.ios17.core.customviews;
+package com.cloudx.ios17.core.customviews
 
-import android.annotation.SuppressLint;
-import android.content.res.ColorStateList;
-import android.content.res.Resources;
-import android.content.res.Resources.Theme;
-import android.content.res.TypedArray;
-import android.graphics.Bitmap;
-import android.graphics.BitmapShader;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.ColorFilter;
-import android.graphics.Matrix;
-import android.graphics.Outline;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PixelFormat;
-import android.graphics.PorterDuff.Mode;
-import android.graphics.Rect;
-import android.graphics.Region;
-import android.graphics.Shader;
-import android.graphics.Shader.TileMode;
-import android.graphics.drawable.Drawable;
-import android.util.AttributeSet;
-import android.util.DisplayMetrics;
-import android.util.TypedValue;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import android.annotation.SuppressLint
+import android.content.res.ColorStateList
+import android.content.res.Resources
+import android.content.res.Resources.Theme
+import android.content.res.TypedArray
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.Matrix
+import android.graphics.Outline
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PixelFormat
+import android.graphics.PorterDuff.Mode
+import android.graphics.Rect
+import android.graphics.Region
+import android.graphics.Shader
+import android.graphics.Shader.TileMode
+import android.graphics.drawable.Drawable
+import android.util.AttributeSet
+import android.util.DisplayMetrics
+import android.util.TypedValue
+import com.cloudx.ios17.core.utils.AdaptiveIconUtils
+import java.io.IOException
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
+import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserException
 
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
-import com.cloudx.ios17.core.utils.AdaptiveIconUtils;
+class AdaptiveIconDrawableCompat internal constructor(
+    state: LayerState?,
+    res: Resources?
+) : Drawable(), Drawable.Callback {
 
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+    private val mMask: Path
+    private val mMaskMatrix: Matrix
+    private val mTransparentRegion: Region
 
-/**
- * This class can also be created via XML inflation using
- * <code>&lt;adaptive-icon></code> tag in addition to dynamic creation.
- *
- * <p>
- * This drawable supports two drawable layers: foreground and background. The
- * layers are clipped when rendering using the mask defined in the device
- * configuration.
- *
- * <ul>
- * <li>Both foreground and background layers should be sized at 108 x 108 dp.
- * <li>The inner 72 x 72 dp of the icon appears within the masked viewport.
- * <li>The outer 18 dp on each of the 4 sides of the layers is reserved for use
- * by the system UI surfaces to create interesting visual effects, such as
- * parallax or pulsing.
- * </ul>
- *
- * Such motion effect is achieved by internally setting the bounds of the
- * foreground and background layer as following:
- *
- * <pre>
- * Rect(getBounds().left - getBounds().getWidth() * #getExtraInsetFraction(),
- *      getBounds().top - getBounds().getHeight() * #getExtraInsetFraction(),
- *      getBounds().right + getBounds().getWidth() * #getExtraInsetFraction(),
- *      getBounds().bottom + getBounds().getHeight() * #getExtraInsetFraction())
- * </pre>
- */
-public class AdaptiveIconDrawableCompat extends Drawable implements Drawable.Callback {
+    private var mMaskBitmap: Bitmap? = null
 
-    /**
-     * Mask path is defined inside device configuration in following dimension: [100
-     * x 100]
-     */
-    public static float MASK_SIZE = 180f;
+    internal var mLayerState: LayerState
 
-    /** Launcher icons design guideline */
-    private static final float SAFEZONE_SCALE = 66f / 72f;
+    private var mLayersShader: Shader? = null
+    private var mLayersBitmap: Bitmap? = null
 
-    /**
-     * All four sides of the layers are padded with extra inset so as to provide
-     * extra content to reveal within the clip path when performing affine
-     * transformations on the layers.
-     *
-     * <p>
-     * Each layers will reserve 25% of it's width and height.
-     *
-     * <p>
-     * As a result, the view port of the layers is smaller than their intrinsic
-     * width and height.
-     */
-    private static final float EXTRA_INSET_PERCENTAGE = 1 / 4f;
+    private val mTmpOutRect = Rect()
+    private var mHotspotBounds: Rect? = null
+    private var mMutated = false
 
-    private static final float DEFAULT_VIEW_PORT_SCALE = 1f / (1 + 2 * EXTRA_INSET_PERCENTAGE);
+    private var mSuspendChildInvalidation = false
+    private var mChildRequestedInvalidation = false
+    private val mCanvas: Canvas
+    private val mPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-    /** Clip path defined in R.string.config_icon_mask. */
-    private static Path sMask;
+    private var methodCreatePathFromPathData: Method? = null
+    private var methodExtractThemeAttrs: Method? = null
 
-    /** Scaled mask based on the view bounds. */
-    private final Path mMask;
+    private var mUseMyUglyWorkaround = true
 
-    private final Matrix mMaskMatrix;
-    private final Region mTransparentRegion;
+    constructor() : this(null as LayerState?, null)
 
-    private Bitmap mMaskBitmap;
+    constructor(backgroundDrawable: Drawable?, foregroundDrawable: Drawable?) : this(
+        backgroundDrawable,
+        foregroundDrawable,
+        true
+    )
 
-    private static final int BACKGROUND_ID = 0;
-    private static final int FOREGROUND_ID = 1;
-
-    /** State variable that maintains the {@link ChildDrawable} array. */
-    LayerState mLayerState;
-
-    private Shader mLayersShader;
-    private Bitmap mLayersBitmap;
-
-    private final Rect mTmpOutRect = new Rect();
-    private Rect mHotspotBounds;
-    private boolean mMutated;
-
-    private boolean mSuspendChildInvalidation;
-    private boolean mChildRequestedInvalidation;
-    private final Canvas mCanvas;
-    private Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
-
-    private Method methodCreatePathFromPathData;
-    private Method methodExtractThemeAttrs;
-
-    private boolean mUseMyUglyWorkaround = true;
-
-    private static final String TAG = "AdaptiveIconDrawable";
-
-    /** Constructor used for xml inflation. */
-    public AdaptiveIconDrawableCompat() {
-        this((LayerState) null, null);
-    }
-
-    /**
-     * The one constructor to rule them all. This is called by all public
-     * constructors to set the state and initialize local properties.
-     */
-    AdaptiveIconDrawableCompat(@Nullable LayerState state, @Nullable Resources res) {
-        initReflections();
-
-        mLayerState = createConstantState(state, res);
-
-        if (sMask == null) {
-            sMask = PathParser.createPathFromPathData(getMaskPath());
-        }
-        mMask = PathParser.createPathFromPathData(getMaskPath());
-        // mMask = DeviceProfile.path;
-        mMaskMatrix = new Matrix();
-        mCanvas = new Canvas();
-        mTransparentRegion = new Region();
-    }
-
-    @SuppressLint({"PrivateApi", "DiscouragedPrivateApi"})
-    private void initReflections() {
-        try {
-            Class<?> pathParser = getClass().getClassLoader().loadClass("android.util.PathParser");
-            methodCreatePathFromPathData = pathParser.getDeclaredMethod("createPathFromPathData", String.class);
-            methodExtractThemeAttrs = TypedArray.class.getDeclaredMethod("extractThemeAttrs");
-        } catch (ClassNotFoundException | NoSuchMethodException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private int getInt(Field field, Object obj) {
-        try {
-            return field.getInt(obj);
-        } catch (IllegalAccessException e) {
-            return 0;
-        }
-    }
-
-    private <T> T invoke(Method method, Object obj, Object... params) {
-        try {
-            return (T) method.invoke(obj, params);
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            return null;
-        }
-    }
-
-    private String getMaskPath() {
-        return AdaptiveIconUtils.getMaskPath();
-    }
-
-    private ChildDrawable createChildDrawable(Drawable drawable) {
-        final ChildDrawable layer = new ChildDrawable(mLayerState.mDensity);
-        layer.mDrawable = drawable;
-        layer.mDrawable.setCallback(this);
-        mLayerState.mChildrenChangingConfigurations |= layer.mDrawable.getChangingConfigurations();
-        return layer;
-    }
-
-    LayerState createConstantState(@Nullable LayerState state, @Nullable Resources res) {
-        return new LayerState(state, this, res);
-    }
-
-    /**
-     * Constructor used to dynamically create this drawable.
-     *
-     * @param backgroundDrawable
-     *            drawable that should be rendered in the background
-     * @param foregroundDrawable
-     *            drawable that should be rendered in the foreground
-     */
-    public AdaptiveIconDrawableCompat(Drawable backgroundDrawable, Drawable foregroundDrawable) {
-        this(backgroundDrawable, foregroundDrawable, true);
-    }
-
-    public AdaptiveIconDrawableCompat(Drawable backgroundDrawable, Drawable foregroundDrawable,
-            boolean useMyUglyWorkaround) {
-        this((LayerState) null, null);
+    constructor(
+        backgroundDrawable: Drawable?,
+        foregroundDrawable: Drawable?,
+        useMyUglyWorkaround: Boolean
+    ) : this(null as LayerState?, null) {
         if (backgroundDrawable != null) {
-            addLayer(BACKGROUND_ID, createChildDrawable(backgroundDrawable));
+            addLayer(BACKGROUND_ID, createChildDrawable(backgroundDrawable))
         }
         if (foregroundDrawable != null) {
-            addLayer(FOREGROUND_ID, createChildDrawable(foregroundDrawable));
+            addLayer(FOREGROUND_ID, createChildDrawable(foregroundDrawable))
         }
-        mUseMyUglyWorkaround = useMyUglyWorkaround;
+        mUseMyUglyWorkaround = useMyUglyWorkaround
     }
 
-    /**
-     * Sets the layer to the {@param index} and invalidates cache.
-     *
-     * @param index
-     *            The index of the layer.
-     * @param layer
-     *            The layer to add.
-     */
-    private void addLayer(int index, @NonNull ChildDrawable layer) {
-        mLayerState.mChildren[index] = layer;
-        mLayerState.invalidateCache();
-    }
+    init {
+        initReflections()
 
-    @Override
-    public void inflate(@NonNull Resources r, @NonNull XmlPullParser parser, @NonNull AttributeSet attrs,
-            @Nullable Theme theme) throws XmlPullParserException, IOException {
-        super.inflate(r, parser, attrs, theme);
+        mLayerState = createConstantState(state, res)
 
-        final LayerState state = mLayerState;
-        if (state == null) {
-            return;
+        if (sMask == null) {
+            sMask = PathParser.createPathFromPathData(maskPath)
         }
-
-        // The density may have changed since the last update. This will
-        // apply scaling to any existing constant state properties.
-        final int deviceDensity = resolveDensity(r, 0);
-        // state.setDensity(deviceDensity);
-
-        final ChildDrawable[] array = state.mChildren;
-        for (int i = 0; i < state.mChildren.length; i++) {
-            final ChildDrawable layer = array[i];
-            // layer.setDensity(deviceDensity);
-        }
-
-        inflateLayers(r, parser, attrs, theme);
+        mMask = PathParser.createPathFromPathData(maskPath)
+        mMaskMatrix = Matrix()
+        mCanvas = Canvas()
+        mTransparentRegion = Region()
     }
 
-    static int resolveDensity(@Nullable Resources r, int parentDensity) {
-        final int densityDpi = r == null ? parentDensity : r.getDisplayMetrics().densityDpi;
-        return densityDpi == 0 ? DisplayMetrics.DENSITY_DEFAULT : densityDpi;
-    }
-
-    /**
-     * All four sides of the layers are padded with extra inset so as to provide
-     * extra content to reveal within the clip path when performing affine
-     * transformations on the layers.
-     *
-     * @see #getForeground() and #getBackground() for more info on how this value is
-     *      used
-     */
-    public static float getExtraInsetFraction() {
-        return EXTRA_INSET_PERCENTAGE;
-    }
-
-    public static float getExtraInsetPercentage() {
-        return EXTRA_INSET_PERCENTAGE;
-    }
-
-    /**
-     * When called before the bound is set, the returned path is identical to
-     * R.string.config_icon_mask. After the bound is set, the returned path's
-     * computed bound is same as the #getBounds().
-     *
-     * @return the mask path object used to clip the drawable
-     */
-    public Path getIconMask() {
-        return mMask;
-    }
-
-    /**
-     * Returns the foreground drawable managed by this class. The bound of this
-     * drawable is extended by {@link #getExtraInsetFraction()} * getBounds().width
-     * on left/right sides and by {@link #getExtraInsetFraction()} *
-     * getBounds().height on top/bottom sides.
-     *
-     * @return the foreground drawable managed by this drawable
-     */
-    public Drawable getForeground() {
-        return mLayerState.mChildren[FOREGROUND_ID].mDrawable;
-    }
-
-    /**
-     * Returns the foreground drawable managed by this class. The bound of this
-     * drawable is extended by {@link #getExtraInsetFraction()} * getBounds().width
-     * on left/right sides and by {@link #getExtraInsetFraction()} *
-     * getBounds().height on top/bottom sides.
-     *
-     * @return the background drawable managed by this drawable
-     */
-    public Drawable getBackground() {
-        return mLayerState.mChildren[BACKGROUND_ID].mDrawable;
-    }
-
-    @Override
-    protected void onBoundsChange(Rect bounds) {
-        if (bounds.isEmpty()) {
-            return;
-        }
-        updateLayerBounds(bounds);
-    }
-
-    private void updateLayerBounds(Rect bounds) {
+    @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
+    private fun initReflections() {
         try {
-            suspendChildInvalidation();
-            updateLayerBoundsInternal(bounds);
-            updateMaskBoundsInternal(bounds);
+            val pathParser = javaClass.classLoader!!.loadClass("android.util.PathParser")
+            methodCreatePathFromPathData = pathParser.getDeclaredMethod("createPathFromPathData", String::class.java)
+            methodExtractThemeAttrs = TypedArray::class.java.getDeclaredMethod("extractThemeAttrs")
+        } catch (e: ClassNotFoundException) {
+            e.printStackTrace()
+        } catch (e: NoSuchMethodException) {
+            e.printStackTrace()
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> invoke(method: Method?, obj: Any, vararg params: Any?): T? {
+        if (method == null) {
+            return null
+        }
+        return try {
+            method.invoke(obj, *params) as T
+        } catch (e: IllegalAccessException) {
+            null
+        } catch (e: InvocationTargetException) {
+            null
+        }
+    }
+
+    private val maskPath: String
+        get() = AdaptiveIconUtils.getMaskPath()
+
+    private fun createChildDrawable(drawable: Drawable): ChildDrawable {
+        val layer = ChildDrawable(mLayerState.mDensity)
+        layer.mDrawable = drawable
+        layer.mDrawable?.callback = this
+        mLayerState.mChildrenChangingConfigurations =
+            mLayerState.mChildrenChangingConfigurations or (layer.mDrawable?.changingConfigurations ?: 0)
+        return layer
+    }
+
+    internal fun createConstantState(state: LayerState?, res: Resources?): LayerState =
+        LayerState(state, this, res)
+
+    private fun addLayer(index: Int, layer: ChildDrawable) {
+        mLayerState.mChildren[index] = layer
+        mLayerState.invalidateCache()
+    }
+
+    @Throws(XmlPullParserException::class, IOException::class)
+    override fun inflate(r: Resources, parser: XmlPullParser, attrs: AttributeSet, theme: Theme?) {
+        super.inflate(r, parser, attrs, theme)
+
+        val state = mLayerState
+        resolveDensity(r, 0)
+
+        inflateLayers(r, parser, attrs, theme)
+    }
+
+    @JvmName("getIconMask")
+    fun getIconMask(): Path = mMask
+
+    override fun onBoundsChange(bounds: Rect) {
+        if (bounds.isEmpty) {
+            return
+        }
+        updateLayerBounds(bounds)
+    }
+
+    private fun updateLayerBounds(bounds: Rect) {
+        try {
+            suspendChildInvalidation()
+            updateLayerBoundsInternal(bounds)
+            updateMaskBoundsInternal(bounds)
         } finally {
-            resumeChildInvalidation();
+            resumeChildInvalidation()
         }
     }
 
-    /**
-     * Set the child layer bounds bigger than the view port size by
-     * {@link #DEFAULT_VIEW_PORT_SCALE}
-     */
-    private void updateLayerBoundsInternal(Rect bounds) {
-        int cX = bounds.width() / 2;
-        int cY = bounds.height() / 2;
+    private fun updateLayerBoundsInternal(bounds: Rect) {
+        val cX = bounds.width() / 2
+        val cY = bounds.height() / 2
 
-        for (int i = 0, count = LayerState.N_CHILDREN; i < count; i++) {
-            final ChildDrawable r = mLayerState.mChildren[i];
-            if (r == null) {
-                continue;
-            }
-            final Drawable d = r.mDrawable;
-            if (d == null) {
-                continue;
-            }
+        for (i in 0 until LayerState.N_CHILDREN) {
+            val drawable = mLayerState.mChildren[i].mDrawable ?: continue
 
-            int insetWidth = (int) (bounds.width() / (DEFAULT_VIEW_PORT_SCALE * 2));
-            int insetHeight = (int) (bounds.height() / (DEFAULT_VIEW_PORT_SCALE * 2));
-            final Rect outRect = mTmpOutRect;
-            outRect.set(cX - insetWidth, cY - insetHeight, cX + insetWidth, cY + insetHeight);
+            val insetWidth = (bounds.width() / (DEFAULT_VIEW_PORT_SCALE * 2)).toInt()
+            val insetHeight = (bounds.height() / (DEFAULT_VIEW_PORT_SCALE * 2)).toInt()
+            val outRect = mTmpOutRect
+            outRect.set(cX - insetWidth, cY - insetHeight, cX + insetWidth, cY + insetHeight)
 
-            d.setBounds(outRect);
+            drawable.bounds = outRect
         }
     }
 
-    private void updateMaskBoundsInternal(Rect b) {
-        mMaskMatrix.setScale(b.width() / MASK_SIZE, b.height() / MASK_SIZE);
-        sMask.transform(mMaskMatrix, mMask);
+    private fun updateMaskBoundsInternal(bounds: Rect) {
+        mMaskMatrix.setScale(bounds.width() / MASK_SIZE, bounds.height() / MASK_SIZE)
+        sMask!!.transform(mMaskMatrix, mMask)
 
-        if (mMaskBitmap == null || mMaskBitmap.getWidth() != b.width() || mMaskBitmap.getHeight() != b.height()) {
-            mMaskBitmap = Bitmap.createBitmap(b.width(), b.height(), Bitmap.Config.ALPHA_8);
-            mLayersBitmap = Bitmap.createBitmap(b.width(), b.height(), Bitmap.Config.ARGB_8888);
+        if (mMaskBitmap == null || mMaskBitmap!!.width != bounds.width() || mMaskBitmap!!.height != bounds.height()) {
+            mMaskBitmap = Bitmap.createBitmap(bounds.width(), bounds.height(), Bitmap.Config.ALPHA_8)
+            mLayersBitmap = Bitmap.createBitmap(bounds.width(), bounds.height(), Bitmap.Config.ARGB_8888)
         }
-        // mMaskBitmap bound [0, w] x [0, h]
-        mCanvas.setBitmap(mMaskBitmap);
-        mPaint.setShader(null);
-        mPaint.setColor(Color.WHITE);
-        mCanvas.drawPath(mMask, mPaint);
 
-        // mMask bound [left, top, right, bottom]
-        mMaskMatrix.postTranslate(b.left, b.top);
-        mMask.reset();
-        sMask.transform(mMaskMatrix, mMask);
-        // reset everything that depends on the view bounds
-        mTransparentRegion.setEmpty();
-        mLayersShader = null;
+        mCanvas.setBitmap(mMaskBitmap)
+        mPaint.shader = null
+        mPaint.color = Color.WHITE
+        mCanvas.drawPath(mMask, mPaint)
+
+        mMaskMatrix.postTranslate(bounds.left.toFloat(), bounds.top.toFloat())
+        mMask.reset()
+        sMask!!.transform(mMaskMatrix, mMask)
+        mTransparentRegion.setEmpty()
+        mLayersShader = null
     }
 
-    @Override
-    public void draw(@NonNull Canvas canvas) {
-        if (mLayersBitmap == null) {
-            return;
-        }
+    override fun draw(canvas: Canvas) {
+        val layersBitmap = mLayersBitmap ?: return
         if (mLayersShader == null) {
-            mCanvas.setBitmap(mLayersBitmap);
-            // mCanvas.drawColor(Color.BLACK);
-            for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-                if (mLayerState.mChildren[i] == null) {
-                    continue;
-                }
-                final Drawable dr = mLayerState.mChildren[i].mDrawable;
-                if (dr != null) {
-                    dr.draw(mCanvas);
-                }
+            mCanvas.setBitmap(layersBitmap)
+            for (i in 0 until LayerState.N_CHILDREN) {
+                mLayerState.mChildren[i].mDrawable?.draw(mCanvas)
             }
-            mLayersShader = new BitmapShader(mLayersBitmap, TileMode.CLAMP, TileMode.CLAMP);
-            mPaint.setShader(mLayersShader);
+            mLayersShader = BitmapShader(layersBitmap, TileMode.CLAMP, TileMode.CLAMP)
+            mPaint.shader = mLayersShader
         }
-        if (mMaskBitmap != null) {
-            Rect bounds = getBounds();
-            // mPaint.setXfermode(new PorterDuffXfermode(Mode.SRC_IN));
-            canvas.drawBitmap(mMaskBitmap, bounds.left, bounds.top, mPaint);
+        val maskBitmap = mMaskBitmap
+        if (maskBitmap != null) {
+            val bounds = bounds
+            canvas.drawBitmap(maskBitmap, bounds.left.toFloat(), bounds.top.toFloat(), mPaint)
         }
     }
 
-    @Override
-    public void invalidateSelf() {
-        mLayersShader = null;
-        super.invalidateSelf();
+    override fun invalidateSelf() {
+        mLayersShader = null
+        super.invalidateSelf()
     }
 
-    @Override
-    public void getOutline(@NonNull Outline outline) {
-        outline.setConvexPath(mMask);
+    override fun getOutline(outline: Outline) {
+        outline.setConvexPath(mMask)
     }
 
-    public Region getSafeZone() {
-        mMaskMatrix.reset();
-        mMaskMatrix.setScale(SAFEZONE_SCALE, SAFEZONE_SCALE, getBounds().centerX(), getBounds().centerY());
-        Path p = new Path();
-        mMask.transform(mMaskMatrix, p);
-        Region safezoneRegion = new Region(getBounds());
-        safezoneRegion.setPath(p, safezoneRegion);
-        return safezoneRegion;
+    fun getSafeZone(): Region {
+        mMaskMatrix.reset()
+        mMaskMatrix.setScale(SAFEZONE_SCALE, SAFEZONE_SCALE, bounds.centerX().toFloat(), bounds.centerY().toFloat())
+        val path = Path()
+        mMask.transform(mMaskMatrix, path)
+        val safezoneRegion = Region(bounds)
+        safezoneRegion.setPath(path, safezoneRegion)
+        return safezoneRegion
     }
 
-    @Override
-    public @Nullable Region getTransparentRegion() {
-        if (mTransparentRegion.isEmpty()) {
-            mMask.toggleInverseFillType();
-            mTransparentRegion.set(getBounds());
-            mTransparentRegion.setPath(mMask, mTransparentRegion);
-            mMask.toggleInverseFillType();
+    override fun getTransparentRegion(): Region? {
+        if (mTransparentRegion.isEmpty) {
+            mMask.toggleInverseFillType()
+            mTransparentRegion.set(bounds)
+            mTransparentRegion.setPath(mMask, mTransparentRegion)
+            mMask.toggleInverseFillType()
         }
-        return mTransparentRegion;
+        return mTransparentRegion
     }
 
-    /** Inflates child layers using the specified parser. */
-    private void inflateLayers(@NonNull Resources r, @NonNull XmlPullParser parser, @NonNull AttributeSet attrs,
-            @Nullable Theme theme) throws XmlPullParserException, IOException {
-        final LayerState state = mLayerState;
+    @Throws(XmlPullParserException::class, IOException::class)
+    private fun inflateLayers(
+        r: Resources,
+        parser: XmlPullParser,
+        attrs: AttributeSet,
+        theme: Theme?
+    ) {
+        val state = mLayerState
 
-        final int innerDepth = parser.getDepth() + 1;
-        int type;
-        int depth;
-        int childIndex;
-        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
-                && ((depth = parser.getDepth()) >= innerDepth || type != XmlPullParser.END_TAG)) {
+        val innerDepth = parser.depth + 1
+        var type = parser.next()
+        var depth = parser.depth
+        while (type != XmlPullParser.END_DOCUMENT && (depth >= innerDepth || type != XmlPullParser.END_TAG)) {
             if (type != XmlPullParser.START_TAG) {
-                continue;
+                type = parser.next()
+                depth = parser.depth
+                continue
             }
 
             if (depth > innerDepth) {
-                continue;
-            }
-            String tagName = parser.getName();
-            switch (tagName) {
-                case "background" :
-                    childIndex = BACKGROUND_ID;
-                    break;
-                case "foreground" :
-                    childIndex = FOREGROUND_ID;
-                    break;
-                default :
-                    continue;
+                type = parser.next()
+                depth = parser.depth
+                continue
             }
 
-            final ChildDrawable layer = new ChildDrawable(state.mDensity);
-            final TypedArray a = obtainAttributes(r, theme, attrs, new int[]{android.R.attr.drawable});
-            updateLayerFromTypedArray(layer, a);
-            a.recycle();
-
-            // If the layer doesn't have a drawable or unresolved theme
-            // attribute for a drawable, attempt to parse one from the child
-            // element. If multiple child elements exist, we'll only use the
-            // first one.
-            if (layer.mDrawable == null && (layer.mThemeAttrs == null)) {
-                while ((type = parser.next()) == XmlPullParser.TEXT) {
+            val childIndex = when (parser.name) {
+                "background" -> BACKGROUND_ID
+                "foreground" -> FOREGROUND_ID
+                else -> {
+                    type = parser.next()
+                    depth = parser.depth
+                    continue
                 }
+            }
+
+            val layer = ChildDrawable(state.mDensity)
+            val typedArray = obtainAttributes(r, theme, attrs, intArrayOf(android.R.attr.drawable))
+            updateLayerFromTypedArray(layer, typedArray)
+            typedArray.recycle()
+
+            if (layer.mDrawable == null && layer.mThemeAttrs == null) {
+                do {
+                    type = parser.next()
+                } while (type == XmlPullParser.TEXT)
+
                 if (type != XmlPullParser.START_TAG) {
-                    throw new XmlPullParserException(
-                            parser.getPositionDescription() + ": <foreground> or <background> tag requires a 'drawable'"
-                                    + "attribute or child tag defining a drawable");
+                    throw XmlPullParserException(
+                        parser.positionDescription +
+                            ": <foreground> or <background> tag requires a 'drawable'attribute or child tag defining a drawable"
+                    )
                 }
 
-                // We found a child drawable. Take ownership.
-                layer.mDrawable = Drawable.createFromXmlInner(r, parser, attrs, theme);
-                layer.mDrawable.setCallback(this);
-                state.mChildrenChangingConfigurations |= layer.mDrawable.getChangingConfigurations();
+                layer.mDrawable = Drawable.createFromXmlInner(r, parser, attrs, theme)
+                layer.mDrawable?.callback = this
+                state.mChildrenChangingConfigurations =
+                    state.mChildrenChangingConfigurations or (layer.mDrawable?.changingConfigurations ?: 0)
             }
-            addLayer(childIndex, layer);
+            addLayer(childIndex, layer)
+
+            type = parser.next()
+            depth = parser.depth
         }
     }
 
-    private void updateLayerFromTypedArray(@NonNull ChildDrawable layer, @NonNull TypedArray a) {
-        final LayerState state = mLayerState;
+    private fun updateLayerFromTypedArray(layer: ChildDrawable, typedArray: TypedArray) {
+        val state = mLayerState
 
-        // Account for any configuration changes.
-        state.mChildrenChangingConfigurations |= a.getChangingConfigurations();
+        state.mChildrenChangingConfigurations =
+            state.mChildrenChangingConfigurations or typedArray.changingConfigurations
 
-        // Extract the theme attributes, if any.
-        layer.mThemeAttrs = invoke(methodExtractThemeAttrs, a);
+        layer.mThemeAttrs = invoke(methodExtractThemeAttrs, typedArray)
 
         @SuppressLint("ResourceType")
-        Drawable dr = getDrawable(a, 0);
-        if (dr != null) {
-            if (layer.mDrawable != null) {
-                // It's possible that a drawable was already set, in which case
-                // we should clear the callback. We may have also integrated the
-                // drawable's changing configurations, but we don't have enough
-                // information to revert that change.
-                layer.mDrawable.setCallback(null);
-            }
+        val drawable = getDrawable(typedArray, 0)
+        if (drawable != null) {
+            layer.mDrawable?.callback = null
 
-            // Take ownership of the new drawable.
-            layer.mDrawable = dr;
-            layer.mDrawable.setCallback(this);
-            state.mChildrenChangingConfigurations |= layer.mDrawable.getChangingConfigurations();
+            layer.mDrawable = drawable
+            layer.mDrawable?.callback = this
+            state.mChildrenChangingConfigurations =
+                state.mChildrenChangingConfigurations or (layer.mDrawable?.changingConfigurations ?: 0)
         }
     }
 
-    private Drawable getDrawable(TypedArray a, int index) {
-        final TypedValue value = new TypedValue();
-        a.getValue(index, value);
+    private fun getDrawable(typedArray: TypedArray, index: Int): Drawable? {
+        val value = TypedValue()
+        typedArray.getValue(index, value)
         if (value.resourceId != 0) {
-            return a.getResources().getDrawableForDensity(value.resourceId, DisplayMetrics.DENSITY_DEFAULT, null);
+            return typedArray.resources.getDrawableForDensity(
+                value.resourceId,
+                DisplayMetrics.DENSITY_DEFAULT,
+                null
+            )
         }
-        return null;
+        return null
     }
 
-    @Override
-    public boolean canApplyTheme() {
-        return (mLayerState != null && mLayerState.canApplyTheme()) || super.canApplyTheme();
+    override fun canApplyTheme(): Boolean =
+        mLayerState.canApplyTheme() || super.canApplyTheme()
+
+    private fun suspendChildInvalidation() {
+        mSuspendChildInvalidation = true
     }
 
-    /**
-     * Temporarily suspends child invalidation.
-     *
-     * @see #resumeChildInvalidation()
-     */
-    private void suspendChildInvalidation() {
-        mSuspendChildInvalidation = true;
-    }
-
-    /**
-     * Resumes child invalidation after suspension, immediately performing an
-     * invalidation if one was requested by a child during suspension.
-     *
-     * @see #suspendChildInvalidation()
-     */
-    private void resumeChildInvalidation() {
-        mSuspendChildInvalidation = false;
+    private fun resumeChildInvalidation() {
+        mSuspendChildInvalidation = false
 
         if (mChildRequestedInvalidation) {
-            mChildRequestedInvalidation = false;
-            invalidateSelf();
+            mChildRequestedInvalidation = false
+            invalidateSelf()
         }
     }
 
-    @Override
-    public void invalidateDrawable(@NonNull Drawable who) {
+    override fun invalidateDrawable(who: Drawable) {
         if (mSuspendChildInvalidation) {
-            mChildRequestedInvalidation = true;
+            mChildRequestedInvalidation = true
         } else {
-            invalidateSelf();
+            invalidateSelf()
         }
     }
 
-    @Override
-    public void scheduleDrawable(@NonNull Drawable who, @NonNull Runnable what, long when) {
-        scheduleSelf(what, when);
+    override fun scheduleDrawable(who: Drawable, what: Runnable, `when`: Long) {
+        scheduleSelf(what, `when`)
     }
 
-    @Override
-    public void unscheduleDrawable(@NonNull Drawable who, @NonNull Runnable what) {
-        unscheduleSelf(what);
+    override fun unscheduleDrawable(who: Drawable, what: Runnable) {
+        unscheduleSelf(what)
     }
 
-    @Override
-    public int getChangingConfigurations() {
-        return super.getChangingConfigurations() | mLayerState.getChangingConfigurations();
-    }
+    override fun getChangingConfigurations(): Int =
+        super.getChangingConfigurations() or mLayerState.changingConfigurations
 
-    @Override
-    public void setHotspot(float x, float y) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setHotspot(x, y);
-            }
+    override fun setHotspot(x: Float, y: Float) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.setHotspot(x, y)
         }
     }
 
-    @Override
-    public void setHotspotBounds(int left, int top, int right, int bottom) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setHotspotBounds(left, top, right, bottom);
-            }
+    override fun setHotspotBounds(left: Int, top: Int, right: Int, bottom: Int) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.setHotspotBounds(left, top, right, bottom)
         }
 
-        if (mHotspotBounds == null) {
-            mHotspotBounds = new Rect(left, top, right, bottom);
+        val hotspotBounds = mHotspotBounds
+        if (hotspotBounds == null) {
+            mHotspotBounds = Rect(left, top, right, bottom)
         } else {
-            mHotspotBounds.set(left, top, right, bottom);
+            hotspotBounds.set(left, top, right, bottom)
         }
     }
 
-    @Override
-    public void getHotspotBounds(@NonNull Rect outRect) {
-        if (mHotspotBounds != null) {
-            outRect.set(mHotspotBounds);
+    override fun getHotspotBounds(outRect: Rect) {
+        val hotspotBounds = mHotspotBounds
+        if (hotspotBounds != null) {
+            outRect.set(hotspotBounds)
         } else {
-            super.getHotspotBounds(outRect);
+            super.getHotspotBounds(outRect)
         }
     }
 
-    @Override
-    public boolean setVisible(boolean visible, boolean restart) {
-        final boolean changed = super.setVisible(visible, restart);
-        final ChildDrawable[] array = mLayerState.mChildren;
-
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setVisible(visible, restart);
-            }
+    override fun setVisible(visible: Boolean, restart: Boolean): Boolean {
+        val changed = super.setVisible(visible, restart)
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.setVisible(visible, restart)
         }
-
-        return changed;
+        return changed
     }
 
-    @Override
-    public void setDither(boolean dither) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setDither(dither);
-            }
+    override fun setDither(dither: Boolean) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.setDither(dither)
         }
     }
 
-    @Override
-    public void setAlpha(int alpha) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setAlpha(alpha);
-            }
+    override fun setAlpha(alpha: Int) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.alpha = alpha
         }
     }
 
-    @Override
-    public void setColorFilter(ColorFilter colorFilter) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setColorFilter(colorFilter);
-            }
+    override fun setColorFilter(colorFilter: ColorFilter?) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.colorFilter = colorFilter
         }
     }
 
-    @Override
-    public void setTintList(ColorStateList tint) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        final int N = LayerState.N_CHILDREN;
-        for (int i = 0; i < N; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setTintList(tint);
-            }
+    override fun setTintList(tint: ColorStateList?) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.setTintList(tint)
         }
     }
 
-    @Override
-    public void setTintMode(@NonNull Mode tintMode) {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        final int N = LayerState.N_CHILDREN;
-        for (int i = 0; i < N; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setTintMode(tintMode);
-            }
+    override fun setTintMode(tintMode: Mode?) {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.setTintMode(tintMode)
         }
     }
 
-    public void setOpacity(int opacity) {
-        mLayerState.mOpacityOverride = opacity;
+    fun setOpacity(opacity: Int) {
+        mLayerState.mOpacityOverride = opacity
     }
 
-    @Override
-    public int getOpacity() {
+    override fun getOpacity(): Int {
         if (mLayerState.mOpacityOverride != PixelFormat.UNKNOWN) {
-            return mLayerState.mOpacityOverride;
+            return mLayerState.mOpacityOverride
         }
-        return mLayerState.getOpacity();
+        return mLayerState.opacity
     }
 
-    @Override
-    public void setAutoMirrored(boolean mirrored) {
-        mLayerState.mAutoMirrored = mirrored;
-
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.setAutoMirrored(mirrored);
-            }
+    override fun setAutoMirrored(mirrored: Boolean) {
+        mLayerState.mAutoMirrored = mirrored
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.isAutoMirrored = mirrored
         }
     }
 
-    @Override
-    public boolean isAutoMirrored() {
-        return mLayerState.mAutoMirrored;
-    }
+    override fun isAutoMirrored(): Boolean = mLayerState.mAutoMirrored
 
-    @Override
-    public void jumpToCurrentState() {
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null) {
-                dr.jumpToCurrentState();
-            }
+    override fun jumpToCurrentState() {
+        for (i in 0 until LayerState.N_CHILDREN) {
+            mLayerState.mChildren[i].mDrawable?.jumpToCurrentState()
         }
     }
 
-    @Override
-    public boolean isStateful() {
-        return mLayerState.isStateful();
-    }
+    override fun isStateful(): Boolean = mLayerState.isStateful()
 
-    @Override
-    protected boolean onStateChange(int[] state) {
-        boolean changed = false;
+    override fun onStateChange(state: IntArray): Boolean {
+        var changed = false
 
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null && dr.isStateful() && dr.setState(state)) {
-                changed = true;
+        for (i in 0 until LayerState.N_CHILDREN) {
+            val drawable = mLayerState.mChildren[i].mDrawable
+            if (drawable != null && drawable.isStateful && drawable.setState(state)) {
+                changed = true
             }
         }
 
         if (changed) {
-            updateLayerBounds(getBounds());
+            updateLayerBounds(bounds)
         }
 
-        return changed;
+        return changed
     }
 
-    @Override
-    protected boolean onLevelChange(int level) {
-        boolean changed = false;
+    override fun onLevelChange(level: Int): Boolean {
+        var changed = false
 
-        final ChildDrawable[] array = mLayerState.mChildren;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final Drawable dr = array[i].mDrawable;
-            if (dr != null && dr.setLevel(level)) {
-                changed = true;
+        for (i in 0 until LayerState.N_CHILDREN) {
+            val drawable = mLayerState.mChildren[i].mDrawable
+            if (drawable != null && drawable.setLevel(level)) {
+                changed = true
             }
         }
 
         if (changed) {
-            updateLayerBounds(getBounds());
+            updateLayerBounds(bounds)
         }
 
-        return changed;
+        return changed
     }
 
-    @Override
-    public int getIntrinsicWidth() {
-        return (int) (getMaxIntrinsicWidth() * 1f);
-    }
+    override fun getIntrinsicWidth(): Int = (maxIntrinsicWidth * 1f).toInt()
 
-    private int getMaxIntrinsicWidth() {
-        int width = -1;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final ChildDrawable r = mLayerState.mChildren[i];
-            if (r.mDrawable == null) {
-                continue;
+    private val maxIntrinsicWidth: Int
+        get() {
+            var width = -1
+            for (i in 0 until LayerState.N_CHILDREN) {
+                val drawable = mLayerState.mChildren[i].mDrawable ?: continue
+                val childWidth = drawable.intrinsicWidth
+                if (childWidth > width) {
+                    width = childWidth
+                }
             }
-            final int w = r.mDrawable.getIntrinsicWidth();
-            if (w > width) {
-                width = w;
-            }
+            return width
         }
-        return width;
-    }
 
-    @Override
-    public int getIntrinsicHeight() {
-        return (int) (getMaxIntrinsicHeight() * 1f);
-    }
+    override fun getIntrinsicHeight(): Int = (maxIntrinsicHeight * 1f).toInt()
 
-    private int getMaxIntrinsicHeight() {
-        int height = -1;
-        for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-            final ChildDrawable r = mLayerState.mChildren[i];
-            if (r.mDrawable == null) {
-                continue;
+    private val maxIntrinsicHeight: Int
+        get() {
+            var height = -1
+            for (i in 0 until LayerState.N_CHILDREN) {
+                val drawable = mLayerState.mChildren[i].mDrawable ?: continue
+                val childHeight = drawable.intrinsicHeight
+                if (childHeight > height) {
+                    height = childHeight
+                }
             }
-            final int h = r.mDrawable.getIntrinsicHeight();
-            if (h > height) {
-                height = h;
-            }
+            return height
         }
-        return height;
-    }
 
-    @Override
-    public ConstantState getConstantState() {
+    override fun getConstantState(): ConstantState? {
         if (mLayerState.canConstantState()) {
-            mLayerState.mChangingConfigurations = getChangingConfigurations();
-            return mLayerState;
+            mLayerState.mChangingConfigurations = changingConfigurations
+            return mLayerState
         }
-        return null;
+        return null
     }
 
-    @NonNull
-    @Override
-    public Drawable mutate() {
-        if (!mMutated && super.mutate() == this) {
-            mLayerState = createConstantState(mLayerState, null);
-            for (int i = 0; i < LayerState.N_CHILDREN; i++) {
-                final Drawable dr = mLayerState.mChildren[i].mDrawable;
-                if (dr != null) {
-                    dr.mutate();
-                }
+    override fun mutate(): Drawable {
+        if (!mMutated && super.mutate() === this) {
+            mLayerState = createConstantState(mLayerState, null)
+            for (i in 0 until LayerState.N_CHILDREN) {
+                mLayerState.mChildren[i].mDrawable?.mutate()
             }
-            mMutated = true;
+            mMutated = true
         }
-        return this;
+        return this
     }
 
-    protected static @NonNull TypedArray obtainAttributes(@NonNull Resources res, @Nullable Theme theme,
-            @NonNull AttributeSet set, @NonNull int[] attrs) {
-        if (theme == null) {
-            return res.obtainAttributes(set, attrs);
-        }
-        return theme.obtainStyledAttributes(set, attrs, 0, 0);
-    }
+    val foreground: Drawable?
+        get() = mLayerState.mChildren[FOREGROUND_ID].mDrawable
 
-    static class ChildDrawable {
-        public Drawable mDrawable;
-        public int[] mThemeAttrs;
-        public int mDensity;
+    val background: Drawable?
+        get() = mLayerState.mChildren[BACKGROUND_ID].mDrawable
 
-        ChildDrawable(int density) {
-            mDensity = density;
+    class ChildDrawable {
+        var mDrawable: Drawable? = null
+        var mThemeAttrs: IntArray? = null
+        var mDensity: Int
+
+        constructor(density: Int) {
+            mDensity = density
         }
 
-        ChildDrawable(@NonNull ChildDrawable orig, @NonNull AdaptiveIconDrawableCompat owner, @Nullable Resources res) {
-
-            final Drawable dr = orig.mDrawable;
-            final Drawable clone;
-            if (dr != null) {
-                final ConstantState cs = dr.getConstantState();
-                if (cs == null) {
-                    clone = dr;
-                } else if (res != null) {
-                    clone = cs.newDrawable(res);
-                } else {
-                    clone = cs.newDrawable();
+        constructor(orig: ChildDrawable, owner: AdaptiveIconDrawableCompat, res: Resources?) {
+            val drawable = orig.mDrawable
+            val clone: Drawable?
+            if (drawable != null) {
+                val constantState = drawable.constantState
+                clone = when {
+                    constantState == null -> drawable
+                    res != null -> constantState.newDrawable(res)
+                    else -> constantState.newDrawable()
                 }
-                clone.setCallback(owner);
-                clone.setBounds(dr.getBounds());
-                clone.setLevel(dr.getLevel());
+                clone.callback = owner
+                clone.bounds = drawable.bounds
+                clone.level = drawable.level
             } else {
-                clone = null;
+                clone = null
             }
 
-            mDrawable = clone;
-            mThemeAttrs = orig.mThemeAttrs;
+            mDrawable = clone
+            mThemeAttrs = orig.mThemeAttrs
 
-            mDensity = resolveDensity(res, orig.mDensity);
+            mDensity = resolveDensity(res, orig.mDensity)
         }
 
-        public boolean canApplyTheme() {
-            return mThemeAttrs != null || (mDrawable != null && mDrawable.canApplyTheme());
-        }
+        fun canApplyTheme(): Boolean =
+            mThemeAttrs != null || (mDrawable != null && mDrawable!!.canApplyTheme())
 
-        public final void setDensity(int targetDensity) {
+        fun setDensity(targetDensity: Int) {
             if (mDensity != targetDensity) {
-                mDensity = targetDensity;
+                mDensity = targetDensity
             }
         }
     }
 
-    static class LayerState extends ConstantState {
-        private int[] mThemeAttrs;
+    class LayerState(
+        orig: LayerState?,
+        private val owner: AdaptiveIconDrawableCompat,
+        res: Resources?
+    ) : ConstantState() {
+        private var mThemeAttrs: IntArray? = null
 
-        static final int N_CHILDREN = 2;
-        ChildDrawable[] mChildren;
+        var mChildren: Array<ChildDrawable>
 
-        // The density at which to render the drawable and its children.
-        int mDensity;
+        var mDensity: Int
 
-        // The density to use when inflating/looking up the children drawables. A value
-        // of 0 means
-        // use the system's density.
-        int mSrcDensityOverride = 0;
+        var mSrcDensityOverride = 0
 
-        int mOpacityOverride = PixelFormat.UNKNOWN;
+        var mOpacityOverride = PixelFormat.UNKNOWN
 
-        int mChangingConfigurations;
-        int mChildrenChangingConfigurations;
+        var mChangingConfigurations = 0
+        var mChildrenChangingConfigurations = 0
 
-        private boolean mCheckedOpacity;
-        private int mOpacity;
+        private var mCheckedOpacity = false
+        private var mOpacity = 0
 
-        private boolean mCheckedStateful;
-        private boolean mIsStateful;
-        private boolean mAutoMirrored = false;
+        private var mCheckedStateful = false
+        private var mIsStateful = false
+        var mAutoMirrored = false
 
-        LayerState(@Nullable LayerState orig, @NonNull AdaptiveIconDrawableCompat owner, @Nullable Resources res) {
-            mDensity = resolveDensity(res, orig != null ? orig.mDensity : 0);
-            mChildren = new ChildDrawable[N_CHILDREN];
+        init {
+            mDensity = resolveDensity(res, orig?.mDensity ?: 0)
+            mChildren = Array(N_CHILDREN) { ChildDrawable(mDensity) }
             if (orig != null) {
-                final ChildDrawable[] origChildDrawable = orig.mChildren;
+                val origChildDrawable = orig.mChildren
 
-                mChangingConfigurations = orig.mChangingConfigurations;
-                mChildrenChangingConfigurations = orig.mChildrenChangingConfigurations;
+                mChangingConfigurations = orig.mChangingConfigurations
+                mChildrenChangingConfigurations = orig.mChildrenChangingConfigurations
 
-                for (int i = 0; i < N_CHILDREN; i++) {
-                    final ChildDrawable or = origChildDrawable[i];
-                    mChildren[i] = new ChildDrawable(or, owner, res);
+                for (i in 0 until N_CHILDREN) {
+                    mChildren[i] = ChildDrawable(origChildDrawable[i], owner, res)
                 }
 
-                mCheckedOpacity = orig.mCheckedOpacity;
-                mOpacity = orig.mOpacity;
-                mCheckedStateful = orig.mCheckedStateful;
-                mIsStateful = orig.mIsStateful;
-                mAutoMirrored = orig.mAutoMirrored;
-                mThemeAttrs = orig.mThemeAttrs;
-                mOpacityOverride = orig.mOpacityOverride;
-                mSrcDensityOverride = orig.mSrcDensityOverride;
-            } else {
-                for (int i = 0; i < N_CHILDREN; i++) {
-                    mChildren[i] = new ChildDrawable(mDensity);
-                }
+                mCheckedOpacity = orig.mCheckedOpacity
+                mOpacity = orig.mOpacity
+                mCheckedStateful = orig.mCheckedStateful
+                mIsStateful = orig.mIsStateful
+                mAutoMirrored = orig.mAutoMirrored
+                mThemeAttrs = orig.mThemeAttrs
+                mOpacityOverride = orig.mOpacityOverride
+                mSrcDensityOverride = orig.mSrcDensityOverride
             }
         }
 
-        public final void setDensity(int targetDensity) {
+        fun setDensity(targetDensity: Int) {
             if (mDensity != targetDensity) {
-                mDensity = targetDensity;
+                mDensity = targetDensity
             }
         }
 
-        @Override
-        public boolean canApplyTheme() {
+        override fun canApplyTheme(): Boolean {
             if (mThemeAttrs != null || super.canApplyTheme()) {
-                return true;
+                return true
             }
 
-            final ChildDrawable[] array = mChildren;
-            for (int i = 0; i < N_CHILDREN; i++) {
-                final ChildDrawable layer = array[i];
-                if (layer.canApplyTheme()) {
-                    return true;
+            for (i in 0 until N_CHILDREN) {
+                if (mChildren[i].canApplyTheme()) {
+                    return true
                 }
             }
-            return false;
+            return false
         }
 
-        @NonNull
-        @Override
-        public Drawable newDrawable() {
-            return new AdaptiveIconDrawableCompat(this, null);
-        }
+        override fun newDrawable(): Drawable = AdaptiveIconDrawableCompat(this, null)
 
-        @NonNull
-        @Override
-        public Drawable newDrawable(@Nullable Resources res) {
-            return new AdaptiveIconDrawableCompat(this, null);
-        }
+        override fun newDrawable(res: Resources?): Drawable = AdaptiveIconDrawableCompat(this, null)
 
-        @Override
-        public int getChangingConfigurations() {
-            return mChangingConfigurations | mChildrenChangingConfigurations;
-        }
+        override fun getChangingConfigurations(): Int =
+            mChangingConfigurations or mChildrenChangingConfigurations
 
-        public final int getOpacity() {
-            if (mCheckedOpacity) {
-                return mOpacity;
-            }
-
-            final ChildDrawable[] array = mChildren;
-
-            // Seek to the first non-null drawable.
-            int firstIndex = -1;
-            for (int i = 0; i < N_CHILDREN; i++) {
-                if (array[i].mDrawable != null) {
-                    firstIndex = i;
-                    break;
+        val opacity: Int
+            get() {
+                if (mCheckedOpacity) {
+                    return mOpacity
                 }
-            }
 
-            int op;
-            if (firstIndex >= 0) {
-                op = array[firstIndex].mDrawable.getOpacity();
-            } else {
-                op = PixelFormat.TRANSPARENT;
-            }
-
-            // Merge all remaining non-null drawables.
-            for (int i = firstIndex + 1; i < N_CHILDREN; i++) {
-                final Drawable dr = array[i].mDrawable;
-                if (dr != null) {
-                    op = Drawable.resolveOpacity(op, dr.getOpacity());
+                var firstIndex = -1
+                for (i in 0 until N_CHILDREN) {
+                    if (mChildren[i].mDrawable != null) {
+                        firstIndex = i
+                        break
+                    }
                 }
+
+                var opacity = if (firstIndex >= 0) {
+                    mChildren[firstIndex].mDrawable!!.opacity
+                } else {
+                    PixelFormat.TRANSPARENT
+                }
+
+                for (i in firstIndex + 1 until N_CHILDREN) {
+                    val drawable = mChildren[i].mDrawable
+                    if (drawable != null) {
+                        opacity = Drawable.resolveOpacity(opacity, drawable.opacity)
+                    }
+                }
+
+                mOpacity = opacity
+                mCheckedOpacity = true
+                return opacity
             }
 
-            mOpacity = op;
-            mCheckedOpacity = true;
-            return op;
-        }
-
-        public final boolean isStateful() {
+        fun isStateful(): Boolean {
             if (mCheckedStateful) {
-                return mIsStateful;
+                return mIsStateful
             }
 
-            final ChildDrawable[] array = mChildren;
-            boolean isStateful = false;
-            for (int i = 0; i < N_CHILDREN; i++) {
-                final Drawable dr = array[i].mDrawable;
-                if (dr != null && dr.isStateful()) {
-                    isStateful = true;
-                    break;
+            var isStateful = false
+            for (i in 0 until N_CHILDREN) {
+                val drawable = mChildren[i].mDrawable
+                if (drawable != null && drawable.isStateful) {
+                    isStateful = true
+                    break
                 }
             }
 
-            mIsStateful = isStateful;
-            mCheckedStateful = true;
-            return isStateful;
+            mIsStateful = isStateful
+            mCheckedStateful = true
+            return isStateful
         }
 
-        public final boolean canConstantState() {
-            final ChildDrawable[] array = mChildren;
-            for (int i = 0; i < N_CHILDREN; i++) {
-                final Drawable dr = array[i].mDrawable;
-                if (dr != null && dr.getConstantState() == null) {
-                    return false;
+        fun canConstantState(): Boolean {
+            for (i in 0 until N_CHILDREN) {
+                val drawable = mChildren[i].mDrawable
+                if (drawable != null && drawable.constantState == null) {
+                    return false
                 }
             }
-
-            // Don't cache the result, this method is not called very often.
-            return true;
+            return true
         }
 
-        public void invalidateCache() {
-            mCheckedOpacity = false;
-            mCheckedStateful = false;
+        fun invalidateCache() {
+            mCheckedOpacity = false
+            mCheckedStateful = false
         }
+
+        companion object {
+            const val N_CHILDREN = 2
+        }
+    }
+
+    companion object {
+        @JvmField
+        var MASK_SIZE = 180f
+
+        private const val SAFEZONE_SCALE = 66f / 72f
+        private const val EXTRA_INSET_PERCENTAGE = 1 / 4f
+        private const val DEFAULT_VIEW_PORT_SCALE = 1f / (1 + 2 * EXTRA_INSET_PERCENTAGE)
+
+        private var sMask: Path? = null
+
+        private const val BACKGROUND_ID = 0
+        private const val FOREGROUND_ID = 1
+
+        @JvmStatic
+        fun resolveDensity(r: Resources?, parentDensity: Int): Int {
+            val densityDpi = r?.displayMetrics?.densityDpi ?: parentDensity
+            return if (densityDpi == 0) DisplayMetrics.DENSITY_DEFAULT else densityDpi
+        }
+
+        @JvmStatic
+        fun getExtraInsetFraction(): Float = EXTRA_INSET_PERCENTAGE
+
+        @JvmStatic
+        fun getExtraInsetPercentage(): Float = EXTRA_INSET_PERCENTAGE
+
+        fun obtainAttributes(res: Resources, theme: Theme?, set: AttributeSet, attrs: IntArray): TypedArray =
+            theme?.obtainStyledAttributes(set, attrs, 0, 0) ?: res.obtainAttributes(set, attrs)
     }
 }

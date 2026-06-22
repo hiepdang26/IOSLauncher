@@ -1,62 +1,45 @@
-package com.cloudx.ios17.features.launcher;
+package com.cloudx.ios17.features.launcher
 
-import android.view.GestureDetector;
-import android.view.MotionEvent;
+import android.view.GestureDetector
+import android.view.MotionEvent
+import kotlin.math.abs
 
-public class DetectSwipeGestureListener extends GestureDetector.SimpleOnGestureListener {
+class DetectSwipeGestureListener : GestureDetector.SimpleOnGestureListener() {
+    private var mOnSwipeDownListener: OnSwipeDownListener? = null
 
-    // Minimal x and y axis swipe distance.
-    private static int MIN_SWIPE_DISTANCE_X = 100;
-    private static int MIN_SWIPE_DISTANCE_Y = 100;
-
-    // Maximal x and y axis swipe distance.
-    private static int MAX_SWIPE_DISTANCE_X = 1000;
-    private static int MAX_SWIPE_DISTANCE_Y = 1000;
-
-    // Source activity that display message in text view.
-    private OnSwipeDownListener mOnSwipeDownListener = null;
-
-    public void setListener(OnSwipeDownListener listener) {
-        mOnSwipeDownListener = listener;
+    fun setListener(listener: OnSwipeDownListener) {
+        mOnSwipeDownListener = listener
     }
 
-    @Override
-    public boolean onDown(MotionEvent e) {
-        return true;
-    }
+    override fun onDown(e: MotionEvent): Boolean = true
 
-    /* This method is invoked when a swipe gesture happened. */
-    @Override
-    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+    override fun onFling(
+        e1: MotionEvent?,
+        e2: MotionEvent,
+        velocityX: Float,
+        velocityY: Float
+    ): Boolean {
+        if (e1 == null) {
+            return false
+        }
 
-        // Get swipe delta value in x axis.
-        float deltaX = e1.getX() - e2.getX();
-
-        // Get swipe delta value in y axis.
-        float deltaY = e1.getY() - e2.getY();
-
-        // Get absolute value.
-        float deltaXAbs = Math.abs(deltaX);
-        float deltaYAbs = Math.abs(deltaY);
-
-        if ((deltaYAbs >= MIN_SWIPE_DISTANCE_Y) && (deltaYAbs <= MAX_SWIPE_DISTANCE_Y)) {
+        val deltaY = e1.y - e2.y
+        val deltaYAbs = abs(deltaY)
+        if (deltaYAbs >= MIN_SWIPE_DISTANCE_Y && deltaYAbs <= MAX_SWIPE_DISTANCE_Y) {
             if (deltaY < 0) {
-                this.mOnSwipeDownListener.onSwipeFinish();
-                return true;
+                mOnSwipeDownListener?.onSwipeFinish()
+                return true
             }
         }
-        return false;
+        return false
     }
 
-    // Invoked when single tap screen.
-    @Override
-    public boolean onSingleTapConfirmed(MotionEvent e) {
-        return false;
-    }
+    override fun onSingleTapConfirmed(e: MotionEvent): Boolean = false
 
-    // Invoked when double tap screen.
-    @Override
-    public boolean onDoubleTap(MotionEvent e) {
-        return false;
+    override fun onDoubleTap(e: MotionEvent): Boolean = false
+
+    companion object {
+        private const val MIN_SWIPE_DISTANCE_Y = 100
+        private const val MAX_SWIPE_DISTANCE_Y = 1000
     }
 }

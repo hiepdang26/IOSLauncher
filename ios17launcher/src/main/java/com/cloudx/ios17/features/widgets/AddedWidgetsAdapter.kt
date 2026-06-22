@@ -1,83 +1,63 @@
-package com.cloudx.ios17.features.widgets;
+package com.cloudx.ios17.features.widgets
 
-import android.appwidget.AppWidgetProviderInfo;
-import android.content.Context;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.TextView;
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
-import com.cloudx.ios17.R;
-import java.util.ArrayList;
-import java.util.List;
+import android.appwidget.AppWidgetProviderInfo
+import android.content.Context
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.cloudx.ios17.R
 
-public class AddedWidgetsAdapter extends RecyclerView.Adapter<AddedWidgetsAdapter.WidgetsViewHolder> {
+class AddedWidgetsAdapter(
+    private val mContext: Context,
+    private val mDensity: Int
+) : RecyclerView.Adapter<AddedWidgetsAdapter.WidgetsViewHolder>() {
 
-    private Context mContext;
-    private int mDensity;
-    private List<Widget> mAppWidgetProviderInfos = new ArrayList<>();
+    private var mAppWidgetProviderInfos: MutableList<Widget> = ArrayList()
+    private val mOnActionClickListener = mContext as OnActionClickListener
 
-    private OnActionClickListener mOnActionClickListener;
-    private static final String TAG = "AddedWidgetsAdapter";
-
-    public AddedWidgetsAdapter(Context context, int density) {
-        this.mContext = context;
-        mDensity = density;
-        mOnActionClickListener = (OnActionClickListener) mContext;
-    }
-
-    @NonNull
-    @Override
-    public WidgetsViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
-        View view = LayoutInflater.from(mContext).inflate(R.layout.item_added_widget, viewGroup, false);
-        WidgetsViewHolder widgetsViewHolder = new WidgetsViewHolder(view);
-        widgetsViewHolder.actionBtn.setImageResource(R.drawable.ic_remove_widget_red_24dp);
-        widgetsViewHolder.actionBtn.setOnClickListener(v -> {
-            int position = widgetsViewHolder.getAdapterPosition();
+    override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): WidgetsViewHolder {
+        val view = LayoutInflater.from(mContext).inflate(R.layout.item_added_widget, viewGroup, false)
+        val widgetsViewHolder = WidgetsViewHolder(view)
+        widgetsViewHolder.actionBtn.setImageResource(R.drawable.ic_remove_widget_red_24dp)
+        widgetsViewHolder.actionBtn.setOnClickListener {
+            val position = widgetsViewHolder.adapterPosition
             if (position != RecyclerView.NO_POSITION) {
-                Widget widget = mAppWidgetProviderInfos.get(position);
-                mAppWidgetProviderInfos.remove(position);
-                mOnActionClickListener.removeWidget(widget.id);
-                notifyItemRemoved(position);
+                val widget = mAppWidgetProviderInfos[position]
+                mAppWidgetProviderInfos.removeAt(position)
+                mOnActionClickListener.removeWidget(widget.id)
+                notifyItemRemoved(position)
             }
-        });
-        return widgetsViewHolder;
-    }
-
-    @Override
-    public void onBindViewHolder(@NonNull WidgetsViewHolder widgetsViewHolder, int i) {
-        AppWidgetProviderInfo info = mAppWidgetProviderInfos.get(i).info;
-        widgetsViewHolder.icon.setImageDrawable(info.loadIcon(mContext, mDensity));
-        widgetsViewHolder.label.setText(info.loadLabel(mContext.getPackageManager()));
-    }
-
-    @Override
-    public int getItemCount() {
-        return mAppWidgetProviderInfos.size();
-    }
-
-    public void setAppWidgetProviderInfos(List<Widget> appWidgetProviderInfos) {
-        this.mAppWidgetProviderInfos = appWidgetProviderInfos;
-        notifyDataSetChanged();
-    }
-
-    public static class WidgetsViewHolder extends RecyclerView.ViewHolder {
-
-        ImageView icon;
-        TextView label;
-        ImageView actionBtn;
-
-        public WidgetsViewHolder(@NonNull View itemView) {
-            super(itemView);
-            icon = itemView.findViewById(R.id.widget_icon);
-            label = itemView.findViewById(R.id.widget_label);
-            actionBtn = itemView.findViewById(R.id.action_image_view);
         }
+        return widgetsViewHolder
+    }
+
+    override fun onBindViewHolder(widgetsViewHolder: WidgetsViewHolder, position: Int) {
+        val info: AppWidgetProviderInfo = mAppWidgetProviderInfos[position].info!!
+        widgetsViewHolder.icon.setImageDrawable(info.loadIcon(mContext, mDensity))
+        widgetsViewHolder.label.text = info.loadLabel(mContext.packageManager)
+    }
+
+    override fun getItemCount(): Int = mAppWidgetProviderInfos.size
+
+    fun setAppWidgetProviderInfos(appWidgetProviderInfos: List<Widget>) {
+        mAppWidgetProviderInfos = appWidgetProviderInfos.toMutableList()
+        notifyDataSetChanged()
+    }
+
+    class WidgetsViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val icon: ImageView = itemView.findViewById(R.id.widget_icon)
+        val label: TextView = itemView.findViewById(R.id.widget_label)
+        val actionBtn: ImageView = itemView.findViewById(R.id.action_image_view)
     }
 
     interface OnActionClickListener {
-        void removeWidget(int id);
+        fun removeWidget(id: Int)
+    }
+
+    companion object {
+        private const val TAG = "AddedWidgetsAdapter"
     }
 }

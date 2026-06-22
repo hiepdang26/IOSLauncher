@@ -1,17 +1,12 @@
-package com.cloudx.ios17.core.mvp;
+package com.cloudx.ios17.core.mvp
 
-public interface MvpContract {
+interface MvpContract {
+    interface View
 
-    interface View {
-    }
-
-    interface Presenter<V extends View> {
-        void attachView(V view);
-
-        void resume();
-
-        void pause();
-
-        void detachView();
+    interface Presenter<V : View> {
+        fun attachView(view: V)
+        fun resume()
+        fun pause()
+        fun detachView()
     }
 }

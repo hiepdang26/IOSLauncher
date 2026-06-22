@@ -1,74 +1,73 @@
-package com.cloudx.ios17.features.weather.location;
+package com.cloudx.ios17.features.weather.location
 
-import android.content.Context;
-import android.location.Location;
-import android.location.LocationManager;
+import android.content.Context
+import android.location.Location
+import android.location.LocationManager
+import androidx.core.location.LocationManagerCompat
+import androidx.core.os.CancellationSignal
+import java.util.concurrent.Executors
+import timber.log.Timber
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.os.CancellationSignal;
-import androidx.core.location.LocationManagerCompat;
+class NetworkGpsLocationFetcher(context: Context, callback: Callback) : LocationFetcher() {
+    private var gpsLocation: Location? = null
+    private var networkLocation: Location? = null
 
-import java.util.concurrent.Executors;
-
-import timber.log.Timber;
-
-public class NetworkGpsLocationFetcher extends LocationFetcher {
-
-    private Location gpsLocation;
-    private Location networkLocation;
-
-    public NetworkGpsLocationFetcher(@NonNull Context context, @NonNull Callback callback) {
-        this.context = context;
-        locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-        this.callback = callback;
+    init {
+        this.context = context
+        this.callback = callback
+        locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
-    @Override
-    public void fetchLocation() {
+    override fun fetchLocation() {
         if (!checkPermission()) {
-            Timber.w("Could not fetch location. Missing permission.");
-            return;
+            Timber.w("Could not fetch location. Missing permission.")
+            return
         }
 
-        LocationManagerCompat.getCurrentLocation(locationManager, LocationManager.GPS_PROVIDER, (CancellationSignal) null,
-                Executors.newFixedThreadPool(1), this::onLocationFetched);
+        LocationManagerCompat.getCurrentLocation(
+            locationManager!!,
+            LocationManager.GPS_PROVIDER,
+            null as CancellationSignal?,
+            Executors.newFixedThreadPool(1),
+            this::onLocationFetched
+        )
 
-        LocationManagerCompat.getCurrentLocation(locationManager, LocationManager.NETWORK_PROVIDER, (CancellationSignal) null,
-                Executors.newFixedThreadPool(1), this::onLocationFetched);
+        LocationManagerCompat.getCurrentLocation(
+            locationManager!!,
+            LocationManager.NETWORK_PROVIDER,
+            null as CancellationSignal?,
+            Executors.newFixedThreadPool(1),
+            this::onLocationFetched
+        )
     }
 
-    private void onLocationFetched(@Nullable Location location) {
-
+    private fun onLocationFetched(location: Location?) {
         if (location == null) {
-            return;
+            return
         }
 
-        if (location.getProvider().equals(LocationManager.GPS_PROVIDER)) {
-            gpsLocation = location;
-        } else if (location.getProvider().equals(LocationManager.NETWORK_PROVIDER)) {
-            networkLocation = location;
+        if (location.provider == LocationManager.GPS_PROVIDER) {
+            gpsLocation = location
+        } else if (location.provider == LocationManager.NETWORK_PROVIDER) {
+            networkLocation = location
         }
 
-        callback.onNewLocation(getMostRecentLocation());
+        callback?.onNewLocation(getMostRecentLocation())
     }
 
-    private Location getMostRecentLocation() {
-        if (networkLocation == null && gpsLocation == null) {
-            throw new IllegalStateException();
+    private fun getMostRecentLocation(): Location {
+        val gps = gpsLocation
+        val network = networkLocation
+        if (network == null && gps == null) {
+            throw IllegalStateException()
+        }
+        if (gps == null) {
+            return network!!
+        }
+        if (network == null) {
+            return gps
         }
 
-        if (gpsLocation == null) {
-            return networkLocation;
-        }
-
-        if (networkLocation == null) {
-            return gpsLocation;
-        }
-
-        long gpsTime = gpsLocation.getTime();
-        long networkTime = networkLocation.getTime();
-        return gpsTime >= networkTime ? gpsLocation : networkLocation;
+        return if (gps.time >= network.time) gps else network
     }
-
 }

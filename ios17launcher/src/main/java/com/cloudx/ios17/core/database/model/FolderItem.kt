@@ -1,18 +1,12 @@
-package com.cloudx.ios17.core.database.model;
+package com.cloudx.ios17.core.database.model
 
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.Constants;
+import com.cloudx.ios17.core.utils.Constants
 
-import java.util.List;
+class FolderItem : LauncherItem() {
+    @JvmField
+    var items: MutableList<LauncherItem>? = null
 
-public class FolderItem extends LauncherItem {
-
-    /** Stores networkItems that user saved in this folder. */
-    public List<LauncherItem> items;
-
-    public FolderItem() {
-        itemType = Constants.ITEM_TYPE_FOLDER;
+    init {
+        itemType = Constants.ITEM_TYPE_FOLDER
     }
 }

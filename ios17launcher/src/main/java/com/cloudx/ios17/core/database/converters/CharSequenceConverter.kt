@@ -1,16 +1,13 @@
-package com.cloudx.ios17.core.database.converters;
+package com.cloudx.ios17.core.database.converters
 
-import androidx.room.TypeConverter;
+import androidx.room.TypeConverter
 
-public class CharSequenceConverter {
+object CharSequenceConverter {
+    @TypeConverter
+    @JvmStatic
+    fun toString(value: CharSequence?): String? = value?.toString()
 
     @TypeConverter
-    public static String toString(CharSequence value) {
-        return value.toString();
-    }
-
-    @TypeConverter
-    public static CharSequence toCharSequence(String value) {
-        return value;
-    }
+    @JvmStatic
+    fun toCharSequence(value: String?): CharSequence? = value
 }

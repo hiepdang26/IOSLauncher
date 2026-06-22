@@ -1,51 +1,37 @@
-package com.cloudx.ios17.features.widgets;
+package com.cloudx.ios17.features.widgets
 
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
-import com.cloudx.ios17.core.customviews.RoundedWidgetView;
+import com.cloudx.ios17.core.customviews.RoundedWidgetView
+import java.util.LinkedList
+import java.util.Queue
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Queue;
+class WidgetManager private constructor() {
+    private val removeWidgetIds: Queue<Int> = LinkedList()
+    private val addWidgetViews: Queue<RoundedWidgetView> = LinkedList()
 
-public class WidgetManager {
-    private static final WidgetManager ourInstance = new WidgetManager();
-
-    private Queue<Integer> removeWidgetIds = new LinkedList<>();
-    private Queue<RoundedWidgetView> addWidgetViews = new LinkedList<>();
-
-    public static WidgetManager getInstance() {
-        return ourInstance;
-    }
-
-    private WidgetManager() {
-    }
-
-    public void enqueueRemoveId(int id) {
-        // If the widget is not yet created but scheduled to be created we have to
-        // prevent the
-        // creation, too.
-        Iterator<RoundedWidgetView> it = addWidgetViews.iterator();
-        while (it.hasNext()) {
-            RoundedWidgetView view = it.next();
-            if (id == view.getAppWidgetId()) {
-                addWidgetViews.remove(view);
-                break;
+    fun enqueueRemoveId(id: Int) {
+        val iterator = addWidgetViews.iterator()
+        while (iterator.hasNext()) {
+            val view = iterator.next()
+            if (id == view.appWidgetId) {
+                addWidgetViews.remove(view)
+                break
             }
         }
-        removeWidgetIds.add(id);
+        removeWidgetIds.add(id)
     }
 
-    public void enqueueAddWidget(RoundedWidgetView view) {
-        addWidgetViews.add(view);
+    fun enqueueAddWidget(view: RoundedWidgetView) {
+        addWidgetViews.add(view)
     }
 
-    public Integer dequeRemoveId() {
-        return removeWidgetIds.poll();
-    }
+    fun dequeRemoveId(): Int? = removeWidgetIds.poll()
 
-    public RoundedWidgetView dequeAddWidgetView() {
-        return addWidgetViews.poll();
+    fun dequeAddWidgetView(): RoundedWidgetView? = addWidgetViews.poll()
+
+    companion object {
+        private val ourInstance = WidgetManager()
+
+        @JvmStatic
+        fun getInstance(): WidgetManager = ourInstance
     }
 }

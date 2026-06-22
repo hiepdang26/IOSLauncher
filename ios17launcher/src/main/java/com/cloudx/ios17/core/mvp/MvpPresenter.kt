@@ -1,46 +1,36 @@
-package com.cloudx.ios17.core.mvp;
+package com.cloudx.ios17.core.mvp
 
-public class MvpPresenter<V extends MvpContract.View> implements MvpContract.Presenter<V> {
+open class MvpPresenter<V : MvpContract.View> : MvpContract.Presenter<V> {
+    private var mView: V? = null
+    private var isPaused = false
 
-    private V mView;
-    private boolean isPaused;
-
-    @Override
-    public void attachView(V view) {
-        this.mView = view;
+    override fun attachView(view: V) {
+        mView = view
     }
 
-    @Override
-    public void resume() {
-        isPaused = false;
+    override fun resume() {
+        isPaused = false
     }
 
-    @Override
-    public void pause() {
-        isPaused = true;
+    override fun pause() {
+        isPaused = true
     }
 
-    @Override
-    public void detachView() {
-        this.mView = null;
+    override fun detachView() {
+        mView = null
     }
 
-    public V getView() {
-        return mView;
-    }
+    fun getView(): V? = mView
 
-    public boolean isViewAttached() {
-        return this.mView != null;
-    }
+    fun isViewAttached(): Boolean = mView != null
 
-    public void checkViewAttached() {
-        if (!isViewAttached())
-            throw new ViewNotAttachedException();
-    }
-
-    public static class ViewNotAttachedException extends RuntimeException {
-        public ViewNotAttachedException() {
-            super("Call Presenter.attachView(BaseView)before" + " requesting data to the Presenter");
+    fun checkViewAttached() {
+        if (!isViewAttached()) {
+            throw ViewNotAttachedException()
         }
     }
+
+    class ViewNotAttachedException : RuntimeException(
+        "Call Presenter.attachView(BaseView)before requesting data to the Presenter"
+    )
 }

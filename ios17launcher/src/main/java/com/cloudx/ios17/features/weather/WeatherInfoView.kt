@@ -1,116 +1,107 @@
-package com.cloudx.ios17.features.weather;
+package com.cloudx.ios17.features.weather
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.util.AttributeSet;
-import android.view.View;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.util.AttributeSet
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.Preferences
+import com.cloudx.ios17.features.launcher.LauncherActivity
+import timber.log.Timber
 
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+class WeatherInfoView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : LinearLayout(context, attrs) {
 
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.features.launcher.LauncherActivity;
-import timber.log.Timber;
+    private lateinit var mWeatherPanel: View
+    private lateinit var mWeatherSetupTextView: View
 
-public class WeatherInfoView extends LinearLayout {
-
-    private View mWeatherPanel;
-    private View mWeatherSetupTextView;
-
-    private final BroadcastReceiver mWeatherReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (WeatherUpdateService.ACTION_UPDATE_FINISHED.equals(intent.getAction())) {
-                updateWeatherPanel();
+    private val mWeatherReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (WeatherUpdateService.ACTION_UPDATE_FINISHED == intent.action) {
+                updateWeatherPanel()
             }
 
-            if (WeatherUpdateService.ACTION_UPDATE_CITY_FINISHED.equals(intent.getAction())) {
-                final TextView textCity = mWeatherPanel.findViewById(R.id.weather_city);
-                final String city = intent.getStringExtra(WeatherUpdateService.EXTRA_UPDATE_CITY_KEY);
-                if (city != null && !city.trim().isEmpty()) {
-                    textCity.setText(city);
+            if (WeatherUpdateService.ACTION_UPDATE_CITY_FINISHED == intent.action) {
+                val textCity = mWeatherPanel.findViewById<TextView>(R.id.weather_city)
+                val city = intent.getStringExtra(WeatherUpdateService.EXTRA_UPDATE_CITY_KEY)
+                if (!city.isNullOrBlank()) {
+                    textCity.text = city
                 }
             }
         }
-    };
-
-    private final BroadcastReceiver mResumeReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            updateWeatherPanel();
-        }
-    };
-
-    public WeatherInfoView(Context context, AttributeSet attrs) {
-        super(context, attrs);
     }
 
-    @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-        mWeatherSetupTextView = findViewById(R.id.weather_setup_textview);
-        mWeatherPanel = findViewById(R.id.weather_panel);
-        mWeatherPanel.setOnClickListener(v -> {
-            Intent launchIntent = getContext().getPackageManager().getLaunchIntentForPackage("foundation.e.weather");
+    private val mResumeReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            updateWeatherPanel()
+        }
+    }
+
+    override fun onFinishInflate() {
+        super.onFinishInflate()
+        mWeatherSetupTextView = findViewById(R.id.weather_setup_textview)
+        mWeatherPanel = findViewById(R.id.weather_panel)
+        mWeatherPanel.setOnClickListener {
+            val launchIntent =
+                context.packageManager.getLaunchIntentForPackage("foundation.e.weather")
             if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(launchIntent);
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
             }
-        });
-        findViewById(R.id.weather_setting_imageview).setOnClickListener(v -> startWeatherPreferences());
-        findViewById(R.id.weather_refresh_imageview).setOnClickListener(v -> {
-            WeatherUpdater.getInstance(getContext().getApplicationContext()).updateWeather();
-        });
-    }
-
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        final LocalBroadcastManager broadcastManager = LocalBroadcastManager.getInstance(getContext());
-        final IntentFilter intentFilter = new IntentFilter();
-
-        intentFilter.addAction(WeatherUpdateService.ACTION_UPDATE_FINISHED);
-        intentFilter.addAction(WeatherUpdateService.ACTION_UPDATE_CITY_FINISHED);
-
-        broadcastManager.registerReceiver(mWeatherReceiver, intentFilter);
-        broadcastManager.registerReceiver(mResumeReceiver, new IntentFilter(LauncherActivity.ACTION_LAUNCHER_RESUME));
-        updateWeatherPanel();
-    }
-
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        final LocalBroadcastManager broadcastManager = LocalBroadcastManager.getInstance(getContext());
-        broadcastManager.unregisterReceiver(mWeatherReceiver);
-        broadcastManager.unregisterReceiver(mResumeReceiver);
-    }
-
-    private void updateWeatherPanel() {
-        if (Preferences.getCachedWeatherInfo(getContext()) == null) {
-            Timber.tag("Weather").i("getCacheWeatherInfo is null");
-            mWeatherSetupTextView.setVisibility(VISIBLE);
-            mWeatherPanel.setVisibility(GONE);
-            mWeatherSetupTextView.setOnClickListener(v -> startWeatherPreferences());
-            return;
         }
-        mWeatherSetupTextView.setVisibility(GONE);
-        mWeatherPanel.setVisibility(VISIBLE);
-        ForecastBuilder.buildLargePanel(getContext(), mWeatherPanel, Preferences.getCachedWeatherInfo(getContext()));
+        findViewById<View>(R.id.weather_setting_imageview).setOnClickListener { startWeatherPreferences() }
+        findViewById<View>(R.id.weather_refresh_imageview).setOnClickListener {
+            WeatherUpdater.getInstance(context.applicationContext).updateWeather()
+        }
     }
 
-    private void startWeatherPreferences() {
-        final Intent intent = new Intent(getContext(), WeatherPreferences.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        val broadcastManager = LocalBroadcastManager.getInstance(context)
+        val intentFilter = IntentFilter()
+
+        intentFilter.addAction(WeatherUpdateService.ACTION_UPDATE_FINISHED)
+        intentFilter.addAction(WeatherUpdateService.ACTION_UPDATE_CITY_FINISHED)
+
+        broadcastManager.registerReceiver(mWeatherReceiver, intentFilter)
+        broadcastManager.registerReceiver(
+            mResumeReceiver,
+            IntentFilter(LauncherActivity.ACTION_LAUNCHER_RESUME)
+        )
+        updateWeatherPanel()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        val broadcastManager = LocalBroadcastManager.getInstance(context)
+        broadcastManager.unregisterReceiver(mWeatherReceiver)
+        broadcastManager.unregisterReceiver(mResumeReceiver)
+    }
+
+    private fun updateWeatherPanel() {
+        val cachedWeatherInfo = Preferences.getCachedWeatherInfo(context)
+        if (cachedWeatherInfo == null) {
+            Timber.tag("Weather").i("getCacheWeatherInfo is null")
+            mWeatherSetupTextView.visibility = VISIBLE
+            mWeatherPanel.visibility = GONE
+            mWeatherSetupTextView.setOnClickListener { startWeatherPreferences() }
+            return
+        }
+        mWeatherSetupTextView.visibility = GONE
+        mWeatherPanel.visibility = VISIBLE
+        ForecastBuilder.buildLargePanel(context, mWeatherPanel, cachedWeatherInfo)
+    }
+
+    private fun startWeatherPreferences() {
+        val intent = Intent(context, WeatherPreferences::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
     }
 }

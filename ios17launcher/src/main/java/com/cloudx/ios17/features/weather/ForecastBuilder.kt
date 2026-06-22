@@ -1,226 +1,193 @@
-package com.cloudx.ios17.features.weather;
+package com.cloudx.ios17.features.weather
 
-import static lineageos.providers.WeatherContract.WeatherColumns.TempUnit.CELSIUS;
-import static lineageos.providers.WeatherContract.WeatherColumns.TempUnit.FAHRENHEIT;
-import static lineageos.providers.WeatherContract.WeatherColumns.WindSpeedUnit.KPH;
-import static lineageos.providers.WeatherContract.WeatherColumns.WindSpeedUnit.MPH;
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.cloudx.ios17.R
+import com.cloudx.ios17.core.Preferences
+import java.util.Calendar
+import java.util.GregorianCalendar
+import java.util.Locale
+import java.util.TimeZone
+import lineageos.providers.WeatherContract.WeatherColumns.TempUnit.CELSIUS
+import lineageos.providers.WeatherContract.WeatherColumns.TempUnit.FAHRENHEIT
+import lineageos.providers.WeatherContract.WeatherColumns.WindSpeedUnit.KPH
+import lineageos.providers.WeatherContract.WeatherColumns.WindSpeedUnit.MPH
+import lineageos.weather.WeatherInfo
+import lineageos.weather.util.WeatherUtils as LineageWeatherUtils
+import timber.log.Timber
 
-import android.annotation.SuppressLint;
-import android.content.Context;
-import android.content.Intent;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+object ForecastBuilder {
 
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.core.Preferences;
-import com.cloudx.ios17.R;
-import com.cloudx.ios17.core.Preferences;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
+    private const val TAG = "ForecastBuilder"
 
-import com.cloudx.ios17.core.Preferences;
-import lineageos.weather.WeatherInfo;
-import lineageos.weather.util.WeatherUtils;
-import timber.log.Timber;
-
-public class ForecastBuilder {
-
-    private static final String TAG = "ForecastBuilder";
-
-    /**
-     * This method is used to build the forecast panel
-     *
-     * @param context
-     *            Context to be used
-     * @param weatherPanel
-     *            a view that will contain the forecast
-     * @param w
-     *            the Weather info object that contains the forecast data
-     */
     @SuppressLint("InflateParams")
-    public static void buildLargePanel(Context context, View weatherPanel, WeatherInfo w) {
+    @JvmStatic
+    fun buildLargePanel(context: Context, weatherPanel: View?, w: WeatherInfo) {
         if (weatherPanel == null) {
-            Timber.tag(TAG).d("Invalid view passed");
-            return;
+            Timber.tag(TAG).d("Invalid view passed")
+            return
         }
 
-        int color = Preferences.weatherFontColor(context);
-        final boolean useMetric = Preferences.useMetricUnits(context);
-        double temp = w.getTemperature();
-        double todayLow = w.getTodaysLow();
-        double todayHigh = w.getTodaysHigh();
+        val color = Preferences.weatherFontColor(context)
+        val useMetric = Preferences.useMetricUnits(context)
+        var temp = w.temperature
+        var todayLow = w.todaysLow
+        var todayHigh = w.todaysHigh
 
-        int tempUnit = w.getTemperatureUnit();
+        var tempUnit = w.temperatureUnit
         if (tempUnit == FAHRENHEIT && useMetric) {
-            temp = WeatherUtils.fahrenheitToCelsius(temp);
-            todayLow = WeatherUtils.fahrenheitToCelsius(todayLow);
-            todayHigh = WeatherUtils.fahrenheitToCelsius(todayHigh);
-            tempUnit = CELSIUS;
+            temp = LineageWeatherUtils.fahrenheitToCelsius(temp)
+            todayLow = LineageWeatherUtils.fahrenheitToCelsius(todayLow)
+            todayHigh = LineageWeatherUtils.fahrenheitToCelsius(todayHigh)
+            tempUnit = CELSIUS
         } else if (tempUnit == CELSIUS && !useMetric) {
-            temp = WeatherUtils.celsiusToFahrenheit(temp);
-            todayLow = WeatherUtils.celsiusToFahrenheit(todayLow);
-            todayHigh = WeatherUtils.celsiusToFahrenheit(todayHigh);
-            tempUnit = FAHRENHEIT;
+            temp = LineageWeatherUtils.celsiusToFahrenheit(temp)
+            todayLow = LineageWeatherUtils.celsiusToFahrenheit(todayLow)
+            todayHigh = LineageWeatherUtils.celsiusToFahrenheit(todayHigh)
+            tempUnit = FAHRENHEIT
         }
 
-        // Set the current conditions
-        // Weather Image
-        ImageView weatherImage = weatherPanel.findViewById(R.id.weather_image);
-        String iconsSet = Preferences.getWeatherIconSet(context);
-        weatherImage.setImageBitmap(WeatherIconUtils.getWeatherIconBitmap(context, iconsSet, color,
-                w.getConditionCode(), WeatherIconUtils.getNextHigherDensity(context)));
+        val weatherImage = weatherPanel.findViewById<ImageView>(R.id.weather_image)
+        val iconsSet = Preferences.getWeatherIconSet(context)
+        weatherImage.setImageBitmap(
+            WeatherIconUtils.getWeatherIconBitmap(
+                context,
+                iconsSet,
+                color,
+                w.conditionCode,
+                WeatherIconUtils.getNextHigherDensity(context)
+            )
+        )
 
-        // City
-        TextView textCity = weatherPanel.findViewById(R.id.weather_city);
-        String city;
+        val textCity = weatherPanel.findViewById<TextView>(R.id.weather_city)
+        val city =
+            if (Preferences.useCustomWeatherLocation(context)) {
+                w.city
+            } else {
+                Preferences.getCachedCity(context, w.city)
+            }
 
-        if (Preferences.useCustomWeatherLocation(context)) {
-            city = w.getCity();
-        } else {
-            city = Preferences.getCachedCity(context, w.getCity());
-        }
+        textCity.text = city
 
-        textCity.setText(city);
+        val weatherCondition = weatherPanel.findViewById<TextView>(R.id.weather_condition)
+        weatherCondition.text = WeatherUtils.resolveWeatherCondition(context, w.conditionCode)
 
-        // Weather Condition
-        TextView weatherCondition = weatherPanel.findViewById(R.id.weather_condition);
-        weatherCondition.setText(com.cloudx.ios17.features.weather.WeatherUtils
-                .resolveWeatherCondition(context, w.getConditionCode()));
+        val weatherTemp = weatherPanel.findViewById<TextView>(R.id.weather_current_temperature)
+        weatherTemp.text = LineageWeatherUtils.formatTemperature(temp, tempUnit)
 
-        // Weather Temps
-        TextView weatherTemp = weatherPanel.findViewById(R.id.weather_current_temperature);
-        weatherTemp.setText(WeatherUtils.formatTemperature(temp, tempUnit));
+        val low = LineageWeatherUtils.formatTemperature(todayLow, tempUnit)
+        val high = LineageWeatherUtils.formatTemperature(todayHigh, tempUnit)
+        val weatherLowHigh = weatherPanel.findViewById<TextView>(R.id.weather_low_high)
+        weatherLowHigh.text = String.format("%s / %s", low, high)
 
-        // Weather Temps Panel additional networkItems
-        final String low = WeatherUtils.formatTemperature(todayLow, tempUnit);
-        final String high = WeatherUtils.formatTemperature(todayHigh, tempUnit);
-        TextView weatherLowHigh = weatherPanel.findViewById(R.id.weather_low_high);
-        weatherLowHigh.setText(String.format("%s / %s", low, high));
-
-        double windSpeed = w.getWindSpeed();
-        int windSpeedUnit = w.getWindSpeedUnit();
+        var windSpeed = w.windSpeed
+        var windSpeedUnit = w.windSpeedUnit
         if (windSpeedUnit == MPH && useMetric) {
-            windSpeedUnit = KPH;
-            windSpeed = com.cloudx.ios17.features.weather.WeatherUtils.milesToKilometers(windSpeed);
+            windSpeedUnit = KPH
+            windSpeed = WeatherUtils.milesToKilometers(windSpeed)
         } else if (windSpeedUnit == KPH && !useMetric) {
-            windSpeedUnit = MPH;
-            windSpeed = com.cloudx.ios17.features.weather.WeatherUtils.kilometersToMiles(windSpeed);
+            windSpeedUnit = MPH
+            windSpeed = WeatherUtils.kilometersToMiles(windSpeed)
         }
 
-        // Humidity and Wind
-        TextView weatherHumWind = weatherPanel.findViewById(R.id.weather_chance_rain);
-        weatherHumWind.setText(String.format("%s, %s %s",
-                com.cloudx.ios17.features.weather.WeatherUtils.formatHumidity(w.getHumidity()),
-                com.cloudx.ios17.features.weather.WeatherUtils.formatWindSpeed(context, windSpeed,
-                        windSpeedUnit),
-                com.cloudx.ios17.features.weather.WeatherUtils.resolveWindDirection(context,
-                        w.getWindDirection())));
-        LinearLayout forecastView = weatherPanel.findViewById(R.id.forecast_view);
-        buildSmallPanel(context, forecastView, w);
+        val weatherHumWind = weatherPanel.findViewById<TextView>(R.id.weather_chance_rain)
+        weatherHumWind.text = String.format(
+            "%s, %s %s",
+            WeatherUtils.formatHumidity(w.humidity),
+            WeatherUtils.formatWindSpeed(context, windSpeed, windSpeedUnit),
+            WeatherUtils.resolveWindDirection(context, w.windDirection)
+        )
+        val forecastView = weatherPanel.findViewById<LinearLayout>(R.id.forecast_view)
+        buildSmallPanel(context, forecastView, w)
     }
 
-    /**
-     * This method is used to build the small, horizontal forecasts panel
-     *
-     * @param context
-     *            Context to be used
-     * @param smallPanel
-     *            a horizontal {@link LinearLayout} that will contain the forecasts
-     * @param w
-     *            the Weather info object that contains the forecast data
-     */
     @SuppressLint("InflateParams")
-    private static void buildSmallPanel(Context context, LinearLayout smallPanel, WeatherInfo w) {
+    private fun buildSmallPanel(context: Context, smallPanel: LinearLayout?, w: WeatherInfo) {
         if (smallPanel == null) {
-            Timber.tag(TAG).d("Invalid view passed");
-            return;
+            Timber.tag(TAG).d("Invalid view passed")
+            return
         }
 
-        // Get things ready
-        LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        int color = Preferences.weatherFontColor(context);
-        final boolean useMetric = Preferences.useMetricUnits(context);
+        val inflater = context.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        val color = Preferences.weatherFontColor(context)
+        val useMetric = Preferences.useMetricUnits(context)
 
-        smallPanel.removeAllViews();
-        List<WeatherInfo.DayForecast> forecasts = w.getForecasts();
-        if (forecasts.size() <= 1) {
-            smallPanel.setVisibility(View.GONE);
-            return;
+        smallPanel.removeAllViews()
+        val forecasts = w.forecasts
+        if (forecasts.size <= 1) {
+            smallPanel.visibility = View.GONE
+            return
         }
 
-        smallPanel.setVisibility(View.VISIBLE);
-        TimeZone MyTimezone = TimeZone.getDefault();
-        Calendar calendar = new GregorianCalendar(MyTimezone);
-        int weatherTempUnit = w.getTemperatureUnit();
-        int numForecasts = forecasts.size();
-        int itemSidePadding = context.getResources().getDimensionPixelSize(R.dimen.forecast_item_padding_side);
+        smallPanel.visibility = View.VISIBLE
+        val myTimezone = TimeZone.getDefault()
+        val calendar = GregorianCalendar(myTimezone)
+        val weatherTempUnit = w.temperatureUnit
+        val numForecasts = forecasts.size
+        val itemSidePadding = context.resources.getDimensionPixelSize(R.dimen.forecast_item_padding_side)
 
-        // Iterate through the Forecasts
-        for (int count = 0; count < numForecasts; count++) {
-            WeatherInfo.DayForecast d = forecasts.get(count);
+        for (count in 0 until numForecasts) {
+            val forecast = forecasts[count]
+            val forecastItem = inflater.inflate(R.layout.item_weather_forecast, null)
 
-            // Load the views
-            assert inflater != null;
-            View forecastItem = inflater.inflate(R.layout.item_weather_forecast, null);
+            val day = forecastItem.findViewById<TextView>(R.id.forecast_day)
+            day.text = calendar.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, Locale.getDefault())
+            calendar.roll(Calendar.DAY_OF_WEEK, true)
 
-            // The day of the week
-            TextView day = forecastItem.findViewById(R.id.forecast_day);
-            day.setText(calendar.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.SHORT, Locale.getDefault()));
-            calendar.roll(Calendar.DAY_OF_WEEK, true);
-
-            // Weather Image
-            ImageView image = forecastItem.findViewById(R.id.weather_image);
-            String iconsSet = Preferences.getWeatherIconSet(context);
-            final int resId = WeatherIconUtils.getWeatherIconResource(context, iconsSet, d.getConditionCode());
+            val image = forecastItem.findViewById<ImageView>(R.id.weather_image)
+            val iconsSet = Preferences.getWeatherIconSet(context)
+            val resId = WeatherIconUtils.getWeatherIconResource(context, iconsSet, forecast.conditionCode)
             if (resId != 0) {
-                image.setImageResource(resId);
+                image.setImageResource(resId)
             } else {
                 image.setImageBitmap(
-                        WeatherIconUtils.getWeatherIconBitmap(context, iconsSet, color, d.getConditionCode()));
+                    WeatherIconUtils.getWeatherIconBitmap(context, iconsSet, color, forecast.conditionCode)
+                )
             }
 
-            // Temperatures
-            double lowTemp = d.getLow();
-            double highTemp = d.getHigh();
-            int tempUnit = weatherTempUnit;
+            var lowTemp = forecast.low
+            var highTemp = forecast.high
+            var tempUnit = weatherTempUnit
             if (weatherTempUnit == FAHRENHEIT && useMetric) {
-                lowTemp = lineageos.weather.util.WeatherUtils.fahrenheitToCelsius(lowTemp);
-                highTemp = lineageos.weather.util.WeatherUtils.fahrenheitToCelsius(highTemp);
-                tempUnit = CELSIUS;
+                lowTemp = LineageWeatherUtils.fahrenheitToCelsius(lowTemp)
+                highTemp = LineageWeatherUtils.fahrenheitToCelsius(highTemp)
+                tempUnit = CELSIUS
             } else if (weatherTempUnit == CELSIUS && !useMetric) {
-                lowTemp = lineageos.weather.util.WeatherUtils.celsiusToFahrenheit(lowTemp);
-                highTemp = lineageos.weather.util.WeatherUtils.celsiusToFahrenheit(highTemp);
-                tempUnit = FAHRENHEIT;
+                lowTemp = LineageWeatherUtils.celsiusToFahrenheit(lowTemp)
+                highTemp = LineageWeatherUtils.celsiusToFahrenheit(highTemp)
+                tempUnit = FAHRENHEIT
             }
-            String dayLow = lineageos.weather.util.WeatherUtils.formatTemperature(lowTemp, tempUnit);
-            String dayHigh = WeatherUtils.formatTemperature(highTemp, tempUnit);
-            TextView temps = forecastItem.findViewById(R.id.weather_temps);
-            temps.setText(String.format("%s\n%s", dayLow, dayHigh));
+            val dayLow = LineageWeatherUtils.formatTemperature(lowTemp, tempUnit)
+            val dayHigh = LineageWeatherUtils.formatTemperature(highTemp, tempUnit)
+            val temps = forecastItem.findViewById<TextView>(R.id.weather_temps)
+            temps.text = String.format("%s\n%s", dayLow, dayHigh)
 
-            // Add the view
-            smallPanel.addView(forecastItem,
-                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            smallPanel.addView(
+                forecastItem,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            )
 
-            // Add a divider to the right for all but the last view
             if (count < numForecasts - 1) {
-                View divider = new View(context);
-                smallPanel.addView(divider,
-                        new LinearLayout.LayoutParams(itemSidePadding, LinearLayout.LayoutParams.MATCH_PARENT));
+                val divider = View(context)
+                smallPanel.addView(
+                    divider,
+                    LinearLayout.LayoutParams(itemSidePadding, LinearLayout.LayoutParams.MATCH_PARENT)
+                )
             }
         }
 
-        smallPanel.setOnClickListener(v -> {
-            Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage("foundation.e.weather");
+        smallPanel.setOnClickListener {
+            val launchIntent = context.packageManager.getLaunchIntentForPackage("foundation.e.weather")
             if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(launchIntent);
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
             }
-        });
+        }
     }
 }

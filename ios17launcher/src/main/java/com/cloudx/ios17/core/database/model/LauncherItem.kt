@@ -1,157 +1,133 @@
-package com.cloudx.ios17.core.database.model;
+package com.cloudx.ios17.core.database.model
 
-import android.content.ComponentName;
-import android.content.Intent;
-import android.graphics.drawable.Drawable;
-import androidx.annotation.NonNull;
-import androidx.room.ColumnInfo;
-import androidx.room.Entity;
-import androidx.room.Ignore;
-import androidx.room.Index;
-import androidx.room.PrimaryKey;
+import android.content.ComponentName
+import android.content.Intent
+import android.graphics.drawable.Drawable
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.Ignore
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.cloudx.ios17.core.utils.Constants
+import com.cloudx.ios17.core.utils.UserHandle
+import java.net.URISyntaxException
 
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
-import com.cloudx.ios17.core.utils.Constants;
-import com.cloudx.ios17.core.utils.UserHandle;
+@Entity(tableName = "launcher_items", indices = [Index(value = ["item_id"], unique = true)])
+open class LauncherItem {
 
-import java.net.URISyntaxException;
-
-@Entity(tableName = "launcher_items", indices = {@Index(value = {"item_id"}, unique = true)})
-public class LauncherItem {
-
-    @Ignore
-    public static final int NO_ID = -1;
-
-    @Ignore
-    public static final int INVALID_CELL = -1;
-
-    @PrimaryKey(autoGenerate = true)
-    public int keyId;
+    @field:PrimaryKey(autoGenerate = true)
+    @JvmField
+    var keyId: Int = 0
 
     /**
-     * The id in the database for this item. For
-     * {@link Constants#ITEM_TYPE_APPLICATION} this would be Component name as it is
-     * unique across all application networkItems. If it is one of
-     * {@link Constants#ITEM_TYPE_SHORTCUT} and {@link Constants#ITEM_TYPE_FOLDER},
-     * it will be the id of that.
+     * The id in the database for this item.
      */
-    @NonNull
-    @ColumnInfo(name = "item_id")
-    public String id;
+    @field:ColumnInfo(name = "item_id")
+    @JvmField
+    var id: String = ""
 
     /**
-     * One of {@link Constants#ITEM_TYPE_APPLICATION}
-     * {@link Constants#ITEM_TYPE_SHORTCUT} {@link Constants#ITEM_TYPE_FOLDER}
+     * One of [Constants.ITEM_TYPE_APPLICATION], [Constants.ITEM_TYPE_SHORTCUT],
+     * or [Constants.ITEM_TYPE_FOLDER].
      */
-    @ColumnInfo(name = "item_type")
-    public int itemType;
+    @field:ColumnInfo(name = "item_type")
+    @JvmField
+    var itemType: Int = 0
 
     /**
-     * The id of the container that holds this item. For the desktop, this will be
-     * {@link Constants#CONTAINER_DESKTOP}. For the all applications folder it will
-     * be {@link #NO_ID}. For user folders it will be the id of the folder.
+     * The id of the container that holds this item.
      */
-    @NonNull
-    @ColumnInfo(name = "container")
-    public long container = NO_ID;
+    @field:ColumnInfo(name = "container")
+    @JvmField
+    var container: Long = NO_ID.toLong()
 
     /**
-     * Indicates the screen in which the shortcut appears if the container types is
-     * {@link Constants#CONTAINER_DESKTOP}. (i.e., ignore if the container type is
-     * {@link Constants#CONTAINER_HOTSEAT})
+     * Indicates the screen in which the shortcut appears.
      */
-    @ColumnInfo(name = "screen_id")
-    public long screenId = -1;
+    @field:ColumnInfo(name = "screen_id")
+    @JvmField
+    var screenId: Long = -1
 
     /** Indicates the position of the associated cell. */
-    @ColumnInfo(name = "cell")
-    public int cell = INVALID_CELL;
+    @field:ColumnInfo(name = "cell")
+    @JvmField
+    var cell: Int = INVALID_CELL
 
-    /** Title of the item */
-    @ColumnInfo(name = "title")
-    public CharSequence title;
+    /** Title of the item. */
+    @field:ColumnInfo(name = "title")
+    @JvmField
+    var title: CharSequence? = null
 
-    @Ignore
-    public UserHandle user;
+    @field:Ignore
+    @JvmField
+    var user: UserHandle? = null
 
-    /** Icon of the item */
-    @Ignore
-    public Drawable icon;
+    /** Icon of the item. */
+    @field:Ignore
+    @JvmField
+    var icon: Drawable? = null
 
     /** Used for shortcuts on api lower than oreo. */
-    @ColumnInfo(name = "icon", typeAffinity = ColumnInfo.BLOB)
-    public byte[] icon_blob;
+    @field:ColumnInfo(name = "icon", typeAffinity = ColumnInfo.BLOB)
+    @JvmField
+    var icon_blob: ByteArray? = null
 
     /** Intent used to launch this shortcut. */
-    @Ignore
-    public Intent launchIntent;
+    @field:Ignore
+    @JvmField
+    var launchIntent: Intent? = null
 
-    @ColumnInfo(name = "intent_uri")
-    public String launchIntentUri;
+    @field:ColumnInfo(name = "intent_uri")
+    @JvmField
+    var launchIntentUri: String? = null
 
     /**
-     * Package name of the respective launcher item. For folders it would be
-     * "FOLDER".
+     * Package name of the respective launcher item. For folders it would be "FOLDER".
      */
-    @ColumnInfo(name = "package")
-    public String packageName;
+    @field:ColumnInfo(name = "package")
+    @JvmField
+    var packageName: String? = null
 
-    public LauncherItem() {
-    }
-
-    public Intent getIntent() {
-        if (launchIntent != null) {
-            return launchIntent;
-        }
-        if (launchIntentUri != null) {
-            try {
-                launchIntent = Intent.parseUri(launchIntentUri, 0);
-                return launchIntent;
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-                return null;
+    fun getIntent(): Intent? {
+        launchIntent?.let { return it }
+        val uri = launchIntentUri
+        if (uri != null) {
+            return try {
+                Intent.parseUri(uri, 0).also { launchIntent = it }
+            } catch (e: URISyntaxException) {
+                e.printStackTrace()
+                null
             }
         }
-        return null;
+        return null
     }
 
-    public ComponentName getTargetComponent() {
-        Intent intent = getIntent();
-        if (intent != null) {
-            return intent.getComponent();
-        } else {
-            return null;
-        }
+    fun getTargetComponent(): ComponentName? = getIntent()?.component
+
+    override fun toString(): String {
+        return "[id: $id, item_type: $itemType, container: $container, screen: $screenId, cell: $cell]"
     }
 
-    @Override
-    public String toString() {
-        return "[id: " + id + ", item_type: " + itemType + ", container: " + container + ", screen: " + screenId
-                + ", cell: " + cell + "]";
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-
-        if (!(obj instanceof LauncherItem)) {
-            return false;
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
         }
 
-        LauncherItem launcherItem = (LauncherItem) obj;
-        return launcherItem.id.equals(this.id);
+        if (other !is LauncherItem) {
+            return false
+        }
+
+        return other.id == id
     }
 
-    @Override
-    public int hashCode() {
-        int hash = 3;
-        hash = 53 * hash + this.id.hashCode();
-        return hash;
+    override fun hashCode(): Int {
+        var hash = 3
+        hash = 53 * hash + id.hashCode()
+        return hash
+    }
+
+    companion object {
+        const val NO_ID = -1
+        const val INVALID_CELL = -1
     }
 }

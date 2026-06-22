@@ -1,33 +1,31 @@
-package com.cloudx.ios17.features.notification;
+package com.cloudx.ios17.features.notification
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Rect;
-import com.cloudx.ios17.R;
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
+import com.cloudx.ios17.R
 
-/** Created by falcon on 20/3/18. */
-public class DotRenderer {
+class DotRenderer(private val mContext: Context, iconSizePx: Int) {
+    private val mSize: Int = (SIZE_PERCENTAGE * iconSizePx).toInt()
+    private val mPaint = Paint(
+        Paint.ANTI_ALIAS_FLAG or Paint.DITHER_FLAG or Paint.FILTER_BITMAP_FLAG
+    )
 
-    private static final float SIZE_PERCENTAGE = 0.3375f;
-
-    private final Context mContext;
-    private final int mSize;
-    private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
-
-    public DotRenderer(Context context, int iconSizePx) {
-        mContext = context;
-        this.mSize = (int) (SIZE_PERCENTAGE * iconSizePx);
+    fun drawDot(canvas: Canvas, iconBounds: Rect) {
+        val bitmap = BitmapFactory.decodeResource(mContext.resources, R.drawable.notification_icon_72)
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, mSize, mSize, true)
+        canvas.drawBitmap(
+            scaledBitmap,
+            (iconBounds.left - scaledBitmap.width / 2).toFloat(),
+            (iconBounds.top - scaledBitmap.height / 2).toFloat(),
+            mPaint
+        )
     }
 
-    public void drawDot(Canvas canvas, Rect iconBounds) {
-        Bitmap myBitmap = BitmapFactory.decodeResource(mContext.getResources(), R.drawable.notification_icon_72);
-        Bitmap scaledBitmap = Bitmap.createScaledBitmap(myBitmap, mSize, mSize, true);
-
-        canvas.drawBitmap(scaledBitmap, iconBounds.left - scaledBitmap.getWidth() / 2,
-                iconBounds.top - scaledBitmap.getHeight() / 2, mPaint);
-        // canvas.drawCircle(badgeCenterX, badgeCenterY, mSize/2, mPaint);
+    companion object {
+        private const val SIZE_PERCENTAGE = 0.3375f
     }
 }
