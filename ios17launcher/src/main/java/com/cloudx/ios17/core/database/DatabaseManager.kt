@@ -101,6 +101,15 @@ class DatabaseManager private constructor(private val mContext: Context) {
         mAppExecutors.diskIO().execute { LauncherDB.getDatabase(mContext).widgetDao().updateHeight(id, height) }
     }
 
+    fun saveWidgetOrder(widgetIds: List<Int>) {
+        mAppExecutors.diskIO().execute {
+            val widgetDao = LauncherDB.getDatabase(mContext).widgetDao()
+            widgetIds.forEachIndexed { index, id ->
+                widgetDao.updateOrder(id, index)
+            }
+        }
+    }
+
     fun removeWidget(id: Int) {
         mAppExecutors.diskIO().execute { LauncherDB.getDatabase(mContext).widgetDao().delete(id) }
     }

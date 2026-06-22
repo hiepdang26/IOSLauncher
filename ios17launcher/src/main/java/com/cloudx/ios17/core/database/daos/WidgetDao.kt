@@ -14,6 +14,9 @@ interface WidgetDao {
     @Query("UPDATE widget_items SET height = :height WHERE id = :id")
     fun updateHeight(id: Int, height: Int)
 
+    @Query("UPDATE widget_items SET `order` = :order WHERE id = :id")
+    fun updateOrder(id: Int, order: Int)
+
     @Query("SELECT height FROM widget_items WHERE id = :id")
     fun getHeight(id: Int): Int
 

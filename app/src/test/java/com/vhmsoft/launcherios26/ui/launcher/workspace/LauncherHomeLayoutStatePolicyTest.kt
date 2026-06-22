@@ -50,6 +50,34 @@ class LauncherHomeLayoutStatePolicyTest {
     }
 
     @Test
+    fun arrange_autoArrangeFillsCurrentPageBeforeNextPage() {
+        val photos = LauncherHomeItemUiModel.App(appItem("Photos"))
+        val camera = LauncherHomeItemUiModel.App(appItem("Camera"))
+        val maps = LauncherHomeItemUiModel.App(appItem("Maps"))
+        val music = LauncherHomeItemUiModel.App(appItem("Music"))
+        val mail = LauncherHomeItemUiModel.App(appItem("Mail"))
+        val items = listOf(
+            photos,
+            LauncherHomeItemUiModel.Placeholder.forGridIndex(1),
+            camera,
+            LauncherHomeItemUiModel.Placeholder.forGridIndex(3),
+            maps,
+            music,
+            LauncherHomeItemUiModel.Placeholder.forGridIndex(6),
+            mail
+        )
+
+        val arranged = LauncherHomeLayoutStatePolicy.arrange(items, autoArrange = true)
+        val paged = LauncherHomeScreenGridPolicy.padToFullPages(
+            items = arranged,
+            pageSize = 4
+        )
+
+        assertEquals(listOf("Photos", "Camera", "Maps", "Music"), paged.take(4).map { item -> item.label })
+        assertEquals("Mail", paged[4].label)
+    }
+
+    @Test
     fun restore_keepsSavedPlaceholderInsteadOfFillingFromLaterApps() {
         val photos = appItem("Photos")
         val camera = appItem("Camera")

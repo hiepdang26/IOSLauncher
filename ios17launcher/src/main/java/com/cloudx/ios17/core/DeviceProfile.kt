@@ -15,9 +15,9 @@ import com.cloudx.ios17.core.utils.AdaptiveIconUtils
 
 class DeviceProfile(context: Context) {
 
+    private val homeLayoutSettings = LauncherHomeLayoutPreferences.read(context)
     private val widthCm: Float
     private val ratio: Float
-    private val preferredHomeIconSizeDp: Int
     private var statusBarHeight = 0
 
     @JvmField
@@ -248,24 +248,12 @@ class DeviceProfile(context: Context) {
             statusBarHeight = res.getDimensionPixelSize(resourceId)
         }
 
-        pageIndicatorSizePx = Utilities.pxFromDp(8f, dm)
+        pageIndicatorSizePx = Utilities.pxFromDp(18f, dm)
         pageIndicatorTopPaddingPx = Utilities.pxFromDp(8f, dm)
         pageIndicatorBottomPaddingPx = Utilities.pxFromDp(8f, dm)
 
-        val layoutPreferences = portraitContext.getSharedPreferences(
-            LAYOUT_PREFERENCES_NAME,
-            Context.MODE_PRIVATE
-        )
-
-        numColumns = 4
-        numRows = LauncherHomeLayoutPolicy.normalizeRows(
-            layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
-        )
-        preferredHomeIconSizeDp = clamp(
-            layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP),
-            MIN_HOME_ICON_SIZE_DP,
-            MAX_HOME_ICON_SIZE_DP
-        )
+        numColumns = homeLayoutSettings.columns
+        numRows = homeLayoutSettings.rows
         numFolderColumns = 3
         numHotseatIcons = numColumns
         numFolderRows = numFolderColumns
@@ -279,25 +267,23 @@ class DeviceProfile(context: Context) {
     }
 
     private fun updateIconSize(scale: Float, res: Resources, dm: DisplayMetrics) {
-        iconSizePx = Utilities.pxFromDp(preferredHomeIconSizeDp.toFloat(), dm)
         iconTextSizePx = (Utilities.pxFromSp(12f, dm) * scale).toInt()
-        val homeContentHorizontalPaddingPx = Utilities.pxFromDp(36f, dm)
-        val pageHorizontalPaddingPx = Utilities.pxFromDp(8f, dm)
-        val dockHorizontalPaddingPx = Utilities.pxFromDp(28f, dm)
-        val workspaceGridWidthPx = maxOf(
-            numColumns,
-            availableWidthPx - homeContentHorizontalPaddingPx - pageHorizontalPaddingPx
+        val labelGapPx = Utilities.pxFromDp(4f, dm)
+        val labelHeightPx = Utilities.calculateTextHeight(iconTextSizePx.toFloat())
+        iconSizePx = LauncherHomeLayoutPreferences.resolveIconSizePx(
+            preferredIconSizeDp = homeLayoutSettings.iconSizeDp,
+            density = dm.density,
+            availableWidthPx = availableWidthPx,
+            availableHeightPx = availableHeightPx,
+            rows = numRows,
+            columns = numColumns,
+            labelHeightPx = labelHeightPx,
+            labelGapPx = labelGapPx
         )
-        val dockGridWidthPx = maxOf(
-            numColumns,
-            availableWidthPx - homeContentHorizontalPaddingPx - dockHorizontalPaddingPx
-        )
-        cellWidthPx = calculateCellWidth(workspaceGridWidthPx, numColumns)
-        hotseatCellWidthPx = calculateCellWidth(dockGridWidthPx, numColumns)
-        iconDrawablePaddingPx = LauncherHomeLayoutPolicy.iconPadding(
-            cellWidthPx,
-            iconSizePx,
-            Utilities.pxFromDp(4f, dm)
+        iconDrawablePaddingPx = LauncherHomeLayoutPreferences.horizontalGapPx(
+            availableWidthPx = availableWidthPx,
+            iconSizePx = iconSizePx,
+            columns = numColumns
         )
 
         val tempUninstallIconSize = iconSizePx * 72 / 192
@@ -320,24 +306,32 @@ class DeviceProfile(context: Context) {
         dateTextBottomPadding =
             (dateTextviewHeight - (0.86 * Utilities.calculateTextHeight(dateTextSize.toFloat() / 2)).toInt()) / 2
 
-        cellHeightWithoutPaddingPx =
-            iconSizePx + Utilities.pxFromDp(4f, dm) + Utilities.calculateTextHeight(iconTextSizePx.toFloat())
+        cellHeightWithoutPaddingPx = iconSizePx + labelGapPx + labelHeightPx
 
-        val bottomControlsPx = Utilities.pxFromDp((16 + 54 + 8 + 14).toFloat(), dm) +
-            pageIndicatorHeight +
-            iconSizePx +
-            Utilities.pxFromDp(28f, dm)
-        val topPaddingPx = Utilities.pxFromDp(78f, dm)
-        val availableGridHeightPx = maxOf(
-            cellHeightWithoutPaddingPx * numRows,
-            availableHeightPx - topPaddingPx - bottomControlsPx
+        val hotseatExtraHeightPx = Utilities.pxFromDp(
+            LauncherHomeLayoutPreferences.DOCK_EXTRA_HEIGHT_DP.toFloat(),
+            dm
         )
-        cellHeightPx = calculateCellHeight(availableGridHeightPx, numRows)
-
         hotseatCellHeightWithoutPaddingPx = iconSizePx
-        hotseatCellHeightPx = iconSizePx + Utilities.pxFromDp(28f, dm)
+        hotseatCellHeightPx = hotseatCellHeightWithoutPaddingPx + hotseatExtraHeightPx
 
-        maxAppsPerPage = LauncherHomeLayoutPolicy.pageSize(numRows, numColumns)
+        val workspaceHeightPx = (
+            availableHeightPx -
+                Utilities.pxFromDp(LauncherHomeLayoutPreferences.HOME_PAGE_TOP_PADDING_DP.toFloat(), dm) -
+                pageIndicatorHeight -
+                Utilities.pxFromDp(LauncherHomeLayoutPreferences.INDICATOR_DOCK_GAP_DP.toFloat(), dm) -
+                Utilities.pxFromDp(LauncherHomeLayoutPreferences.DOCK_BOTTOM_MARGIN_DP.toFloat(), dm) -
+                hotseatCellHeightPx
+            ).coerceAtLeast(cellHeightWithoutPaddingPx * numRows)
+
+        cellHeightPx = workspaceHeightPx / numRows
+        cellWidthPx = iconSizePx + iconDrawablePaddingPx
+        hotseatCellWidthPx = (
+            availableWidthPx -
+                2 * Utilities.pxFromDp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP.toFloat(), dm)
+            ).coerceAtLeast(numColumns) / numColumns
+
+        maxAppsPerPage = numColumns * numRows
 
         folderIconSizePx = iconSizePx
 
@@ -441,14 +435,7 @@ class DeviceProfile(context: Context) {
         private const val TYPE_WORKSPACE = 0
         private const val TYPE_FOLDER = 1
         private const val TYPE_HOTSEAT = 2
-        private const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
-        private const val KEY_HOME_GRID_ROWS = "home_grid_rows"
-        private const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
         private const val ICON_SIZE_DEFINED_IN_APP_DP = 48f
-        private const val DEFAULT_HOME_GRID_ROWS = LauncherHomeLayoutPolicy.DEFAULT_HOME_GRID_ROWS
-        private const val DEFAULT_HOME_ICON_SIZE_DP = 64
-        private const val MIN_HOME_ICON_SIZE_DP = 52
-        private const val MAX_HOME_ICON_SIZE_DP = 78
 
         @JvmField
         var path: Path = Path()
@@ -465,6 +452,5 @@ class DeviceProfile(context: Context) {
             return c.createConfigurationContext(configuration)
         }
 
-        private fun clamp(value: Int, min: Int, max: Int): Int = maxOf(min, minOf(max, value))
     }
 }

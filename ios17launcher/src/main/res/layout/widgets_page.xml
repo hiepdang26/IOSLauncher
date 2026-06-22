@@ -1,32 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.cloudx.ios17.core.customviews.InsettableFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:animateLayoutChanges="true"
-    android:clipChildren="false"
-    android:clipToPadding="false">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:animateLayoutChanges="true">
 
-    <ScrollView
+    <com.cloudx.ios17.core.customviews.InsettableScrollLayout
         android:id="@+id/widgets_scroll_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipToPadding="false"
-        android:fillViewport="false"
         android:animateLayoutChanges="true"
-        android:overScrollMode="never"
-        android:paddingStart="6dp"
-        android:paddingTop="38dp"
-        android:paddingEnd="6dp"
-        android:paddingBottom="36dp"
-        android:scrollbars="none">
+        android:orientation="vertical"
+        android:scrollbars="none"
+        tools:ignore="ContentDescription">
 
-        <LinearLayout
+        <com.cloudx.ios17.core.customviews.InsettableLinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:clipToPadding="false"
             android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingLeft="24dp"
+            android:paddingTop="80dp"
+            android:paddingRight="24dp"
+            android:paddingBottom="24dp">
 
             <FrameLayout
                 android:id="@+id/drag_layer"
@@ -40,22 +37,66 @@
                     android:orientation="vertical" />
             </FrameLayout>
 
-            <TextView
-                android:id="@+id/edit_widgets_button"
-                android:layout_width="58dp"
-                android:layout_height="40dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="10dp"
-                android:layout_marginBottom="96dp"
-                android:background="@drawable/bg_edit_mode_button"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="@string/launcher_widget_edit"
-                android:textColor="#111111"
-                android:textSize="13sp" />
-        </LinearLayout>
-    </ScrollView>
+            <com.cloudx.ios17.core.customviews.BlurLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="60dp"
+                app:blurCornerRadius="20dp">
+
+                <Button
+                    android:id="@+id/edit_widgets_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingLeft="24dp"
+                    android:paddingTop="5dp"
+                    android:paddingRight="24dp"
+                    android:paddingBottom="5dp"
+                    android:background="@drawable/btn_rounded_corner"
+                    android:stateListAnimator="@null"
+                    android:fontFamily="sans-serif-medium"
+                    android:textAllCaps="false"
+                    android:textColor="@color/on_surface_high_emphasis"
+                    android:text="@string/edit" />
+            </com.cloudx.ios17.core.customviews.BlurLayout>
+        </com.cloudx.ios17.core.customviews.InsettableLinearLayout>
+    </com.cloudx.ios17.core.customviews.InsettableScrollLayout>
+
+    <FrameLayout
+        android:id="@+id/widget_edit_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="74dp"
+        android:paddingLeft="32dp"
+        android:paddingTop="36dp"
+        android:paddingRight="32dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/add_today_widget_button"
+            android:layout_width="64dp"
+            android:layout_height="34dp"
+            android:layout_gravity="start|top"
+            android:background="@drawable/bg_edit_mode_button"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="@color/on_surface_high_emphasis"
+            android:textSize="17sp" />
+
+        <TextView
+            android:id="@+id/done_today_widget_edit_button"
+            android:layout_width="64dp"
+            android:layout_height="34dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/bg_edit_mode_button"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:text="@string/launcher_edit_done"
+            android:textColor="@color/on_surface_high_emphasis"
+            android:textSize="14sp" />
+    </FrameLayout>
 
     <RelativeLayout
         android:id="@+id/widget_resizer_container"

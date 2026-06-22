@@ -24,11 +24,14 @@ class SearchInputDisposableObserver(
             )
         } else if (suggestionsResults.type == SuggestionsResult.TYPE_LAUNCHER_ITEM) {
             val suggestedAppGrid = appSuggestionsViewGroup.findViewById<GridLayout>(R.id.suggestedAppGrid)
+            val launcherItems = suggestionsResults.getLauncherItems().orEmpty()
             suggestedAppGrid.removeAllViews()
+            suggestedAppGrid.columnCount = LauncherSearchResultPolicy.GRID_COLUMNS
+            suggestedAppGrid.rowCount = LauncherSearchResultPolicy.rowCountFor(launcherItems.size)
             appSuggestionsViewGroup.findViewById<View>(R.id.openUsageAccessSettings)
                 .visibility = View.GONE
             suggestedAppGrid.visibility = View.VISIBLE
-            for (launcherItem in suggestionsResults.getLauncherItems().orEmpty()) {
+            for (launcherItem in launcherItems) {
                 val blissFrameLayout = launcherActivity.prepareSuggestedApp(launcherItem)
                 launcherActivity.addAppToGrid(suggestedAppGrid, blissFrameLayout)
             }

@@ -93,6 +93,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemDropResol
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePolicy
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomePageEdgeDragPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
@@ -387,7 +388,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
+        if (hasFocus && ::systemUiController.isInitialized) {
             applyLauncherSystemUi()
         }
     }
@@ -927,9 +928,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.root.getLocationOnScreen(rootLocation)
         val rootWidth = binding.workspace.root.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
         val rootCenterX = centerXOnScreen - rootLocation[0]
-        val inEdgeZone = rootCenterX <= dp(HOME_EDGE_SWITCH_ZONE_DP) ||
-            rootCenterX >= rootWidth - dp(HOME_EDGE_SWITCH_ZONE_DP)
-        if (!homeEdgeDragActive && !inEdgeZone) return false
+        val direction = homeEdgeDirectionForCenter(rootCenterX, rootWidth)
+        if (!LauncherHomePageEdgeDragPolicy.shouldStart(
+                editingHome = editingHome,
+                hasDraggableItem = true,
+                alreadyActive = homeEdgeDragActive,
+                direction = direction
+            )
+        ) {
+            return false
+        }
 
         beginHomeEdgeDragIfNeeded(draggedItem, viewHolder)
         updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
@@ -1166,8 +1174,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val rootWidth = binding.workspace.root.width.takeIf { width -> width > 0 }
             ?: resources.displayMetrics.widthPixels
         val rootCenterX = centerXOnScreen - rootLocation[0]
-        val inEdgeZone = rootCenterX <= dp(HOME_EDGE_SWITCH_ZONE_DP) ||
-            rootCenterX >= rootWidth - dp(HOME_EDGE_SWITCH_ZONE_DP)
+        val inEdgeZone = homeEdgeDirectionForCenter(rootCenterX, rootWidth) != 0
         val shouldHandle = LauncherDockHomeEdgeDragPolicy.shouldHandle(
             editingHome = editingHome,
             alreadyActive = homeEdgeDragActive && homeEdgeDragFromDock,
@@ -1812,12 +1819,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun homeEdgeDirectionForCenter(rootCenterX: Float, rootWidth: Int): Int {
-        val edgeZone = dp(HOME_EDGE_SWITCH_ZONE_DP)
-        return when {
-            rootCenterX <= edgeZone -> -1
-            rootCenterX >= rootWidth - edgeZone -> 1
-            else -> 0
-        }
+        return LauncherHomePageEdgeDragPolicy.directionForCenter(
+            rootCenterX = rootCenterX,
+            rootWidth = rootWidth,
+            edgeZonePx = dp(HOME_EDGE_SWITCH_ZONE_DP)
+        )
     }
 
     private fun performHomeEdgeSwitch() {
@@ -1832,7 +1838,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         } else {
             val targetPage = maxOf(0, homeEdgeDragPage + direction)
             if (targetPage >= homePageCountForItemCount(homeEdgeBaseItems.size + 1)) {
-                if (!LauncherIos17DragDropPolicy.canCreateNextPage(homeEdgePageItemCount(homeEdgeDragPage))) {
+                if (!LauncherIos17DragDropPolicy.canCreateNextPage(
+                        currentPageItemCount = homeEdgePageItemCount(homeEdgeDragPage),
+                        autoArrange = layoutAutoArrange
+                    )
+                ) {
                     homeEdgeDirection = 0
                     hideFolderEdgeGlows()
                     return
@@ -3409,10 +3419,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     override fun openDefaultLauncherSelection() {
-        if (isCurrentDefaultLauncher()) {
+        val promptAction = LauncherDefaultSelectionPolicy.resolvePromptConfirmation(
+            isCurrentDefaultLauncher = isCurrentDefaultLauncher()
+        )
+        if (promptAction.openLauncherImmediately) {
             forceSettingsPanel = false
             showAlreadyDefaultLauncher()
             openCopiedIos17Launcher()
+            return
+        }
+        if (!promptAction.openSystemLauncherSelection) {
+            waitingForLauncherSelection = false
+            showError(getString(R.string.launcher_default_prompt_failed))
             return
         }
 
@@ -5015,13 +5033,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 })
             )
             if (this is android.widget.LinearLayout.LayoutParams) {
-                marginStart = if (layoutIphone8Style) -dp(HOME_HORIZONTAL_PADDING_DP) else 0
-                marginEnd = if (layoutIphone8Style) -dp(HOME_HORIZONTAL_PADDING_DP) else 0
-                bottomMargin = if (layoutIphone8Style) -dp(HOME_BOTTOM_PADDING_DP) else 0
+                marginStart = 0
+                marginEnd = 0
+                bottomMargin = 0
             }
         }
-        val horizontalPaddingDp = spec?.dockHorizontalPaddingDp ?: if (layoutIphone8Style) 28 else 14
-        val verticalPaddingDp = spec?.dockVerticalPaddingDp ?: if (layoutIphone8Style) 18 else 10
+        val horizontalPaddingDp = spec?.dockHorizontalPaddingDp ?: 14
+        val verticalPaddingDp = spec?.dockVerticalPaddingDp ?: 10
         binding.workspace.dockRecyclerView.setPadding(
             dp(horizontalPaddingDp),
             dp(verticalPaddingDp),
@@ -5031,7 +5049,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun applyWorkspaceAppearance() {
-        val dockColor = if (layoutDarkMode) 0x5C082637 else 0x562E6175
+        val dockColor = if (layoutDarkMode) 0x78404D5C else 0x6B3CA9E8
+        val dockStroke = if (layoutDarkMode) 0x55FFFFFF else 0x66FFFFFF
         val folderColor = when {
             layoutLiquidGlass -> 0x52FFFFFF
             layoutDarkMode -> 0x5A42484B
@@ -5044,7 +5063,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         binding.workspace.dockRecyclerView.background = roundedBackground(
             dockColor,
-            if (layoutIphone8Style) 0 else 34
+            38,
+            dockStroke
         )
         binding.workspace.searchPill.background = roundedBackground(pillColor, 17)
         binding.workspace.searchPillText.setTextColor(searchTextColor)
@@ -5365,7 +5385,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val HOME_DOCK_DROP_POP_MS = 95L
         const val HOME_DOCK_DROP_SHRINK_SCALE = 0.72f
         const val FOLDER_EXIT_PREVIEW_ELEVATION_DP = 88
-        const val HOME_EDGE_SWITCH_ZONE_DP = 30
+        const val HOME_EDGE_SWITCH_ZONE_DP = LauncherHomePageEdgeDragPolicy.DEFAULT_EDGE_ZONE_DP
         const val HOME_EDGE_SWITCH_DELAY_MS = 420L
         const val HOME_EDGE_SWITCH_START_DELAY_MS = 45L
         const val HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS = 95L

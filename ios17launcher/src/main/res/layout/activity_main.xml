@@ -5,7 +5,6 @@
     android:id="@+id/workspace"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_ios_wallpaper"
     android:clipChildren="false"
     android:clipToPadding="false"
     tools:context="com.cloudx.ios17.features.launcher.LauncherActivity">
@@ -15,95 +14,72 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <LinearLayout
-        android:id="@+id/home_content"
+    <com.cloudx.ios17.core.customviews.HorizontalPager
+        android:id="@+id/pages_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:orientation="vertical"
-        android:paddingStart="18dp"
-        android:paddingTop="78dp"
-        android:paddingEnd="18dp"
-        android:paddingBottom="16dp">
+        android:layout_alignParentTop="true" />
 
-        <com.cloudx.ios17.core.customviews.HorizontalPager
-            android:id="@+id/pages_container"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:clipChildren="true"
-            android:clipToPadding="true" />
+    <com.cloudx.ios17.core.customviews.PageIndicatorLinearLayout
+        android:id="@+id/page_indicator"
+        android:layout_width="104dp"
+        android:layout_height="34dp"
+        android:layout_above="@+id/dock"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_ios_page_indicator"
+        android:divider="@drawable/gap"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:showDividers="middle" />
 
-        <FrameLayout
-            android:id="@+id/bottom_control_slot"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="14dp"
-            android:clipChildren="false"
-            android:clipToPadding="false">
+    <com.cloudx.ios17.core.customviews.DockGridLayout
+        android:id="@+id/dock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:animateLayoutChanges="false"
+        android:columnCount="@integer/col_count"
+        android:rowCount="1"
+        app:blurOverlayColor="@color/dock_background_color" />
 
-            <LinearLayout
-                android:id="@+id/search_pill"
-                android:layout_width="104dp"
-                android:layout_height="34dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_ios_search_pill"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp">
+    <FrameLayout
+        android:id="@+id/edit_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="78dp"
+        android:elevation="18dp"
+        android:paddingStart="32dp"
+        android:paddingTop="34dp"
+        android:paddingEnd="32dp"
+        android:visibility="gone">
 
-                <ImageView
-                    android:id="@+id/search_pill_icon"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_search_18" />
+        <TextView
+            android:id="@+id/edit_options_button"
+            android:layout_width="64dp"
+            android:layout_height="34dp"
+            android:layout_gravity="start|top"
+            android:background="@drawable/bg_edit_mode_button"
+            android:gravity="center"
+            android:text="@string/launcher_edit_options"
+            android:textColor="#111111"
+            android:textSize="13sp" />
 
-                <TextView
-                    android:id="@+id/search_pill_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/launcher_search_hint"
-                    android:textColor="@color/ios_workspace_text"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <com.cloudx.ios17.core.customviews.PageIndicatorLinearLayout
-                android:id="@+id/page_indicator"
-                android:layout_width="82dp"
-                android:layout_height="32dp"
-                android:layout_gravity="center"
-                android:background="@drawable/bg_ios_page_indicator"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:divider="@drawable/gap"
-                android:showDividers="middle" />
-        </FrameLayout>
-
-        <com.cloudx.ios17.core.customviews.DockGridLayout
-            android:id="@+id/dock"
-            android:layout_width="match_parent"
-            android:layout_height="92dp"
-            android:animateLayoutChanges="false"
-            android:background="@drawable/bg_ios_dock"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:columnCount="@integer/col_count"
-            android:paddingStart="14dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="10dp"
-            android:rowCount="1"
-            app:blurOverlayColor="@color/dock_background_color" />
-    </LinearLayout>
+        <TextView
+            android:id="@+id/done_edit_button"
+            android:layout_width="66dp"
+            android:layout_height="34dp"
+            android:layout_gravity="end|top"
+            android:background="@drawable/bg_edit_mode_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="@string/launcher_edit_done"
+            android:textColor="#111111"
+            android:textSize="13sp" />
+    </FrameLayout>
 
     <View
         android:id="@+id/context_overlay"
@@ -115,9 +91,9 @@
         android:visibility="gone" />
 
     <LinearLayout
-        android:id="@+id/selectedIconPreview"
+        android:id="@+id/selected_icon_preview"
         android:layout_width="94dp"
-        android:layout_height="118dp"
+        android:layout_height="94dp"
         android:clickable="false"
         android:elevation="22dp"
         android:focusable="false"
@@ -126,39 +102,22 @@
         android:paddingStart="4dp"
         android:paddingTop="2dp"
         android:paddingEnd="4dp"
-        android:scaleX="1.08"
-        android:scaleY="1.08"
         android:visibility="gone">
 
         <FrameLayout
-            android:id="@+id/selectedIconPlate"
+            android:id="@+id/selected_icon_plate"
             android:layout_width="68dp"
             android:layout_height="68dp"
             android:elevation="8dp"
             android:padding="0dp">
 
             <ImageView
-                android:id="@+id/selectedIconImage"
+                android:id="@+id/selected_icon_image"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:contentDescription="@null"
                 android:scaleType="fitCenter" />
         </FrameLayout>
-
-        <TextView
-            android:id="@+id/selectedIconLabel"
-            android:layout_width="match_parent"
-            android:layout_height="38dp"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:gravity="top|center_horizontal"
-            android:maxLines="2"
-            android:textColor="@color/ios_workspace_text"
-            android:textSize="12sp"
-            android:shadowColor="#A0000000"
-            android:shadowDx="0"
-            android:shadowDy="1"
-            android:shadowRadius="3" />
     </LinearLayout>
 
     <RelativeLayout

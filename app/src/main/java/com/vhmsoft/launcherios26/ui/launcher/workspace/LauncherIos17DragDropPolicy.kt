@@ -21,7 +21,10 @@ internal object LauncherIos17DragDropPolicy {
         return dockItemCount < maxDockItems || parentPage == DOCK_PARENT_PAGE
     }
 
-    fun canCreateNextPage(currentPageItemCount: Int): Boolean {
-        return currentPageItemCount > 1
+    fun canCreateNextPage(
+        currentPageItemCount: Int,
+        autoArrange: Boolean
+    ): Boolean {
+        return !autoArrange || currentPageItemCount > 1
     }
 }

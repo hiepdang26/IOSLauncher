@@ -52,8 +52,28 @@ class LauncherIos17DragDropPolicyTest {
     }
 
     @Test
-    fun canCreateNextPage_requiresMoreThanOneItemOnCurrentPage() {
-        assertFalse(LauncherIos17DragDropPolicy.canCreateNextPage(currentPageItemCount = 1))
-        assertTrue(LauncherIos17DragDropPolicy.canCreateNextPage(currentPageItemCount = 2))
+    fun canCreateNextPage_requiresMoreThanOneItemOnCurrentPageWhenAutoArrangeIsEnabled() {
+        assertFalse(
+            LauncherIos17DragDropPolicy.canCreateNextPage(
+                currentPageItemCount = 1,
+                autoArrange = true
+            )
+        )
+        assertTrue(
+            LauncherIos17DragDropPolicy.canCreateNextPage(
+                currentPageItemCount = 2,
+                autoArrange = true
+            )
+        )
+    }
+
+    @Test
+    fun canCreateNextPage_allowsSparsePagesWhenAutoArrangeIsDisabled() {
+        assertTrue(
+            LauncherIos17DragDropPolicy.canCreateNextPage(
+                currentPageItemCount = 1,
+                autoArrange = false
+            )
+        )
     }
 }
