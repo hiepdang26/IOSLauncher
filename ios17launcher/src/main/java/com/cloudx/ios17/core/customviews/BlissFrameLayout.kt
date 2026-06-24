@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.Typeface
 import android.util.AttributeSet
 import android.util.Property
 import android.util.TypedValue
@@ -14,6 +15,7 @@ import android.widget.TextView
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.LauncherAppLabelStylePolicy
 import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.database.model.ApplicationItem
 import com.cloudx.ios17.core.database.model.CalendarIcon
@@ -125,6 +127,15 @@ class BlissFrameLayout @JvmOverloads constructor(
             0,
             Utilities.pxFromDp(4, mContext).toInt(),
             0
+        )
+        label.typeface = Typeface.create(LauncherAppLabelStylePolicy.FONT_FAMILY, Typeface.NORMAL)
+        label.includeFontPadding = false
+        label.letterSpacing = 0f
+        label.setShadowLayer(
+            Utilities.pxFromDp(LauncherAppLabelStylePolicy.SHADOW_RADIUS_DP, resources.displayMetrics).toFloat(),
+            0f,
+            Utilities.pxFromDp(LauncherAppLabelStylePolicy.SHADOW_DY_DP, resources.displayMetrics).toFloat(),
+            LauncherAppLabelStylePolicy.SHADOW_COLOR
         )
         label.setTextSize(TypedValue.COMPLEX_UNIT_PX, mDeviceProfile.iconTextSizePx.toFloat())
     }

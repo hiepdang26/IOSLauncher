@@ -183,7 +183,14 @@
     <string name="app_option_edit_home">Chỉnh sửa màn hình chính</string>
     <string name="app_option_delete">Xóa bỏ</string>
     <string name="settings_rename">Đổi tên</string>
+    <string name="settings_layout">Bố trí</string>
     <string name="layout_back_settings">‹ Cài đặt</string>
+    <string name="layout_iphone8_style">iPhone 8 Style</string>
+    <string name="layout_hide_navigation">Ẩn thanh điều hướng trên Màn hình chính</string>
+    <string name="layout_icon_size">ICON SIZE</string>
+    <string name="layout_home_screen_grid">HOME SCREEN GRID</string>
+    <string name="layout_grid_5x4">5x4</string>
+    <string name="layout_grid_6x4">6x4</string>
     <string name="settings_no_apps_found">Không có ứng dụng nào.</string>
     <string name="settings_rename_hint">Tên ứng dụng</string>
     <string name="settings_rename_done">Đã đổi tên %1$s.</string>

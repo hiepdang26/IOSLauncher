@@ -27,7 +27,7 @@ class LauncherHomeLayoutPreferencesTest {
 
     @Test
     fun resolve_coercesIconSliderRange() {
-        assertEquals(64, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 1, rows = 6).iconSizeDp)
+        assertEquals(52, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 1, rows = 6).iconSizeDp)
         assertEquals(78, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 200, rows = 6).iconSizeDp)
     }
 
@@ -38,7 +38,31 @@ class LauncherHomeLayoutPreferencesTest {
             rows = 6
         )
 
-        assertEquals(70, settings.iconSizeDp)
+        assertEquals(65, settings.iconSizeDp)
+    }
+
+    @Test
+    fun defaultIconSize_sitsAtTheMiddleOfSliderRange() {
+        val lowerRange =
+            LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP -
+                LauncherHomeLayoutPreferences.MIN_HOME_ICON_SIZE_DP
+        val upperRange =
+            LauncherHomeLayoutPreferences.MAX_HOME_ICON_SIZE_DP -
+                LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP
+
+        assertEquals(lowerRange, upperRange)
+        assertEquals(
+            LauncherHomeLayoutPreferences.ICON_SIZE_SLIDER_MAX / 2,
+            LauncherHomeLayoutPreferences.DEFAULT_ICON_SIZE_SLIDER_PROGRESS
+        )
+    }
+
+    @Test
+    fun sliderProgress_mapsBackToClampedIconSizes() {
+        assertEquals(52, LauncherHomeLayoutPreferences.sliderProgressToIconSize(-20))
+        assertEquals(65, LauncherHomeLayoutPreferences.sliderProgressToIconSize(13))
+        assertEquals(78, LauncherHomeLayoutPreferences.sliderProgressToIconSize(200))
+        assertEquals(13, LauncherHomeLayoutPreferences.iconSizeToSliderProgress(65))
     }
 
     @Test

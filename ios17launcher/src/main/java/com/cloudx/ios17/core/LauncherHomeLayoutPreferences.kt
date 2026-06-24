@@ -27,9 +27,11 @@ object LauncherHomeLayoutPreferences {
     const val HOME_GRID_ROWS_6 = 6
     const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
 
-    const val MIN_HOME_ICON_SIZE_DP = 64
-    const val DEFAULT_HOME_ICON_SIZE_DP = 70
+    const val MIN_HOME_ICON_SIZE_DP = 52
+    const val DEFAULT_HOME_ICON_SIZE_DP = 65
     const val MAX_HOME_ICON_SIZE_DP = 78
+    const val ICON_SIZE_SLIDER_MAX = MAX_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
+    const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
     const val DEFAULT_AUTO_REARRANGE_APPS = false
 
     const val HOME_PAGE_TOP_PADDING_DP = 40
@@ -62,6 +64,15 @@ object LauncherHomeLayoutPreferences {
             columns = HOME_PAGE_COLUMNS,
             autoArrangeApps = autoArrangeApps
         )
+    }
+
+    fun sliderProgressToIconSize(progress: Int): Int {
+        return (MIN_HOME_ICON_SIZE_DP + progress).coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+    }
+
+    fun iconSizeToSliderProgress(iconSizeDp: Int): Int {
+        return (iconSizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP) - MIN_HOME_ICON_SIZE_DP)
+            .coerceIn(0, ICON_SIZE_SLIDER_MAX)
     }
 
     fun isAutoRearrangeAppsEnabled(context: Context): Boolean {

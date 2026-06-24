@@ -19,6 +19,18 @@ class LauncherSearchEntryPolicyTest {
     }
 
     @Test
+    fun indicatorTap_opensSearchWhenDotsAreVisible() {
+        assertEquals(
+            LauncherSearchEntryPolicy.IndicatorTapAction.OPEN_SEARCH,
+            LauncherSearchEntryPolicy.indicatorTapAction(
+                indicatorShowsSearch = false,
+                searchVisible = false,
+                editing = false
+            )
+        )
+    }
+
+    @Test
     fun indicatorTap_ignoresWhenSearchIsAlreadyVisible() {
         assertEquals(
             LauncherSearchEntryPolicy.IndicatorTapAction.IGNORE,
@@ -45,6 +57,18 @@ class LauncherSearchEntryPolicyTest {
     @Test
     fun searchInput_focusesWhenSearchOpens() {
         assertTrue(LauncherSearchEntryPolicy.shouldFocusInputWhenOpened())
+    }
+
+    @Test
+    fun searchOpenAnimation_usesMinimumDurationWhenOpenedFromIndicator() {
+        assertEquals(
+            300L,
+            LauncherSearchEntryPolicy.searchOpenAnimationDurationMs(currentBlurAlpha = 0f)
+        )
+        assertEquals(
+            150L,
+            LauncherSearchEntryPolicy.searchOpenAnimationDurationMs(currentBlurAlpha = 0.5f)
+        )
     }
 
     @Test

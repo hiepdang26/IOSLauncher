@@ -74,6 +74,7 @@ import android.widget.PopupWindow
 import android.widget.RelativeLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -108,6 +109,7 @@ import com.cloudx.ios17.core.customviews.BlissFrameLayout
 import com.cloudx.ios17.core.customviews.BlissInput
 import com.cloudx.ios17.core.customviews.BlurBackgroundView
 import com.cloudx.ios17.core.customviews.DockGridLayout
+import com.cloudx.ios17.core.customviews.DockStylePolicy
 import com.cloudx.ios17.core.customviews.HorizontalPager
 import com.cloudx.ios17.core.customviews.InsettableFrameLayout
 import com.cloudx.ios17.core.customviews.InsettableRelativeLayout
@@ -263,6 +265,9 @@ class LauncherActivity : AppCompatActivity(),
 
     private val mReorderAlarm = Alarm()
     private val mDockReorderAlarm = Alarm()
+    private val mFolderHoverOpenAlarm = Alarm()
+    private val mFolderPageScrollAlarm = Alarm()
+    private val mFolderReorderAlarm = Alarm()
     private lateinit var mHorizontalPager: HorizontalPager
     private lateinit var mDock: DockGridLayout
     private lateinit var mIndicator: PageIndicatorLinearLayout
@@ -273,6 +278,7 @@ class LauncherActivity : AppCompatActivity(),
     private lateinit var selectedIconImage: ImageView
     private var launcherOptionsPopup: PopupWindow? = null
     private var renameAppPanel: View? = null
+    private var layoutSettingsPanel: View? = null
     private val indicatorHandler = Handler(Looper.getMainLooper())
     private val hideIndicatorRunnable = Runnable { hidePageIndicator() }
     private var indicatorMode = IndicatorMode.SEARCH
@@ -289,6 +295,13 @@ class LauncherActivity : AppCompatActivity(),
     private var movingApp: BlissFrameLayout? = null
     private var collidingApp: BlissFrameLayout? = null
     private var folderInterest = false
+    private var folderHoverTarget: BlissFrameLayout? = null
+    private var folderOpenedByDragHover = false
+    private var dragHasEnteredOpenFolder = false
+    private var folderDragSession: FolderDragSession? = null
+    private var folderPageScrollTarget = LauncherItem.INVALID_CELL
+    private var folderReorderTargetPage = LauncherItem.INVALID_CELL
+    private var folderReorderTargetCell = LauncherItem.INVALID_CELL
     private lateinit var wobbleAnimation: Animation
     private lateinit var wobbleReverseAnimation: Animation
     private var scrollCorner = 0
@@ -321,6 +334,31 @@ class LauncherActivity : AppCompatActivity(),
 
     private var activeFolder: FolderItem? = null
     private var activeFolderView: BlissFrameLayout? = null
+
+    private enum class FolderDragOrigin {
+        FROM_HOME_TO_FOLDER,
+        FROM_FOLDER_TO_HOME,
+        WITHIN_FOLDER
+    }
+
+    private data class FolderDragSession(
+        val folder: FolderItem,
+        val folderView: BlissFrameLayout,
+        val moving: BlissFrameLayout,
+        val origin: FolderDragOrigin,
+        val originParent: ViewGroup?,
+        val originIndex: Int,
+        val originContainer: Long,
+        val originScreenId: Long,
+        val originCell: Int,
+        val originalFolderItems: List<LauncherItem>,
+        val originalFolderCells: Map<String, Int>,
+        val folderWasFromDock: Boolean,
+        var previewAddedToFolder: Boolean = false,
+        var lastPreviewCell: Int = LauncherItem.INVALID_CELL,
+        var hasEnteredFolder: Boolean = false,
+        var exitedToHome: Boolean = false
+    )
 
     private lateinit var mAppWidgetManager: AppWidgetManager
     private lateinit var mAppWidgetHost: WidgetHost
@@ -440,6 +478,9 @@ class LauncherActivity : AppCompatActivity(),
         mDock = mLauncherView.findViewById(R.id.dock)
         mIndicator = mLauncherView.findViewById(R.id.page_indicator)
         editTopBar = mLauncherView.findViewById(R.id.edit_top_bar)
+        mLauncherView.findViewById<View>(R.id.edit_options_button).setOnClickListener {
+            showLayoutSettingsPanel()
+        }
         doneEditButton = mLauncherView.findViewById(R.id.done_edit_button)
         doneEditButton.setOnClickListener { handleWobbling(false) }
         contextOverlay = mLauncherView.findViewById(R.id.context_overlay)
@@ -4473,6 +4514,437 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun showLayoutSettingsPanel() {
+        hideLayoutSettingsPanel()
+        dismissLauncherOptionsPopup()
+
+        val settings = LauncherHomeLayoutPreferences.read(this)
+        val layoutPrefs = getSharedPreferences(
+            LauncherHomeLayoutPreferences.LAYOUT_PREFERENCES_NAME,
+            Context.MODE_PRIVATE
+        )
+        val backgroundColor = 0xFFF2F2F7.toInt()
+        val toolbarColor = Color.WHITE
+        val primaryTextColor = Color.BLACK
+        val secondaryTextColor = 0xFF6D737D.toInt()
+        val dividerColor = 0xFFE5E5EA.toInt()
+        val sectionHeaderColor = 0xFF737780.toInt()
+        val selectedColor = 0xFF34C759.toInt()
+        val unselectedColor = 0xFF8E8E93.toInt()
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(backgroundColor)
+            elevation = dp(42).toFloat()
+            isClickable = true
+            isFocusable = true
+        }
+
+        panel.addView(
+            FrameLayout(this).apply {
+                setBackgroundColor(toolbarColor)
+                addView(
+                    TextView(context).apply {
+                        text = getString(R.string.layout_back_settings)
+                        setTextColor(0xFF007AFF.toInt())
+                        textSize = 20f
+                        gravity = Gravity.CENTER_VERTICAL
+                        includeFontPadding = false
+                        setOnClickListener { hideLayoutSettingsPanel() }
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(56),
+                        Gravity.START or Gravity.BOTTOM
+                    ).apply {
+                        leftMargin = dp(14)
+                    }
+                )
+                addView(
+                    TextView(context).apply {
+                        text = getString(R.string.settings_layout)
+                        setTextColor(primaryTextColor)
+                        textSize = 20f
+                        typeface = Typeface.DEFAULT_BOLD
+                        gravity = Gravity.CENTER
+                        includeFontPadding = false
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(56),
+                        Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(112))
+        )
+
+        panel.addView(
+            View(this).apply { setBackgroundColor(dividerColor) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+        )
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(backgroundColor)
+        }
+        content.addView(
+            createLayoutSwitchRow(
+                title = getString(R.string.layout_iphone8_style),
+                checked = layoutPrefs.getBoolean(DockStylePolicy.KEY_LAYOUT_IPHONE8_STYLE, false),
+                textColor = secondaryTextColor,
+                dividerColor = dividerColor
+            ) { enabled ->
+                saveIphone8StyleSetting(enabled)
+            }
+        )
+        content.addView(
+            createLayoutSwitchRow(
+                title = getString(R.string.auto_rearrange_apps),
+                checked = settings.autoArrangeApps,
+                textColor = secondaryTextColor,
+                dividerColor = dividerColor
+            ) { enabled ->
+                saveAutoArrangeSetting(enabled)
+            }
+        )
+        content.addView(
+            createLayoutStaticRow(
+                title = getString(R.string.layout_hide_navigation),
+                textColor = secondaryTextColor,
+                dividerColor = dividerColor
+            )
+        )
+
+        content.addView(createLayoutSectionHeader(getString(R.string.layout_icon_size), sectionHeaderColor))
+        content.addView(
+            createIconSizeSection(
+                currentIconSizeDp = settings.iconSizeDp,
+                selectedColor = 0xFF007AFF.toInt(),
+                dividerColor = dividerColor
+            )
+        )
+
+        content.addView(createLayoutSectionHeader(getString(R.string.layout_home_screen_grid), sectionHeaderColor))
+        content.addView(
+            createHomeGridSection(
+                currentRows = settings.rows,
+                selectedColor = selectedColor,
+                unselectedColor = unselectedColor
+            )
+        )
+
+        panel.addView(
+            ScrollView(this).apply {
+                isFillViewport = true
+                overScrollMode = View.OVER_SCROLL_NEVER
+                setBackgroundColor(backgroundColor)
+                addView(
+                    content,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+
+        layoutSettingsPanel = panel
+        (mLauncherView as? ViewGroup)?.addView(
+            panel,
+            RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
+
+    @SuppressLint("UseSwitchCompatOrMaterialCode")
+    private fun createLayoutSwitchRow(
+        title: String,
+        checked: Boolean,
+        textColor: Int,
+        dividerColor: Int,
+        onCheckedChanged: (Boolean) -> Unit
+    ): View {
+        lateinit var switchView: Switch
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            addView(
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    isClickable = true
+                    isFocusable = true
+                    setPadding(dp(24), 0, dp(48), 0)
+                    setOnClickListener { switchView.isChecked = !switchView.isChecked }
+
+                    addView(
+                        TextView(context).apply {
+                            text = title
+                            setTextColor(textColor)
+                            textSize = 17f
+                            includeFontPadding = false
+                        },
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    )
+
+                    switchView = Switch(context).apply {
+                        isChecked = checked
+                        setOnCheckedChangeListener { _, isChecked -> onCheckedChanged(isChecked) }
+                    }
+                    addView(
+                        switchView,
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    )
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72))
+            )
+            addView(
+                View(context).apply { setBackgroundColor(dividerColor) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+            )
+        }
+    }
+
+    private fun createLayoutStaticRow(title: String, textColor: Int, dividerColor: Int): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            addView(
+                TextView(context).apply {
+                    text = title
+                    setTextColor(textColor)
+                    textSize = 17f
+                    gravity = Gravity.CENTER_VERTICAL
+                    includeFontPadding = false
+                    setPadding(dp(24), 0, dp(24), 0)
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72))
+            )
+            addView(
+                View(context).apply { setBackgroundColor(dividerColor) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+            )
+        }
+    }
+
+    private fun createLayoutSectionHeader(title: String, textColor: Int): View {
+        return TextView(this).apply {
+            text = title
+            setTextColor(textColor)
+            textSize = 12f
+            gravity = Gravity.BOTTOM or Gravity.START
+            includeFontPadding = false
+            setPadding(dp(24), 0, dp(24), dp(9))
+        }.also { header ->
+            header.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40))
+        }
+    }
+
+    private fun createIconSizeSection(
+        currentIconSizeDp: Int,
+        selectedColor: Int,
+        dividerColor: Int
+    ): View {
+        val preview = ImageView(this).apply {
+            background = roundedRectangle(0xFF34C759.toInt(), 13)
+            setImageResource(android.R.drawable.sym_action_call)
+            setColorFilter(Color.WHITE)
+            scaleType = ImageView.ScaleType.CENTER
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+        }
+        fun updatePreview(iconSizeDp: Int) {
+            val previewSize = dp(iconSizeDp)
+            preview.layoutParams = preview.layoutParams.apply {
+                width = previewSize
+                height = previewSize
+            }
+        }
+
+        val seekBar = SeekBar(this).apply {
+            max = LauncherHomeLayoutPreferences.ICON_SIZE_SLIDER_MAX
+            progress = LauncherHomeLayoutPreferences.iconSizeToSliderProgress(currentIconSizeDp)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        updatePreview(LauncherHomeLayoutPreferences.sliderProgressToIconSize(progress))
+                    }
+                }
+
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    val iconSizeDp = LauncherHomeLayoutPreferences.sliderProgressToIconSize(progress)
+                    saveHomeIconSizeSetting(iconSizeDp)
+                }
+            })
+            progressDrawable?.setTint(selectedColor)
+            thumb?.setTint(Color.WHITE)
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setBackgroundColor(Color.WHITE)
+            setPadding(0, dp(18), 0, dp(24))
+            addView(
+                preview,
+                LinearLayout.LayoutParams(dp(currentIconSizeDp), dp(currentIconSizeDp))
+            )
+            addView(
+                seekBar,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42)).apply {
+                    leftMargin = dp(64)
+                    rightMargin = dp(64)
+                    topMargin = dp(28)
+                }
+            )
+            addView(
+                View(context).apply { setBackgroundColor(dividerColor) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+            )
+        }
+    }
+
+    private fun createHomeGridSection(
+        currentRows: Int,
+        selectedColor: Int,
+        unselectedColor: Int
+    ): View {
+        val grid5Option = createHomeGridOption(getString(R.string.layout_grid_5x4))
+        val grid6Option = createHomeGridOption(getString(R.string.layout_grid_6x4))
+
+        fun updateGridSelection(selectedRows: Int) {
+            tintHomeGridOption(grid5Option, selectedRows == LauncherHomeLayoutPreferences.HOME_GRID_ROWS_5, selectedColor, unselectedColor)
+            tintHomeGridOption(grid6Option, selectedRows == LauncherHomeLayoutPreferences.HOME_GRID_ROWS_6, selectedColor, unselectedColor)
+        }
+
+        grid5Option.setOnClickListener {
+            updateGridSelection(LauncherHomeLayoutPreferences.HOME_GRID_ROWS_5)
+            saveHomeGridRowsSetting(LauncherHomeLayoutPreferences.HOME_GRID_ROWS_5)
+        }
+        grid6Option.setOnClickListener {
+            updateGridSelection(LauncherHomeLayoutPreferences.HOME_GRID_ROWS_6)
+            saveHomeGridRowsSetting(LauncherHomeLayoutPreferences.HOME_GRID_ROWS_6)
+        }
+        updateGridSelection(currentRows)
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.WHITE)
+            setPadding(dp(48), dp(24), dp(48), dp(30))
+            addView(
+                grid5Option,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            addView(
+                grid6Option,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+        }
+    }
+
+    private fun createHomeGridOption(label: String): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            isClickable = true
+            isFocusable = true
+            addView(
+                TextView(context).apply {
+                    text = label
+                    textSize = 28f
+                    typeface = Typeface.DEFAULT_BOLD
+                    gravity = Gravity.CENTER
+                    includeFontPadding = false
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            )
+            addView(
+                TextView(context).apply {
+                    text = label
+                    textSize = 16f
+                    gravity = Gravity.CENTER
+                    includeFontPadding = false
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = dp(8)
+                }
+            )
+        }
+    }
+
+    private fun tintHomeGridOption(option: LinearLayout, selected: Boolean, selectedColor: Int, unselectedColor: Int) {
+        val color = if (selected) selectedColor else unselectedColor
+        for (i in 0 until option.childCount) {
+            (option.getChildAt(i) as? TextView)?.setTextColor(color)
+        }
+    }
+
+    private fun saveHomeIconSizeSetting(iconSizeDp: Int) {
+        val resolvedIconSize = LauncherHomeLayoutPreferences.resolve(
+            iconSizeDp = iconSizeDp,
+            rows = launcherHomeLayoutSettings.rows,
+            autoArrangeApps = launcherHomeLayoutSettings.autoArrangeApps
+        ).iconSizeDp
+        if (resolvedIconSize == launcherHomeLayoutSettings.iconSizeDp) return
+
+        getSharedPreferences(LauncherHomeLayoutPreferences.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(LauncherHomeLayoutPreferences.KEY_HOME_ICON_SIZE_DP, resolvedIconSize)
+            .apply()
+        recreateForHomeLayoutSettingsChange()
+    }
+
+    private fun saveHomeGridRowsSetting(rows: Int) {
+        val resolvedRows = LauncherHomeLayoutPreferences.resolve(
+            iconSizeDp = launcherHomeLayoutSettings.iconSizeDp,
+            rows = rows,
+            autoArrangeApps = launcherHomeLayoutSettings.autoArrangeApps
+        ).rows
+        if (resolvedRows == launcherHomeLayoutSettings.rows) return
+
+        getSharedPreferences(LauncherHomeLayoutPreferences.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(LauncherHomeLayoutPreferences.KEY_HOME_GRID_ROWS, resolvedRows)
+            .apply()
+        recreateForHomeLayoutSettingsChange()
+    }
+
+    private fun saveAutoArrangeSetting(enabled: Boolean) {
+        if (enabled == launcherHomeLayoutSettings.autoArrangeApps) return
+
+        LauncherHomeLayoutPreferences.setAutoRearrangeApps(this, enabled)
+        recreateForHomeLayoutSettingsChange()
+    }
+
+    private fun saveIphone8StyleSetting(enabled: Boolean) {
+        getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(DockStylePolicy.KEY_LAYOUT_IPHONE8_STYLE, enabled)
+            .apply()
+        if (::mDock.isInitialized) {
+            mDock.refreshStyle()
+        }
+    }
+
+    private fun recreateForHomeLayoutSettingsChange() {
+        hideLayoutSettingsPanel()
+        launcherHomeLayoutSettings = LauncherHomeLayoutPreferences.read(this)
+        BlissLauncher.getApplication(this).resetDeviceProfile()
+        recreate()
+    }
+
+    private fun hideLayoutSettingsPanel() {
+        val panel = layoutSettingsPanel ?: return
+        layoutSettingsPanel = null
+        (panel.parent as? ViewGroup)?.removeView(panel)
+    }
+
     private fun showRenameAppPicker() {
         val apps = renamePickerApps()
         if (apps.isEmpty()) {
@@ -5203,8 +5675,18 @@ class LauncherActivity : AppCompatActivity(),
                 if (dragEvent.action == DragEvent.ACTION_DRAG_STARTED) {
                     isDragging = true
                     mWobblingCountDownTimer?.cancel()
+                    resetFolderHoverDragState()
+                    moving?.let { beginExistingFolderItemDragSessionIfNeeded(it) }
                 } else if (dragEvent.action == DragEvent.ACTION_DRAG_LOCATION) {
                     if (moving == null || shadow == null) return true
+                    cX = dragEvent.x - shadow.xOffset
+                    cY = mDock.y + dragEvent.y - shadow.yOffset
+
+                    if (mFolderWindowContainer.visibility == VISIBLE) {
+                        handleFolderDragLocation(cX, cY)
+                        return true
+                    }
+
                     if (getAppDetails(moving).container != Constants.CONTAINER_DESKTOP.toLong() &&
                         getAppDetails(moving).container != Constants.CONTAINER_HOTSEAT.toLong()
                     ) {
@@ -5214,9 +5696,6 @@ class LauncherActivity : AppCompatActivity(),
                     if (!dragDropEnabled) {
                         return true
                     }
-
-                    cX = dragEvent.x - shadow.xOffset
-                    cY = mDock.y + dragEvent.y - shadow.yOffset
 
                     val index = getIndex(mDock, cX, cY)
 
@@ -5231,6 +5710,7 @@ class LauncherActivity : AppCompatActivity(),
                         val latestCollidingApp = mDock.getChildAt(index) as BlissFrameLayout
                         if (collidingApp !== latestCollidingApp) {
                             collidingApp?.let { makeAppCold(it, !((it.parent as View).parent is HorizontalPager)) }
+                            cancelFolderHoverOpen()
                             collidingApp = latestCollidingApp
                             folderInterest = false
                         }
@@ -5247,7 +5727,9 @@ class LauncherActivity : AppCompatActivity(),
                                 cleanupDockReorder(true)
                                 cleanupReorder(true)
                                 makeAppHot(collidingApp)
+                                scheduleFolderHoverOpenIfNeeded(collidingApp, fromDock = true)
                             } else {
+                                cancelFolderHoverOpen()
                                 collidingApp?.let { makeAppCold(it, !((it.parent as View).parent is HorizontalPager)) }
                             }
                         }
@@ -5261,9 +5743,44 @@ class LauncherActivity : AppCompatActivity(),
                     return true
                 } else if (dragEvent.action == DragEvent.ACTION_DROP) {
                     if (moving == null || shadow == null) return true
+                    cancelFolderHoverOpen()
                     cleanupDockReorder(true)
                     cleanupReorder(true)
+                    cleanupFolderReorder(true)
+                    cX = dragEvent.x - shadow.xOffset
+                    cY = mDock.y + dragEvent.y - shadow.yOffset
+                    val activeSession = folderDragSession
+                    if (activeSession != null && mFolderWindowContainer.visibility == VISIBLE) {
+                        if (isPointInsideOpenFolder(cX, cY)) {
+                            previewFolderDrop(activeSession, mFolderAppsViewPager.currentItem, folderDropCellForCurrentPage(cX, cY))
+                            commitFolderDropInside(activeSession)
+                            moving.visibility = VISIBLE
+                        } else {
+                            handleFolderDragExitToHome(activeSession, cX, cY)
+                            if (mDock.childCount < mDeviceProfile.numColumns || moving.parent === mDock) {
+                                (moving.parent as? ViewGroup)?.removeView(moving)
+                                addAppToDock(moving, getIndex(mDock, cX, cY))
+                            }
+                            moving.visibility = VISIBLE
+                            makeAppWobble(moving, true, mDock.indexOfChild(moving))
+                            commitFolderDropOutside(activeSession)
+                        }
+                        return true
+                    }
+
                     if (mFolderWindowContainer.visibility != VISIBLE) {
+                        val exitedSession = folderDragSession?.takeIf { it.exitedToHome }
+                        if (exitedSession != null) {
+                            if (mDock.childCount < mDeviceProfile.numColumns || moving.parent === mDock) {
+                                (moving.parent as? ViewGroup)?.removeView(moving)
+                                addAppToDock(moving, getIndex(mDock, cX, cY))
+                            }
+                            moving.visibility = VISIBLE
+                            makeAppWobble(moving, true, mDock.indexOfChild(moving))
+                            commitFolderDropOutside(exitedSession)
+                            return true
+                        }
+
                         if (!folderInterest) {
                             if (moving.parent == null) {
                                 if (mDock.childCount >= mDeviceProfile.numColumns) {
@@ -5287,17 +5804,17 @@ class LauncherActivity : AppCompatActivity(),
                             folderInterest = false
                         }
                     } else {
-                        cX = dragEvent.x - shadow.xOffset
-                        cY = mDock.y + dragEvent.y - shadow.yOffset
-                        val topLeftCorner = IntArray(2)
-                        mFolderAppsViewPager.getLocationOnScreen(topLeftCorner)
-                        val left = topLeftCorner[0]
-                        val top = topLeftCorner[1]
-                        val right = left + mFolderAppsViewPager.width
-                        val bottom = top + mFolderAppsViewPager.height
-
-                        if (!(left < right && top < bottom && cX >= left && cX < right && cY >= top && cY < bottom)) {
-                            removeAppFromFolder()
+                        if (!isPointInsideOpenFolder(cX, cY)) {
+                            if (isMovingExternalToOpenFolder(moving)) {
+                                hideFolderWindowContainer()
+                                folderOpenedByDragHover = false
+                                dragHasEnteredOpenFolder = false
+                                restoreExternalMovingView(moving)
+                            } else {
+                                removeAppFromFolder()
+                            }
+                        } else if (commitExternalDropIntoOpenFolder(moving)) {
+                            moving.visibility = VISIBLE
                         } else {
                             moving.visibility = VISIBLE
                             val currentItem = mFolderAppsViewPager.currentItem
@@ -5326,10 +5843,17 @@ class LauncherActivity : AppCompatActivity(),
                 if (dragEvent.action == DragEvent.ACTION_DRAG_STARTED) {
                     isDragging = true
                     mWobblingCountDownTimer?.cancel()
+                    resetFolderHoverDragState()
+                    moving?.let { beginExistingFolderItemDragSessionIfNeeded(it) }
                 } else if (dragEvent.action == DragEvent.ACTION_DRAG_LOCATION) {
                     if (moving == null || shadow == null) return true
                     cX = dragEvent.x - shadow.xOffset
                     cY = mHorizontalPager.y + dragEvent.y - shadow.yOffset
+
+                    if (mFolderWindowContainer.visibility == VISIBLE) {
+                        handleFolderDragLocation(cX, cY)
+                        return true
+                    }
 
                     if (getAppDetails(moving).container != Constants.CONTAINER_DESKTOP.toLong() &&
                         getAppDetails(moving).container != Constants.CONTAINER_HOTSEAT.toLong()
@@ -5380,6 +5904,7 @@ class LauncherActivity : AppCompatActivity(),
                             val latestCollidingApp = getGridFromPage(page).getChildAt(index)
                             if (collidingApp !== latestCollidingApp) {
                                 collidingApp?.let { makeAppCold(it, !((it.parent as View).parent is HorizontalPager)) }
+                                cancelFolderHoverOpen()
                                 collidingApp = latestCollidingApp as BlissFrameLayout
                                 folderInterest = false
                             }
@@ -5401,7 +5926,9 @@ class LauncherActivity : AppCompatActivity(),
                                     cleanupReorder(true)
                                     cleanupDockReorder(true)
                                     makeAppHot(collidingApp)
+                                    scheduleFolderHoverOpenIfNeeded(collidingApp, fromDock = false)
                                 } else {
+                                    cancelFolderHoverOpen()
                                     collidingApp?.let { makeAppCold(it, !((it.parent as View).parent is HorizontalPager)) }
                                 }
                             }
@@ -5422,12 +5949,40 @@ class LauncherActivity : AppCompatActivity(),
                     }
                 } else if (dragEvent.action == DragEvent.ACTION_DROP) {
                     if (moving == null || shadow == null) return true
+                    cancelFolderHoverOpen()
                     cleanupReorder(true)
                     cleanupDockReorder(true)
+                    cleanupFolderReorder(true)
+                    cX = dragEvent.x - shadow.xOffset
+                    cY = mHorizontalPager.y + dragEvent.y - shadow.yOffset
+                    val activeSession = folderDragSession
+                    if (activeSession != null && mFolderWindowContainer.visibility == VISIBLE) {
+                        if (isPointInsideOpenFolder(cX, cY)) {
+                            previewFolderDrop(activeSession, mFolderAppsViewPager.currentItem, folderDropCellForCurrentPage(cX, cY))
+                            commitFolderDropInside(activeSession)
+                            moving.visibility = VISIBLE
+                        } else {
+                            handleFolderDragExitToHome(activeSession, cX, cY)
+                            val gridLayout = pages[getCurrentAppsPageNumber()]
+                            commitDroppedAppToPage(gridLayout, moving, cX, cY)
+                            moving.visibility = VISIBLE
+                            makeAppWobble(moving, true, gridLayout.indexOfChild(moving))
+                            commitFolderDropOutside(activeSession)
+                        }
+                        return true
+                    }
+
                     if (mFolderWindowContainer.visibility != VISIBLE) {
-                        cX = dragEvent.x - shadow.xOffset
-                        cY = mHorizontalPager.y + dragEvent.y - shadow.yOffset
                         val gridLayout = pages[getCurrentAppsPageNumber()]
+                        val exitedSession = folderDragSession?.takeIf { it.exitedToHome }
+                        if (exitedSession != null) {
+                            commitDroppedAppToPage(gridLayout, moving, cX, cY)
+                            moving.visibility = VISIBLE
+                            makeAppWobble(moving, true, gridLayout.indexOfChild(moving))
+                            commitFolderDropOutside(exitedSession)
+                            return true
+                        }
+
                         if (!folderInterest) {
                             if (LauncherDropCommitPolicy.shouldAttachToTargetPage(
                                     movingHasParent = moving.parent != null,
@@ -5448,18 +6003,17 @@ class LauncherActivity : AppCompatActivity(),
                             folderInterest = false
                         }
                     } else {
-                        cX = dragEvent.x - shadow.xOffset
-                        cY = mHorizontalPager.y + dragEvent.y - shadow.yOffset
-
-                        val topLeftCorner = IntArray(2)
-                        mFolderAppsViewPager.getLocationOnScreen(topLeftCorner)
-                        val left = topLeftCorner[0]
-                        val top = topLeftCorner[1]
-                        val right = left + mFolderAppsViewPager.width
-                        val bottom = top + mFolderAppsViewPager.height
-
-                        if (!(left < right && top < bottom && cX >= left && cX < right && cY >= top && cY < bottom)) {
-                            removeAppFromFolder()
+                        if (!isPointInsideOpenFolder(cX, cY)) {
+                            if (isMovingExternalToOpenFolder(moving)) {
+                                hideFolderWindowContainer()
+                                folderOpenedByDragHover = false
+                                dragHasEnteredOpenFolder = false
+                                restoreExternalMovingView(moving)
+                            } else {
+                                removeAppFromFolder()
+                            }
+                        } else if (commitExternalDropIntoOpenFolder(moving)) {
+                            moving.visibility = VISIBLE
                         } else {
                             moving.visibility = VISIBLE
                             val currentItem = mFolderAppsViewPager.currentItem
@@ -5477,9 +6031,21 @@ class LauncherActivity : AppCompatActivity(),
 
                     cleanupReorder(true)
                     cleanupDockReorder(true)
+                    cleanupFolderReorder(true)
+                    cancelFolderHoverOpen()
 
                     if (!dragEvent.result) {
-                        if (mFolderWindowContainer.visibility == VISIBLE) {
+                        if (folderDragSession != null) {
+                            cancelFolderDragSession(restoreOriginal = true)
+                            if (mFolderWindowContainer.visibility == VISIBLE && folderOpenedByDragHover) {
+                                hideFolderWindowContainer(saveLayout = false)
+                            }
+                        } else if (mFolderWindowContainer.visibility == VISIBLE && isMovingExternalToOpenFolder(moving)) {
+                            hideFolderWindowContainer()
+                            restoreExternalMovingView(moving)
+                            folderOpenedByDragHover = false
+                            dragHasEnteredOpenFolder = false
+                        } else if (mFolderWindowContainer.visibility == VISIBLE) {
                             val currentItem = mFolderAppsViewPager.currentItem
                             makeAppWobble(
                                 moving,
@@ -5499,6 +6065,7 @@ class LauncherActivity : AppCompatActivity(),
                         movingApp = null
                         dragStartHomePage = -1
                         dragStartHomeCell = LauncherItem.INVALID_CELL
+                        resetFolderHoverDragState()
                     }
 
                     mWobblingCountDownTimer?.cancel()
@@ -5638,6 +6205,673 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun scheduleFolderHoverOpenIfNeeded(target: BlissFrameLayout?, fromDock: Boolean) {
+        val moving = movingApp ?: return
+        val hoverTarget = target ?: return
+        val targetItem = hoverTarget.launcherItem
+        if (!FolderHoverOpenPolicy.canScheduleOpen(
+                folderInterest = folderInterest,
+                movingItemType = moving.launcherItem.itemType,
+                targetItemType = targetItem.itemType,
+                folderAlreadyOpen = mFolderWindowContainer.visibility == VISIBLE
+            )
+        ) {
+            cancelFolderHoverOpen()
+            return
+        }
+
+        if (folderHoverTarget === hoverTarget && mFolderHoverOpenAlarm.alarmPending()) {
+            return
+        }
+
+        cancelFolderHoverOpen()
+        folderHoverTarget = hoverTarget
+        mFolderHoverOpenAlarm.setOnAlarmListener(FolderHoverOpenAlarmListener(hoverTarget, fromDock))
+        mFolderHoverOpenAlarm.setAlarm(FolderHoverOpenPolicy.OPEN_DELAY_MS)
+    }
+
+    private fun cancelFolderHoverOpen() {
+        mFolderHoverOpenAlarm.cancelAlarm()
+        folderHoverTarget = null
+    }
+
+    private fun resetFolderHoverDragState(closeOpenFolder: Boolean = false) {
+        cancelFolderHoverOpen()
+        if (closeOpenFolder && folderOpenedByDragHover && mFolderWindowContainer.visibility == VISIBLE) {
+            hideFolderWindowContainer()
+        }
+        folderOpenedByDragHover = false
+        dragHasEnteredOpenFolder = false
+    }
+
+    private fun handleOpenFolderDragLocation(x: Float, y: Float) {
+        if (!folderOpenedByDragHover) {
+            return
+        }
+
+        if (isPointInsideOpenFolder(x, y)) {
+            dragHasEnteredOpenFolder = true
+        } else if (dragHasEnteredOpenFolder) {
+            hideFolderWindowContainer()
+            folderOpenedByDragHover = false
+            dragHasEnteredOpenFolder = false
+        }
+    }
+
+    private fun isPointInsideOpenFolder(x: Float, y: Float): Boolean {
+        val topLeftCorner = IntArray(2)
+        mFolderAppsViewPager.getLocationOnScreen(topLeftCorner)
+        val left = topLeftCorner[0]
+        val top = topLeftCorner[1]
+        val right = left + mFolderAppsViewPager.width
+        val bottom = top + mFolderAppsViewPager.height
+        return left < right && top < bottom && x >= left && x < right && y >= top && y < bottom
+    }
+
+    private fun isMovingExternalToOpenFolder(moving: BlissFrameLayout): Boolean {
+        val folder = activeFolder ?: return false
+        return FolderHoverOpenPolicy.isExternalDropIntoOpenFolder(getAppDetails(moving), folder)
+    }
+
+    private fun commitExternalDropIntoOpenFolder(moving: BlissFrameLayout): Boolean {
+        val folder = activeFolder ?: return false
+        val folderView = activeFolderView ?: return false
+        if (!FolderHoverOpenPolicy.isExternalDropIntoOpenFolder(getAppDetails(moving), folder)) {
+            return false
+        }
+
+        val folderId = folder.id.toLongOrNull() ?: return false
+        val app = getAppDetails(moving)
+        (moving.parent as? ViewGroup)?.removeView(moving)
+        app.container = folderId
+        app.screenId = -1
+        app.cell = folder.items!!.size
+        folder.items!!.add(app)
+        updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
+        folderView.applyBadge(checkHasApp(folder, mAppsWithNotifications), !folderFromDock)
+        refreshOpenFolderAdapter(folder)
+        DatabaseManager.getManager(this@LauncherActivity).saveLayouts(pages, mDock)
+        folderOpenedByDragHover = false
+        dragHasEnteredOpenFolder = false
+        return true
+    }
+
+    private fun restoreExternalMovingView(moving: BlissFrameLayout) {
+        moving.visibility = VISIBLE
+        val parent = moving.parent as? ViewGroup ?: return
+        val fromDock = parent === mDock
+        makeAppWobble(moving, true, parent.indexOfChild(moving))
+        if (!fromDock && parent is GridLayout) {
+            relayoutHomePageCells(parent)
+        }
+    }
+
+    private fun refreshOpenFolderAdapter(folder: FolderItem) {
+        mFolderAppsViewPager.adapter = FolderAppsPagerAdapter(this, folder.items!!)
+        (mLauncherView.findViewById<View>(R.id.indicator) as CircleIndicator).setViewPager(mFolderAppsViewPager)
+        if (isWobbling) {
+            mFolderAppsViewPager.post {
+                for (i in 0 until mFolderAppsViewPager.childCount) {
+                    (mFolderAppsViewPager.getChildAt(i) as? GridLayout)?.let { page ->
+                        toggleWobbleAnimation(page, true)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun mutableFolderItems(folder: FolderItem): MutableList<LauncherItem> {
+        val items = folder.items
+        if (items != null) {
+            return items
+        }
+        val newItems = ArrayList<LauncherItem>()
+        folder.items = newItems
+        return newItems
+    }
+
+    private fun folderItemKey(item: LauncherItem): String =
+        item.id.ifBlank { System.identityHashCode(item).toString() }
+
+    private fun beginFolderDragSession(
+        folder: FolderItem,
+        folderView: BlissFrameLayout,
+        moving: BlissFrameLayout,
+        origin: FolderDragOrigin
+    ): FolderDragSession {
+        folderDragSession?.let { existing ->
+            if (existing.folder === folder && existing.moving === moving) {
+                existing.exitedToHome = false
+                existing.hasEnteredFolder = false
+                existing.previewAddedToFolder = mutableFolderItems(folder).contains(moving.launcherItem)
+                existing.lastPreviewCell = LauncherItem.INVALID_CELL
+            }
+            return existing
+        }
+        val originParent = moving.parent as? ViewGroup
+        val items = mutableFolderItems(folder)
+        val session = FolderDragSession(
+            folder = folder,
+            folderView = folderView,
+            moving = moving,
+            origin = origin,
+            originParent = originParent,
+            originIndex = originParent?.indexOfChild(moving) ?: LauncherItem.INVALID_CELL,
+            originContainer = moving.launcherItem.container,
+            originScreenId = moving.launcherItem.screenId,
+            originCell = moving.launcherItem.cell,
+            originalFolderItems = items.toList(),
+            originalFolderCells = items.associate { folderItemKey(it) to it.cell },
+            folderWasFromDock = folderFromDock
+        )
+        folderDragSession = session
+        if (origin == FolderDragOrigin.WITHIN_FOLDER) {
+            originParent?.removeView(moving)
+            originParent?.requestLayout()
+        }
+        return session
+    }
+
+    private fun beginExistingFolderItemDragSessionIfNeeded(moving: BlissFrameLayout) {
+        if (folderDragSession != null || mFolderWindowContainer.visibility != VISIBLE) {
+            return
+        }
+        val folder = activeFolder ?: return
+        val folderView = activeFolderView ?: return
+        val folderId = folder.id.toLongOrNull() ?: return
+        if (moving.launcherItem.container == folderId) {
+            beginFolderDragSession(folder, folderView, moving, FolderDragOrigin.WITHIN_FOLDER)
+        }
+    }
+
+    private fun resetFolderItemsToOriginal(session: FolderDragSession) {
+        val folderId = session.folder.id.toLongOrNull()
+        val items = mutableFolderItems(session.folder)
+        items.clear()
+        session.originalFolderItems.forEachIndexed { index, item ->
+            item.container = folderId ?: item.container
+            item.screenId = -1
+            item.cell = session.originalFolderCells[folderItemKey(item)] ?: index
+            items.add(item)
+        }
+    }
+
+    private fun restoreMovingToOrigin(session: FolderDragSession) {
+        val moving = session.moving
+        moving.launcherItem.container = session.originContainer
+        moving.launcherItem.screenId = session.originScreenId
+        moving.launcherItem.cell = session.originCell
+        (moving.parent as? ViewGroup)?.removeView(moving)
+        val originParent = session.originParent
+        if (session.origin == FolderDragOrigin.FROM_HOME_TO_FOLDER && originParent != null) {
+            if (originParent === mDock) {
+                addAppToDock(moving, session.originIndex)
+            } else if (originParent is GridLayout && pages.contains(originParent)) {
+                addAppToGrid(originParent, moving, session.originIndex)
+                relayoutHomePageCells(originParent)
+            }
+        }
+        moving.visibility = VISIBLE
+    }
+
+    private fun cancelFolderDragSession(restoreOriginal: Boolean) {
+        val session = folderDragSession ?: return
+        cleanupFolderReorder(true)
+        cancelFolderPageScroll()
+        if (restoreOriginal) {
+            resetFolderItemsToOriginal(session)
+            restoreMovingToOrigin(session)
+            refreshFolderViewAfterItemsChanged(session)
+        }
+        folderDragSession = null
+    }
+
+    private fun finishFolderDragSession() {
+        cleanupFolderReorder(true)
+        cancelFolderPageScroll()
+        folderPageScrollTarget = LauncherItem.INVALID_CELL
+        folderDragSession = null
+    }
+
+    private fun refreshFolderViewAfterItemsChanged(session: FolderDragSession) {
+        if (session.folder.items?.isNotEmpty() == true) {
+            updateIcon(
+                session.folderView,
+                session.folder,
+                GraphicsUtil(this).generateFolderIcon(this, session.folder),
+                session.folderWasFromDock
+            )
+            session.folderView.applyBadge(checkHasApp(session.folder, mAppsWithNotifications), !session.folderWasFromDock)
+        }
+        refreshOpenFolderAdapter(session.folder)
+    }
+
+    private fun normalizeFolderItemOrder(folder: FolderItem) {
+        val items = mutableFolderItems(folder)
+        val orderedItems = items
+            .mapIndexed { index, item -> index to item }
+            .sortedWith(
+                compareBy<Pair<Int, LauncherItem>> { (_, item) ->
+                    item.cell.takeIf { it >= 0 } ?: Int.MAX_VALUE
+                }.thenBy { (index, _) -> index }
+            )
+            .map { it.second }
+        items.clear()
+        orderedItems.forEachIndexed { index, item ->
+            item.container = folder.id.toLongOrNull() ?: item.container
+            item.screenId = -1
+            item.cell = index
+            items.add(item)
+        }
+    }
+
+    private fun folderBoundsOnScreen(): Rect {
+        val topLeft = IntArray(2)
+        mFolderAppsViewPager.getLocationOnScreen(topLeft)
+        return Rect(
+            topLeft[0],
+            topLeft[1],
+            topLeft[0] + mFolderAppsViewPager.width,
+            topLeft[1] + mFolderAppsViewPager.height
+        )
+    }
+
+    private fun currentFolderGrid(): GridLayout? {
+        val currentPage = mFolderAppsViewPager.currentItem
+        return folderGridForPage(currentPage)
+    }
+
+    private fun folderGridForPage(pageIndex: Int): GridLayout? {
+        for (index in 0 until mFolderAppsViewPager.childCount) {
+            val child = mFolderAppsViewPager.getChildAt(index)
+            if (child is GridLayout && child.tag == pageIndex) {
+                return child
+            }
+        }
+        return mFolderAppsViewPager.getChildAt(pageIndex) as? GridLayout
+    }
+
+    private fun applyFolderCellLayoutParams(
+        view: BlissFrameLayout,
+        absoluteCell: Int,
+        metrics: FolderOpenLayoutPolicy.Metrics
+    ) {
+        val cellInPage = FolderDragSessionPolicy.cellInPage(absoluteCell)
+        val layoutParams = GridLayout.LayoutParams(
+            GridLayout.spec(cellInPage / FolderDragSessionPolicy.FOLDER_COLUMNS),
+            GridLayout.spec(cellInPage % FolderDragSessionPolicy.FOLDER_COLUMNS)
+        )
+        layoutParams.height = metrics.cellHeight
+        layoutParams.width = metrics.cellWidth
+        view.findViewById<View>(R.id.app_label).visibility = VISIBLE
+        view.layoutParams = layoutParams
+    }
+
+    private fun relayoutOpenFolderPageCells(session: FolderDragSession, pageIndex: Int): Boolean {
+        val grid = folderGridForPage(pageIndex) ?: return false
+        val metrics = folderOpenMetrics()
+        var needsAdapterRefresh = false
+        for (index in grid.childCount - 1 downTo 0) {
+            val child = grid.getChildAt(index) as? BlissFrameLayout ?: continue
+            val item = child.launcherItem
+            val absoluteCell = item.cell.takeIf { it >= 0 } ?: index
+            if (FolderDragSessionPolicy.pageForCell(absoluteCell) != pageIndex) {
+                needsAdapterRefresh = true
+            } else if (!FolderDragSessionPolicy.shouldRenderFolderItem(
+                    itemIsMoving = item === session.moving.launcherItem,
+                    folderDragActive = folderDragSession === session
+                )
+            ) {
+                grid.removeView(child)
+            } else {
+                child.visibility = VISIBLE
+                applyFolderCellLayoutParams(child, absoluteCell, metrics)
+            }
+        }
+        grid.requestLayout()
+        return !needsAdapterRefresh
+    }
+
+    private fun folderDropCellForCurrentPage(x: Float, y: Float): Int {
+        val grid = currentFolderGrid()
+        val bounds = folderBoundsOnScreen()
+        val metrics = folderOpenMetrics()
+        val localX = (x - bounds.left - (grid?.paddingLeft ?: 0)).coerceAtLeast(0f)
+        val localY = (y - bounds.top - (grid?.paddingTop ?: 0)).coerceAtLeast(0f)
+        val column = (localX / metrics.cellWidth).toInt()
+            .coerceIn(0, FolderDragSessionPolicy.FOLDER_COLUMNS - 1)
+        val row = (localY / metrics.cellHeight).toInt()
+            .coerceIn(0, FolderDragSessionPolicy.FOLDER_ROWS - 1)
+        return row * FolderDragSessionPolicy.FOLDER_COLUMNS + column
+    }
+
+    private fun folderOccupiedCells(folder: FolderItem, except: LauncherItem? = null): Set<Int> {
+        val occupiedCells = mutableSetOf<Int>()
+        mutableFolderItems(folder).forEachIndexed { index, item ->
+            if (item === except) {
+                return@forEachIndexed
+            }
+            val cell = item.cell.takeIf { it >= 0 } ?: index
+            occupiedCells.add(cell)
+        }
+        return occupiedCells
+    }
+
+    private fun ensureFolderPageForCell(session: FolderDragSession, absoluteCell: Int) {
+        val targetPage = FolderDragSessionPolicy.pageForCell(absoluteCell)
+        val adapterCount = mFolderAppsViewPager.adapter?.count ?: 0
+        if (targetPage >= adapterCount) {
+            refreshOpenFolderAdapter(session.folder)
+        }
+        if (mFolderAppsViewPager.currentItem != targetPage) {
+            mFolderAppsViewPager.currentItem = targetPage
+        }
+    }
+
+    private fun ensureMovingInFolderPreview(session: FolderDragSession, absoluteCell: Int) {
+        val folderId = session.folder.id.toLongOrNull() ?: return
+        val movingItem = session.moving.launcherItem
+        val folderItems = mutableFolderItems(session.folder)
+        if (session.origin == FolderDragOrigin.FROM_HOME_TO_FOLDER && !session.previewAddedToFolder) {
+            (session.moving.parent as? ViewGroup)?.removeView(session.moving)
+            movingItem.container = folderId
+            movingItem.screenId = -1
+            movingItem.cell = absoluteCell
+            if (!folderItems.contains(movingItem)) {
+                folderItems.add(movingItem)
+            }
+            session.previewAddedToFolder = true
+        } else if (session.origin == FolderDragOrigin.WITHIN_FOLDER && !folderItems.contains(movingItem)) {
+            (session.moving.parent as? ViewGroup)?.removeView(session.moving)
+            movingItem.container = folderId
+            movingItem.screenId = -1
+            movingItem.cell = absoluteCell
+            folderItems.add(movingItem)
+            session.previewAddedToFolder = true
+        }
+    }
+
+    private fun previewFolderDrop(session: FolderDragSession, targetPage: Int, targetCell: Int) {
+        val movingItem = session.moving.launcherItem
+        val absoluteCell = FolderDragSessionPolicy.absoluteCell(targetPage, targetCell)
+        if (session.lastPreviewCell == absoluteCell && session.hasEnteredFolder) {
+            return
+        }
+
+        val oldPageCount = mFolderAppsViewPager.adapter?.count ?: 1
+        val oldMovingPage = movingItem.cell
+            .takeIf { it >= 0 }
+            ?.let { FolderDragSessionPolicy.pageForCell(it) }
+            ?: targetPage
+        val wasInFolder = mutableFolderItems(session.folder).contains(movingItem)
+        ensureMovingInFolderPreview(session, absoluteCell)
+        val occupiedCells = folderOccupiedCells(session.folder, except = movingItem)
+        val maxCells = maxOf(
+            (mFolderAppsViewPager.adapter?.count ?: 1) * FolderDragSessionPolicy.ITEMS_PER_PAGE,
+            (occupiedCells.maxOrNull() ?: -1) + 2,
+            absoluteCell + 1
+        )
+        val preview = FolderDragSessionPolicy.collisionPreview(
+            movingCell = movingItem.cell.takeIf { it >= 0 },
+            targetCell = absoluteCell,
+            occupiedCells = occupiedCells,
+            maxCells = maxCells
+        )
+
+        preview.displacedCells.forEach { (fromCell, toCell) ->
+            mutableFolderItems(session.folder)
+                .firstOrNull { it !== movingItem && it.cell == fromCell }
+                ?.cell = toCell
+        }
+        movingItem.container = session.folder.id.toLongOrNull() ?: movingItem.container
+        movingItem.screenId = -1
+        movingItem.cell = preview.movingCell
+        session.lastPreviewCell = preview.movingCell
+        session.hasEnteredFolder = true
+        val targetPage = FolderDragSessionPolicy.pageForCell(preview.movingCell)
+        val newPageCount = maxOf(
+            oldPageCount,
+            (mutableFolderItems(session.folder).maxOfOrNull { it.cell } ?: 0)
+                .let { FolderDragSessionPolicy.pageForCell(it.coerceAtLeast(0)) + 1 }
+        )
+        val displacedAcrossPages = preview.displacedCells.any { (fromCell, toCell) ->
+            FolderDragSessionPolicy.pageForCell(fromCell) != FolderDragSessionPolicy.pageForCell(toCell)
+        }
+        val shouldRefreshAdapter = !wasInFolder ||
+            newPageCount > oldPageCount ||
+            oldMovingPage != targetPage ||
+            displacedAcrossPages ||
+            !relayoutOpenFolderPageCells(session, targetPage)
+        if (shouldRefreshAdapter) {
+            refreshOpenFolderAdapter(session.folder)
+        }
+        if (mFolderAppsViewPager.currentItem != targetPage) {
+            mFolderAppsViewPager.setCurrentItem(targetPage, true)
+        }
+    }
+
+    private fun scheduleFolderPageScrollIfNeeded(targetPage: Int) {
+        if (folderPageScrollTarget == targetPage && mFolderPageScrollAlarm.alarmPending()) {
+            return
+        }
+        cancelFolderPageScroll()
+        folderPageScrollTarget = targetPage
+        mFolderPageScrollAlarm.setOnAlarmListener(FolderPageScrollAlarmListener(targetPage))
+        mFolderPageScrollAlarm.setAlarm(300)
+    }
+
+    private fun cancelFolderPageScroll() {
+        mFolderPageScrollAlarm.cancelAlarm()
+        folderPageScrollTarget = LauncherItem.INVALID_CELL
+    }
+
+    private fun cleanupFolderReorder(cancelAlarm: Boolean) {
+        if (cancelAlarm) {
+            mFolderReorderAlarm.cancelAlarm()
+        }
+        folderReorderTargetPage = LauncherItem.INVALID_CELL
+        folderReorderTargetCell = LauncherItem.INVALID_CELL
+    }
+
+    private fun scheduleFolderReorderIfNeeded(
+        session: FolderDragSession,
+        targetPage: Int,
+        targetCell: Int
+    ) {
+        if (folderReorderTargetPage == targetPage &&
+            folderReorderTargetCell == targetCell &&
+            mFolderReorderAlarm.alarmPending()
+        ) {
+            return
+        }
+        cleanupFolderReorder(true)
+        folderReorderTargetPage = targetPage
+        folderReorderTargetCell = targetCell
+        mFolderReorderAlarm.setOnAlarmListener(FolderReorderAlarmListener(session, targetPage, targetCell))
+        mFolderReorderAlarm.setAlarm(REORDER_TIMEOUT.toLong())
+    }
+
+    private fun reopenFolderForActiveDrag(session: FolderDragSession) {
+        currentAnimator?.cancel()
+        folderFromDock = session.folderWasFromDock
+        folderOpenedByDragHover = true
+        dragHasEnteredOpenFolder = false
+        session.exitedToHome = false
+        session.hasEnteredFolder = false
+        session.previewAddedToFolder = mutableFolderItems(session.folder).contains(session.moving.launcherItem)
+        session.lastPreviewCell = LauncherItem.INVALID_CELL
+        displayFolder(session.folder, session.folderView)
+    }
+
+    private fun handleFolderDragLocation(x: Float, y: Float) {
+        val session = folderDragSession ?: return
+        if (session.exitedToHome && isPointInsideOpenFolder(x, y)) {
+            reopenFolderForActiveDrag(session)
+        }
+        val bounds = folderBoundsOnScreen()
+        val shouldExit = FolderDragSessionPolicy.shouldExitFolder(
+            x = x,
+            y = y,
+            left = bounds.left,
+            top = bounds.top,
+            right = bounds.right,
+            bottom = bounds.bottom,
+            thresholdPx = dp(48)
+        )
+        if (shouldExit) {
+            handleFolderDragExitToHome(session, x, y)
+            return
+        }
+        if (!isPointInsideOpenFolder(x, y)) {
+            cancelFolderPageScroll()
+            cleanupFolderReorder(true)
+            return
+        }
+
+        val currentPage = mFolderAppsViewPager.currentItem
+        val pageCount = maxOf(1, mFolderAppsViewPager.adapter?.count ?: 1)
+        val canCreateNextPage = mutableFolderItems(session.folder).size >=
+            (currentPage + 1) * FolderDragSessionPolicy.ITEMS_PER_PAGE
+        val edgeTargetPage = FolderDragSessionPolicy.edgeTargetPage(
+            x = x - bounds.left,
+            width = bounds.width(),
+            currentPage = currentPage,
+            pageCount = if (canCreateNextPage) pageCount + 1 else pageCount,
+            edgeSizePx = dp(48)
+        )
+        if (edgeTargetPage != currentPage) {
+            scheduleFolderPageScrollIfNeeded(edgeTargetPage)
+        } else {
+            cancelFolderPageScroll()
+        }
+
+        val initialPlacement = if (!session.hasEnteredFolder) {
+            FolderDragSessionPolicy.firstAvailablePlacement(
+                occupiedCells = folderOccupiedCells(session.folder, except = session.moving.launcherItem),
+                startPage = currentPage
+            )
+        } else {
+            FolderDragSessionPolicy.FolderPlacement(currentPage, folderDropCellForCurrentPage(x, y))
+        }
+        scheduleFolderReorderIfNeeded(session, initialPlacement.page, initialPlacement.cell)
+    }
+
+    private fun handleFolderDragExitToHome(session: FolderDragSession, x: Float, y: Float) {
+        if (session.exitedToHome) {
+            return
+        }
+        cleanupFolderReorder(true)
+        cancelFolderPageScroll()
+        val movingItem = session.moving.launcherItem
+
+        if (session.origin == FolderDragOrigin.FROM_HOME_TO_FOLDER) {
+            resetFolderItemsToOriginal(session)
+            movingItem.container = session.originContainer
+            movingItem.screenId = session.originScreenId
+            movingItem.cell = session.originCell
+            if (session.moving.parent == null) {
+                session.originParent?.let { parent ->
+                    if (parent === mDock) {
+                        addAppToDock(session.moving, session.originIndex)
+                    } else if (parent is GridLayout) {
+                        addAppToGrid(parent, session.moving, session.originIndex)
+                        relayoutHomePageCells(parent)
+                    }
+                }
+            }
+        } else {
+            mutableFolderItems(session.folder).remove(movingItem)
+            attachFolderDragMovingToHome(session, x, y)
+        }
+        refreshFolderViewAfterItemsChanged(session)
+
+        session.previewAddedToFolder = false
+        session.hasEnteredFolder = false
+        session.lastPreviewCell = LauncherItem.INVALID_CELL
+        session.moving.visibility = View.INVISIBLE
+        session.exitedToHome = true
+        folderOpenedByDragHover = false
+        dragHasEnteredOpenFolder = false
+        hideFolderWindowContainer(saveLayout = false)
+    }
+
+    private fun attachFolderDragMovingToHome(session: FolderDragSession, x: Float, y: Float) {
+        val page = pages.getOrNull(getCurrentAppsPageNumber()) ?: return
+        val moving = session.moving
+        (moving.parent as? ViewGroup)?.removeView(moving)
+        moving.launcherItem.container = Constants.CONTAINER_DESKTOP.toLong()
+        moving.launcherItem.screenId = getCurrentAppsPageNumber().toLong()
+        moving.launcherItem.cell = dropCellForHomeGrid(page, x, y)
+        if (page.childCount < mDeviceProfile.maxAppsPerPage) {
+            addAppToGrid(page, moving, getIndex(page, x, y))
+            relayoutHomePageCells(page)
+        }
+    }
+
+    private fun commitFolderDropInside(session: FolderDragSession) {
+        normalizeFolderItemOrder(session.folder)
+        finishFolderDragSession()
+        refreshFolderViewAfterItemsChanged(session)
+        DatabaseManager.getManager(this@LauncherActivity).saveLayouts(pages, mDock)
+        folderOpenedByDragHover = false
+        dragHasEnteredOpenFolder = false
+    }
+
+    private fun commitFolderDropOutside(session: FolderDragSession) {
+        if (session.origin == FolderDragOrigin.FROM_HOME_TO_FOLDER) {
+            resetFolderItemsToOriginal(session)
+            refreshFolderViewAfterItemsChanged(session)
+            finishFolderDragSession()
+            DatabaseManager.getManager(this).saveLayouts(pages, mDock)
+            return
+        }
+        normalizeFolderItemOrder(session.folder)
+        finalizeFolderAfterItemRemoved(session)
+        finishFolderDragSession()
+    }
+
+    private fun finalizeFolderAfterItemRemoved(session: FolderDragSession) {
+        val folder = session.folder
+        val folderView = session.folderView
+        val items = mutableFolderItems(folder)
+        val folderParent = folderView.parent as? ViewGroup
+        val folderIndex = folderParent?.indexOfChild(folderView) ?: LauncherItem.INVALID_CELL
+        val folderFromDock = session.folderWasFromDock
+
+        when (items.size) {
+            0 -> {
+                folderParent?.removeView(folderView)
+                DatabaseManager.getManager(this).removeLauncherItem(folder.id)
+            }
+
+            1 -> {
+                val remainingItem = items.removeAt(0)
+                remainingItem.container = if (folderFromDock) {
+                    Constants.CONTAINER_HOTSEAT.toLong()
+                } else {
+                    Constants.CONTAINER_DESKTOP.toLong()
+                }
+                remainingItem.screenId = if (folderFromDock) -1 else getCurrentAppsPageNumber().toLong()
+                remainingItem.cell = folder.cell
+                val replacementView = prepareLauncherItem(remainingItem)
+                folderParent?.removeView(folderView)
+                if (folderParent === mDock) {
+                    addAppToDock(replacementView, folderIndex)
+                } else if (folderParent is GridLayout) {
+                    addAppToGrid(folderParent, replacementView, folderIndex)
+                    relayoutHomePageCells(folderParent)
+                }
+                DatabaseManager.getManager(this).removeLauncherItem(folder.id)
+            }
+
+            else -> {
+                updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
+                folderView.applyBadge(checkHasApp(folder, mAppsWithNotifications), !folderFromDock)
+            }
+        }
+        DatabaseManager.getManager(this).saveLayouts(pages, mDock)
+    }
+
     private fun removeAppFromFolder() {
         val moving = movingApp ?: return
         val folder = activeFolder ?: return
@@ -5720,6 +6954,7 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun discardCollidingApp() {
         val app = collidingApp
+        cancelFolderHoverOpen()
         if (app != null) {
             makeAppCold(app, !((app.parent as View).parent is HorizontalPager))
             collidingApp = null
@@ -5879,6 +7114,13 @@ class LauncherActivity : AppCompatActivity(),
         return transition
     }
 
+    private fun getFolderLayoutTransition(): LayoutTransition {
+        return getDefaultLayoutTransition().apply {
+            enableTransitionType(LayoutTransition.CHANGING)
+            setStartDelay(LayoutTransition.CHANGING, 0)
+        }
+    }
+
     private fun createIndicator() {
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
         indicatorWheelView = null
@@ -6012,7 +7254,7 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
         mIndicator.animate().cancel()
-        mIndicator.isClickable = false
+        mIndicator.isClickable = true
         mIndicator.alpha = 1f
         mIndicator.visibility = VISIBLE
     }
@@ -6099,6 +7341,8 @@ class LauncherActivity : AppCompatActivity(),
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
+        wheelView.isClickable = true
+        wheelView.setOnClickListener { openSearchFromIndicator() }
         mIndicator.removeAllViews()
         mIndicator.addView(wheelView)
         indicatorWheelView = wheelView
@@ -6303,8 +7547,10 @@ class LauncherActivity : AppCompatActivity(),
         return bitmap
     }
 
-    private fun hideFolderWindowContainer() {
-        DatabaseManager.getManager(this@LauncherActivity).saveLayouts(pages, mDock)
+    private fun hideFolderWindowContainer(saveLayout: Boolean = true) {
+        if (saveLayout) {
+            DatabaseManager.getManager(this@LauncherActivity).saveLayouts(pages, mDock)
+        }
         mFolderTitleInput.clearFocus()
         folderFromDock = false
         currentAnimator?.cancel()
@@ -6376,6 +7622,11 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun returnToHomeScreen() {
+        if (layoutSettingsPanel != null) {
+            hideLayoutSettingsPanel()
+            return
+        }
+
         if (renameAppPanel != null) {
             hideRenameAppPicker()
             return
@@ -6427,14 +7678,17 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun showSwipeSearchContainer() {
         currentAnimator?.cancel()
-        val animationDuration = (blurLayer.alpha * 300).toInt()
+        if (swipeSearchContainer.visibility != VISIBLE) {
+            swipeSearchContainer.translationY = -searchContainerHeightForOffscreenStart().toFloat()
+        }
+        val animationDuration = LauncherSearchEntryPolicy.searchOpenAnimationDurationMs(blurLayer.alpha)
         val set = AnimatorSet()
         set.play(ObjectAnimator.ofFloat(swipeSearchContainer, View.TRANSLATION_Y, 0f))
             .with(ObjectAnimator.ofFloat(blurLayer, View.ALPHA, 1f))
             .with(ObjectAnimator.ofFloat(mHorizontalPager, View.ALPHA, 0f))
             .with(ObjectAnimator.ofFloat(mIndicator, View.ALPHA, 0f))
             .with(ObjectAnimator.ofFloat(mDock, View.ALPHA, 0f))
-        set.duration = animationDuration.toLong()
+        set.duration = animationDuration
         set.interpolator = LinearInterpolator()
         set.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationStart(animation: Animator) {
@@ -6492,6 +7746,19 @@ class LauncherActivity : AppCompatActivity(),
         })
         set.start()
         currentAnimator = set
+    }
+
+    private fun searchContainerHeightForOffscreenStart(): Int {
+        swipeSearchContainer.height.takeIf { it > 0 }?.let { return it }
+        val width = swipeSearchContainer.width.takeIf { it > 0 }
+            ?: mDeviceProfile.availableWidthPx
+        swipeSearchContainer.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        return swipeSearchContainer.measuredHeight
+            .takeIf { it > 0 }
+            ?: mDeviceProfile.availableHeightPx
     }
 
     private fun setUpSwipeSearchContainer() {
@@ -6778,24 +8045,57 @@ class LauncherActivity : AppCompatActivity(),
             val viewGroup = LayoutInflater.from(mContext).inflate(R.layout.apps_page, container, false) as GridLayout
             viewGroup.rowCount = 3
             viewGroup.columnCount = 3
+            viewGroup.tag = position
+            viewGroup.layoutTransition = getFolderLayoutTransition()
             viewGroup.setPadding(0, 0, 0, 0)
-            var i = 0
-            while (9 * position + i < mFolderAppItems.size && i < 9) {
-                val appItem = mFolderAppItems[9 * position + i]
+            val sortedItems = mFolderAppItems
+                .mapIndexed { index, item -> index to item }
+                .sortedWith(
+                    compareBy<Pair<Int, LauncherItem>> { (_, item) ->
+                        item.cell.takeIf { it >= 0 } ?: Int.MAX_VALUE
+                    }.thenBy { (index, _) -> index }
+                )
+            sortedItems.forEachIndexed { sortedIndex, (_, appItem) ->
+                val absoluteCell = appItem.cell.takeIf { it >= 0 } ?: sortedIndex
+                if (FolderDragSessionPolicy.pageForCell(absoluteCell) != position) {
+                    return@forEachIndexed
+                }
+                val movingItem = folderDragSession?.moving?.launcherItem
+                if (!FolderDragSessionPolicy.shouldRenderFolderItem(
+                        itemIsMoving = movingItem === appItem,
+                        folderDragActive = folderDragSession != null
+                    )
+                ) {
+                    return@forEachIndexed
+                }
                 val appView = prepareLauncherItem(appItem)
-                val iconLayoutParams = GridLayout.LayoutParams()
+                val cellInPage = FolderDragSessionPolicy.cellInPage(absoluteCell)
+                val iconLayoutParams = GridLayout.LayoutParams(
+                    GridLayout.spec(cellInPage / FolderDragSessionPolicy.FOLDER_COLUMNS),
+                    GridLayout.spec(cellInPage % FolderDragSessionPolicy.FOLDER_COLUMNS)
+                )
                 iconLayoutParams.height = folderMetrics.cellHeight
                 iconLayoutParams.width = folderMetrics.cellWidth
                 appView.findViewById<View>(R.id.app_label).visibility = VISIBLE
                 appView.layoutParams = iconLayoutParams
                 viewGroup.addView(appView)
-                i++
             }
             container.addView(viewGroup)
             return viewGroup
         }
 
-        override fun getCount(): Int = ceil(mFolderAppItems.size.toFloat() / 9).toInt()
+        override fun getCount(): Int {
+            val itemCountPages = ceil(
+                mFolderAppItems.size.toFloat() / FolderDragSessionPolicy.ITEMS_PER_PAGE
+            ).toInt()
+            val maxCellPage = mFolderAppItems
+                .map { it.cell }
+                .filter { it >= 0 }
+                .maxOrNull()
+                ?.let { FolderDragSessionPolicy.pageForCell(it) + 1 }
+                ?: 0
+            return maxOf(1, itemCountPages, maxCellPage)
+        }
 
         override fun isViewFromObject(view: View, `object`: Any): Boolean = view === `object`
 
@@ -6841,6 +8141,70 @@ class LauncherActivity : AppCompatActivity(),
                 parentPage = -99
                 addAppToDock(moving, mIndex)
             }
+        }
+    }
+
+    private inner class FolderReorderAlarmListener(
+        private val session: FolderDragSession,
+        private val targetPage: Int,
+        private val targetCell: Int
+    ) : Alarm.OnAlarmListener {
+        override fun onAlarm(alarm: Alarm) {
+            if (folderDragSession !== session) {
+                return
+            }
+            previewFolderDrop(session, targetPage, targetCell)
+            folderReorderTargetPage = LauncherItem.INVALID_CELL
+            folderReorderTargetCell = LauncherItem.INVALID_CELL
+        }
+    }
+
+    inner class FolderPageScrollAlarmListener(private val targetPage: Int) : Alarm.OnAlarmListener {
+        override fun onAlarm(alarm: Alarm) {
+            val session = folderDragSession ?: return
+            val pageCount = mFolderAppsViewPager.adapter?.count ?: 1
+            cleanupFolderReorder(true)
+            if (FolderDragSessionPolicy.shouldPreviewDropDuringPageScroll(targetPage, pageCount)) {
+                previewFolderDrop(session, targetPage, 0)
+            } else if (mFolderAppsViewPager.currentItem != targetPage) {
+                mFolderAppsViewPager.setCurrentItem(targetPage, true)
+            }
+            folderPageScrollTarget = LauncherItem.INVALID_CELL
+        }
+    }
+
+    inner class FolderHoverOpenAlarmListener(
+        private val target: BlissFrameLayout,
+        private val fromDock: Boolean
+    ) : Alarm.OnAlarmListener {
+        override fun onAlarm(alarm: Alarm) {
+            val moving = movingApp ?: return
+            val targetItem = target.launcherItem
+            if (collidingApp !== target) {
+                return
+            }
+            if (!FolderHoverOpenPolicy.canScheduleOpen(
+                    folderInterest = folderInterest,
+                    movingItemType = moving.launcherItem.itemType,
+                    targetItemType = targetItem.itemType,
+                    folderAlreadyOpen = mFolderWindowContainer.visibility == VISIBLE
+                )
+            ) {
+                return
+            }
+
+            cleanupReorder(true)
+            cleanupDockReorder(true)
+            target.scaleX = 1f
+            target.scaleY = 1f
+            folderFromDock = fromDock
+            folderOpenedByDragHover = true
+            dragHasEnteredOpenFolder = false
+            val folderItem = targetItem as FolderItem
+            displayFolder(folderItem, target)
+            beginFolderDragSession(folderItem, target, moving, FolderDragOrigin.FROM_HOME_TO_FOLDER)
+            cancelFolderHoverOpen()
+            folderInterest = false
         }
     }
 }

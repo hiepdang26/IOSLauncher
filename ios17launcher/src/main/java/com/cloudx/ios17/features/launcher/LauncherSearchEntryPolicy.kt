@@ -1,6 +1,8 @@
 package com.cloudx.ios17.features.launcher
 
 object LauncherSearchEntryPolicy {
+    private const val SEARCH_OPEN_ANIMATION_MS = 300L
+
     enum class IndicatorTapAction {
         OPEN_SEARCH,
         IGNORE
@@ -11,7 +13,7 @@ object LauncherSearchEntryPolicy {
         searchVisible: Boolean,
         editing: Boolean
     ): IndicatorTapAction {
-        return if (indicatorShowsSearch && !searchVisible && !editing) {
+        return if (!searchVisible && !editing) {
             IndicatorTapAction.OPEN_SEARCH
         } else {
             IndicatorTapAction.IGNORE
@@ -23,4 +25,13 @@ object LauncherSearchEntryPolicy {
     }
 
     fun shouldFocusInputWhenOpened(): Boolean = true
+
+    fun searchOpenAnimationDurationMs(currentBlurAlpha: Float): Long {
+        val remainingAlphaDuration = (currentBlurAlpha.coerceIn(0f, 1f) * SEARCH_OPEN_ANIMATION_MS).toLong()
+        return if (remainingAlphaDuration > 0L) {
+            remainingAlphaDuration
+        } else {
+            SEARCH_OPEN_ANIMATION_MS
+        }
+    }
 }
