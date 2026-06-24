@@ -125,6 +125,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clickable="true"
+        android:elevation="36dp"
         android:focusable="true"
         android:visibility="gone">
 
@@ -137,20 +138,21 @@
             android:background="@null"
             android:imeOptions="actionDone"
             android:inputType="textNoSuggestions|textCapSentences"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
+            android:layout_marginBottom="40dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:text="@string/untitled"
             android:textAlignment="center"
-            android:textColor="?workspaceTextColor"
+            android:textColor="#D7FFFFFF"
             android:textCursorDrawable="@drawable/folder_title_text_cursor"
-            android:textSize="18sp" />
+            android:textSize="40sp" />
 
         <com.cloudx.ios17.core.customviews.BlurLayout
             android:id="@+id/folder_bg_blur"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            app:blurCornerRadius="12dp">
+            app:blurCornerRadius="42dp">
 
             <LinearLayout
                 android:id="@+id/folder_apps_background"
@@ -168,8 +170,8 @@
                 <me.relex.circleindicator.CircleIndicator
                     android:id="@+id/indicator"
                     android:layout_width="match_parent"
-                    android:layout_height="24dp"
-                    android:paddingBottom="4dp"
+                    android:layout_height="28dp"
+                    android:paddingBottom="8dp"
                     app:ci_drawable="@drawable/dot_on"
                     app:ci_drawable_unselected="@drawable/dot_off" />
 

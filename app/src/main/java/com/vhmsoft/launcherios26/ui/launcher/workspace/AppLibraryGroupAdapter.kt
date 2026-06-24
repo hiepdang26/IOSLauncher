@@ -13,6 +13,7 @@ class AppLibraryGroupAdapter(
 ) : RecyclerView.Adapter<AppLibraryGroupAdapter.GroupViewHolder>() {
     private val items = mutableListOf<AppLibraryGroupUiModel>()
     private var darkMode = false
+    private var liquidGlassEnabled = false
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GroupViewHolder {
         val binding = ItemAppLibraryGroupBinding.inflate(
@@ -38,6 +39,12 @@ class AppLibraryGroupAdapter(
     fun setDarkMode(enabled: Boolean) {
         if (darkMode == enabled) return
         darkMode = enabled
+        notifyDataSetChanged()
+    }
+
+    fun setLiquidGlassEnabled(enabled: Boolean) {
+        if (liquidGlassEnabled == enabled) return
+        liquidGlassEnabled = enabled
         notifyDataSetChanged()
     }
 
@@ -89,16 +96,17 @@ class AppLibraryGroupAdapter(
 
         private fun folderBackground(empty: Boolean): GradientDrawable {
             val density = binding.root.resources.displayMetrics.density
-            val radius = 20f * density
+            val style = LauncherLiquidGlassStylePolicy.appLibraryFolder(
+                enabled = liquidGlassEnabled,
+                darkMode = darkMode,
+                empty = empty
+            )
             return GradientDrawable().apply {
-                cornerRadius = radius
-                setColor(
-                    when {
-                        darkMode -> 0x5A42484B
-                        empty -> 0x365F6663
-                        else -> 0x705F6663
-                    }
-                )
+                cornerRadius = style.radiusDp * density
+                setColor(style.color)
+                style.strokeColor?.let { strokeColor ->
+                    setStroke((style.strokeWidthDp * density).toInt().coerceAtLeast(1), strokeColor)
+                }
             }
         }
     }

@@ -1,9 +1,7 @@
 package com.cloudx.ios17.core.blur
 
-import android.Manifest
 import android.app.WallpaperManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.ColorMatrix
@@ -12,9 +10,7 @@ import android.graphics.Paint
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
 import com.cloudx.ios17.R
-import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.runOnMainThread
 import com.cloudx.ios17.core.safeForEach
 import com.cloudx.ios17.core.utils.SingletonHolder
@@ -80,16 +76,6 @@ class BlurWallpaperProvider(val context: Context) {
         placeholder = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(placeholder!!)
         canvas.drawColor(0x44000000)
-
-        if (
-            ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            Timber.tag("BWP").d("NO permission granted")
-            return
-        }
 
         val enabled = getEnabledStatus()
         if (enabled != isEnabled) {

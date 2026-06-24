@@ -4,7 +4,7 @@ object LauncherDropCommitPolicy {
     fun shouldAttachToTargetPage(
         movingHasParent: Boolean,
         movingParentIsTargetPage: Boolean
-    ): Boolean = !movingHasParent || !movingParentIsTargetPage
+    ): Boolean = true
 
     fun targetInsertIndex(requestedIndex: Int, childCount: Int): Int {
         return if (requestedIndex < 0 || requestedIndex > childCount) {

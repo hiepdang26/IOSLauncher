@@ -1,6 +1,5 @@
 package com.vhmsoft.launcherios26.ui.launcher
 
-import android.Manifest
 import android.app.SearchManager
 import android.app.role.RoleManager
 import android.app.Dialog
@@ -42,7 +41,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
@@ -99,6 +97,7 @@ import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragDropPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragGeometryPolicy
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherLiquidGlassStylePolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPagedFolderGridLayoutManager
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWindowPolicy
@@ -271,12 +270,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     ) {
         handleDefaultLauncherSelectionReturn(showNotSelectedToast = true)
     }
-    private val weatherLocationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        updateWidgetWeatherPermissionState()
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -4683,16 +4676,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun requestWeatherLocationPermission() {
-        if (hasWeatherLocationPermission()) {
-            updateWidgetWeatherPermissionState()
-            return
-        }
-        weatherLocationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        )
+        updateWidgetWeatherPermissionState()
     }
 
     private fun updateWidgetWeatherPermissionState() {
@@ -4701,16 +4685,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun hasWeatherLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-    }
+    private fun hasWeatherLocationPermission(): Boolean = false
 
     private fun showRemoveAppDialog(app: LauncherApp) {
         removeAppController.showRemoveAppDialog(app)
@@ -5049,31 +5024,49 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun applyWorkspaceAppearance() {
-        val dockColor = if (layoutDarkMode) 0x78404D5C else 0x6B3CA9E8
-        val dockStroke = if (layoutDarkMode) 0x55FFFFFF else 0x66FFFFFF
-        val folderColor = when {
-            layoutLiquidGlass -> 0x52FFFFFF
-            layoutDarkMode -> 0x5A42484B
-            else -> 0x705F6663
-        }
-        val folderStroke = if (layoutLiquidGlass) 0x90FFFFFF.toInt() else null
-        val pillColor = if (layoutDarkMode) 0xA8001520.toInt() else 0x9A001A24.toInt()
-        val indicatorColor = if (layoutDarkMode) 0x66324B5C else 0x733B5B6A
+        val dockStyle = LauncherLiquidGlassStylePolicy.dock(
+            enabled = layoutLiquidGlass,
+            darkMode = layoutDarkMode
+        )
+        val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
+            enabled = layoutLiquidGlass,
+            darkMode = layoutDarkMode
+        )
+        val pillStyle = LauncherLiquidGlassStylePolicy.homeSearchPill(
+            enabled = layoutLiquidGlass,
+            darkMode = layoutDarkMode
+        )
+        val indicatorStyle = LauncherLiquidGlassStylePolicy.pageIndicator(
+            enabled = layoutLiquidGlass,
+            darkMode = layoutDarkMode
+        )
         val searchTextColor = Color.WHITE
 
         binding.workspace.dockRecyclerView.background = roundedBackground(
-            dockColor,
-            38,
-            dockStroke
+            dockStyle.color,
+            dockStyle.radiusDp,
+            dockStyle.strokeColor,
+            dockStyle.strokeWidthDp
         )
-        binding.workspace.searchPill.background = roundedBackground(pillColor, 17)
+        binding.workspace.searchPill.background = roundedBackground(
+            pillStyle.color,
+            pillStyle.radiusDp,
+            pillStyle.strokeColor,
+            pillStyle.strokeWidthDp
+        )
         binding.workspace.searchPillText.setTextColor(searchTextColor)
         binding.workspace.searchPillIcon.imageTintList = ColorStateList.valueOf(searchTextColor)
-        binding.workspace.pageIndicator.background = roundedBackground(indicatorColor, 16)
+        binding.workspace.pageIndicator.background = roundedBackground(
+            indicatorStyle.color,
+            indicatorStyle.radiusDp,
+            indicatorStyle.strokeColor,
+            indicatorStyle.strokeWidthDp
+        )
         binding.workspace.folderContentPanel.background = roundedBackground(
-            color = folderColor,
-            radiusDp = 34,
-            strokeColor = folderStroke
+            color = folderStyle.color,
+            radiusDp = folderStyle.radiusDp,
+            strokeColor = folderStyle.strokeColor,
+            strokeWidthDp = folderStyle.strokeWidthDp
         )
         binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
         binding.workspace.widgetSheet.setBackgroundColor(
@@ -5081,6 +5074,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         if (::searchController.isInitialized) {
             searchController.setDarkMode(layoutDarkMode)
+            searchController.setLiquidGlassEnabled(layoutLiquidGlass)
         }
 
         if (::workspacePageAdapter.isInitialized) {
@@ -5093,6 +5087,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         if (::categoryDetailAdapter.isInitialized) {
             categoryDetailAdapter.setDarkMode(layoutDarkMode)
+            categoryDetailAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
         }
         if (::folderContentAdapter.isInitialized) {
             folderContentAdapter.setDarkMode(layoutDarkMode)

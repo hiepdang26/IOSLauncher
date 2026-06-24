@@ -1,12 +1,14 @@
 package com.cloudx.ios17.core
 
 import android.content.Context
+import android.content.SharedPreferences
 import kotlin.math.roundToInt
 
 data class LauncherHomeLayoutSettings(
     val iconSizeDp: Int,
     val rows: Int,
-    val columns: Int
+    val columns: Int,
+    val autoArrangeApps: Boolean
 ) {
     val maxAppsPerPage: Int
         get() = rows * columns
@@ -16,22 +18,26 @@ object LauncherHomeLayoutPreferences {
     const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
     const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
     const val KEY_HOME_GRID_ROWS = "home_grid_rows"
+    const val KEY_AUTO_REARRANGE_APPS = "auto_rearrange"
+    const val KEY_LAYOUT_AUTO_REARRANGE_APPS = "layout_auto_arrange"
+    const val KEY_LAYOUT_LIQUID_GLASS = "layout_liquid_glass"
 
     const val HOME_PAGE_COLUMNS = 4
     const val HOME_GRID_ROWS_5 = 5
     const val HOME_GRID_ROWS_6 = 6
     const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
 
-    const val MIN_HOME_ICON_SIZE_DP = 52
-    const val DEFAULT_HOME_ICON_SIZE_DP = 64
+    const val MIN_HOME_ICON_SIZE_DP = 64
+    const val DEFAULT_HOME_ICON_SIZE_DP = 70
     const val MAX_HOME_ICON_SIZE_DP = 78
+    const val DEFAULT_AUTO_REARRANGE_APPS = false
 
-    const val HOME_PAGE_TOP_PADDING_DP = 8
+    const val HOME_PAGE_TOP_PADDING_DP = 40
     const val EDIT_HOME_PAGE_TOP_PADDING_DP = 78
     const val PAGE_INDICATOR_HEIGHT_DP = 34
     const val INDICATOR_DOCK_GAP_DP = 12
     const val DOCK_HORIZONTAL_MARGIN_DP = 12
-    const val DOCK_EXTRA_HEIGHT_DP = 20
+    const val DOCK_EXTRA_HEIGHT_DP = 44
     const val DOCK_BOTTOM_MARGIN_DP = 8
 
     private const val MIN_HORIZONTAL_GAP_DP = 8
@@ -40,16 +46,46 @@ object LauncherHomeLayoutPreferences {
         val prefs = context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
         return resolve(
             iconSizeDp = prefs.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP),
-            rows = prefs.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
+            rows = prefs.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS),
+            autoArrangeApps = readAutoRearrangeApps(prefs)
         )
     }
 
-    fun resolve(iconSizeDp: Int, rows: Int): LauncherHomeLayoutSettings {
+    fun resolve(
+        iconSizeDp: Int,
+        rows: Int,
+        autoArrangeApps: Boolean = DEFAULT_AUTO_REARRANGE_APPS
+    ): LauncherHomeLayoutSettings {
         return LauncherHomeLayoutSettings(
             iconSizeDp = iconSizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP),
             rows = rows.takeIf { it == HOME_GRID_ROWS_5 || it == HOME_GRID_ROWS_6 } ?: DEFAULT_HOME_GRID_ROWS,
-            columns = HOME_PAGE_COLUMNS
+            columns = HOME_PAGE_COLUMNS,
+            autoArrangeApps = autoArrangeApps
         )
+    }
+
+    fun isAutoRearrangeAppsEnabled(context: Context): Boolean {
+        return read(context).autoArrangeApps
+    }
+
+    fun isLiquidGlassEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_LAYOUT_LIQUID_GLASS, false)
+    }
+
+    fun setAutoRearrangeApps(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_AUTO_REARRANGE_APPS, enabled)
+            .putBoolean(KEY_LAYOUT_AUTO_REARRANGE_APPS, enabled)
+            .apply()
+    }
+
+    private fun readAutoRearrangeApps(prefs: SharedPreferences): Boolean {
+        if (prefs.contains(KEY_LAYOUT_AUTO_REARRANGE_APPS)) {
+            return prefs.getBoolean(KEY_LAYOUT_AUTO_REARRANGE_APPS, DEFAULT_AUTO_REARRANGE_APPS)
+        }
+        return prefs.getBoolean(KEY_AUTO_REARRANGE_APPS, DEFAULT_AUTO_REARRANGE_APPS)
     }
 
     fun resolveIconSizePx(

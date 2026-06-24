@@ -22,7 +22,7 @@ class AdaptiveIconGenerator(
     private var ranLoop = false
     private var shouldWrap = false
     private var backgroundColor = Color.WHITE
-    private var useWhiteBackground = true
+    private var useWhiteBackground = false
     private var isFullBleed = false
     private var noMixinNeeded = false
     private var fullBleedChecked = false

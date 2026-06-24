@@ -2,46 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <permission
-        android:name="com.android.launcher.permission.INSTALL_SHORTCUT"
-        android:description="@string/permdesc_install_shortcut"
-        android:label="@string/permlab_install_shortcut"
-        android:protectionLevel="dangerous" />
-
-    <permission
-        android:name="com.android.launcher.permission.UNINSTALL_SHORTCUT"
-        android:description="@string/permdesc_uninstall_shortcut"
-        android:label="@string/permlab_uninstall_shortcut"
-        android:protectionLevel="dangerous" />
-
-    <!-- General permissions BEGIN-->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<!--    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />-->
-<!--    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />-->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS" />
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
-    <uses-permission
-        android:name="android.permission.BIND_APPWIDGET"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission
-        android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission
-        android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
-    <!-- General permissions END-->
-
-    <!-- LineageOS specific permissions BEGIN -->
-    <uses-permission android:name="lineageos.permission.ACCESS_WEATHER_MANAGER" />
-    <uses-permission android:name="lineageos.permission.READ_WEATHER" />
-    <!-- LineageOS specific permissions END -->
-
-    <uses-permission android:name="foundation.e.pwaplayer.provider.READ_WRITE" />
 
     <application
         android:name=".BlissLauncher"
@@ -117,43 +78,10 @@
             android:label="@string/choose_widget"
             android:theme="@style/WidgetPickerDialog" />
 
-        <service
-            android:name=".features.notification.NotificationService"
-            android:enabled="true"            android:exported="true"
-
-            android:label="@string/icon_badging_service_title"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
-
         <service android:name=".features.weather.WeatherUpdateService" />
         <service android:name=".features.weather.DeviceStatusService" />
         <service android:name=".features.weather.WeatherSourceListenerService" />
 
-
-        <!-- Intent received used to install shortcuts from other applications -->
-        <receiver
-            android:name=".features.shortcuts.InstallShortcutReceiver"
-            android:enabled="true"            android:exported="true"
-
-            android:permission="com.android.launcher.permission.INSTALL_SHORTCUT">
-            <intent-filter>
-                <action android:name="com.android.launcher.action.INSTALL_SHORTCUT" />
-            </intent-filter>
-        </receiver>
-
-        <!-- Intent received used to uninstall shortcuts from other applications -->
-        <receiver
-            android:name=".features.shortcuts.UninstallShortcutReceiver"
-            android:exported="true"
-            android:enabled="true"
-            android:permission="com.android.launcher.permission.UNINSTALL_SHORTCUT">
-            <intent-filter>
-                <action android:name="com.android.launcher.action.UNINSTALL_SHORTCUT" />
-            </intent-filter>
-        </receiver>
 
         <!-- Intent received when a session is committed -->
         <!--<receiver android:name="com.android.launcher3.SessionCommitReceiver">

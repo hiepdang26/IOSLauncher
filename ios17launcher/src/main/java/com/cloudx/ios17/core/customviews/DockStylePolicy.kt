@@ -6,7 +6,8 @@ object DockStylePolicy {
 
     enum class Style {
         CURRENT,
-        ROUNDED
+        ROUNDED,
+        LIQUID_GLASS
     }
 
     data class LayoutMetrics(
@@ -14,8 +15,18 @@ object DockStylePolicy {
         val bottomPaddingPx: Int
     )
 
-    fun styleFor(iphone8StyleEnabled: Boolean): Style {
+    fun styleFor(
+        iphone8StyleEnabled: Boolean,
+        liquidGlassEnabled: Boolean = false
+    ): Style {
+        if (liquidGlassEnabled) {
+            return Style.LIQUID_GLASS
+        }
         return if (iphone8StyleEnabled) Style.CURRENT else Style.ROUNDED
+    }
+
+    fun drawsStyleAboveBlur(style: Style): Boolean {
+        return style == Style.LIQUID_GLASS
     }
 
     @Suppress("UNUSED_PARAMETER")

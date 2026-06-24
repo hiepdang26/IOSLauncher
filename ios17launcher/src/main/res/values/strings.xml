@@ -4,6 +4,15 @@
     <string name="search">Search</string>
     <string name="untitled">Untitled</string>
     <string name="app_suggestion">Suggestions</string>
+    <string name="today_widget_search_hint">T&#236;m ki&#7871;m</string>
+    <string name="today_widget_weather_location">Ph&#250; Di&#7877;n</string>
+    <string name="today_widget_weather_condition">m&#226;y &#273;en u &#225;m</string>
+    <string name="today_widget_weather_high_low">H:38&#176; L:28&#176;</string>
+    <string name="today_widget_battery">&#7854;c quy</string>
+    <string name="today_widget_picture">Picture</string>
+    <string name="today_widget_suggestions">G&#7907;i &#253;</string>
+    <string name="today_widget_favorites">Y&#234;u th&#237;ch</string>
+    <string name="today_widget_calendar">L&#7883;ch</string>
     <string name="explanation_access_to_appusage_is_not_enabled">Enable appusage access to display
         app suggestions.
     </string>
@@ -170,10 +179,19 @@
     <string name="launcher_search_hint">Tìm kiếm</string>
     <string name="app_option_hide">Ứng Dụng Ẩn</string>
     <string name="app_option_info">Thông tin ứng dụng</string>
+    <string name="app_option_rename">Đổi tên</string>
     <string name="app_option_edit_home">Chỉnh sửa màn hình chính</string>
     <string name="app_option_delete">Xóa bỏ</string>
+    <string name="settings_rename">Đổi tên</string>
+    <string name="layout_back_settings">‹ Cài đặt</string>
+    <string name="settings_no_apps_found">Không có ứng dụng nào.</string>
+    <string name="settings_rename_hint">Tên ứng dụng</string>
+    <string name="settings_rename_done">Đã đổi tên %1$s.</string>
+    <string name="dialog_cancel">HỦY</string>
+    <string name="dialog_ok">OK</string>
     <string name="launcher_edit_options">Sửa</string>
     <string name="launcher_edit_done">Xong</string>
+    <string name="auto_rearrange_apps">Tự động sắp xếp lại ứng dụng</string>
     <string name="widgets">Widgets</string>
     <string name="uninstall_shortcut_dialog">Do you want to uninstall this shortcut?</string>
     <string name="ok">ok</string>

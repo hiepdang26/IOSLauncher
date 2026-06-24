@@ -50,4 +50,15 @@ class TodayWidgetLayoutPolicyTest {
 
         assertEquals(listOf(10, 30, 20, 40), reordered)
     }
+
+    @Test
+    fun `preview order pushes widgets while dragging through target position`() {
+        val reordered = TodayWidgetLayoutPolicy.previewOrder(
+            ids = listOf(10, 20, 30, 40),
+            draggedId = 10,
+            targetIndex = 3
+        )
+
+        assertEquals(listOf(20, 30, 40, 10), reordered)
+    }
 }

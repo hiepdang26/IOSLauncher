@@ -16,7 +16,6 @@ import android.graphics.drawable.Drawable
 import android.util.Log
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.core.customviews.AdaptiveIconDrawableCompat
-import com.cloudx.ios17.core.utils.GraphicsUtil
 import com.cloudx.ios17.core.utils.UserHandle
 import java.io.File
 import java.io.FileInputStream
@@ -37,8 +36,6 @@ class IconsHandler(private val ctx: Context) {
     // Map with available drawable for an icons pack.
     private val packagesDrawables: MutableMap<String, String> = HashMap()
 
-    // Graphics util to manipulate bitmaps.
-    private val graphicsUtil = GraphicsUtil(ctx)
     private val mIconDpi = BlissLauncher.getApplication(ctx).deviceProfile.fillResIconDpi
     private var iconPackres: Resources? = null
     private var iconsPackPackageName = ""
@@ -136,15 +133,17 @@ class IconsHandler(private val ctx: Context) {
             return systemIcon
         }
 
-        systemIcon = getDefaultAppDrawable(activityInfo, userHandle)
-        systemIcon = if (Utilities.ATLEAST_OREO && systemIcon is AdaptiveIconDrawable) {
-            AdaptiveIconDrawableCompat(systemIcon.background, systemIcon.foreground)
+        val defaultIcon = getDefaultAppDrawable(activityInfo, userHandle)
+        systemIcon = if (Utilities.ATLEAST_OREO && defaultIcon is AdaptiveIconDrawable) {
+            AdaptiveIconDrawableCompat(defaultIcon.background, defaultIcon.foreground)
         } else {
             val adaptiveIcon = AdaptiveIconProvider().load(ctx, componentName.packageName)
             if (adaptiveIcon != null) {
                 adaptiveIcon
+            } else if (HomeIconRenderPolicy.wrapLegacyFallbackIcons) {
+                AdaptiveIconGenerator(ctx, defaultIcon).getResult()
             } else {
-                AdaptiveIconGenerator(ctx, getDefaultAppDrawable(activityInfo, userHandle)).getResult()
+                defaultIcon
             }
         }
 
@@ -167,10 +166,11 @@ class IconsHandler(private val ctx: Context) {
                         AdaptiveIconDrawableCompat(icon.background, icon.foreground)
                     } else {
                         val adaptiveIcon = AdaptiveIconProvider().load(ctx, safeComponentName.packageName)
-                        adaptiveIcon ?: graphicsUtil.convertToRoundedCorner(
-                            ctx,
-                            graphicsUtil.addBackground(icon, false)
-                        )
+                        adaptiveIcon ?: if (HomeIconRenderPolicy.wrapLegacyFallbackIcons) {
+                            AdaptiveIconGenerator(ctx, icon).getResult()
+                        } else {
+                            icon
+                        }
                     }
 
                     val badgedIcon = getBadgedIcon(icon, launcherActivityInfo.user)
@@ -234,10 +234,19 @@ class IconsHandler(private val ctx: Context) {
 
     /**
      * Create path for icons cache like this:
-     * {cacheDir}/icons/{icons_pack_package_name}_{key_hash}.png
+     * {cacheDir}/icons/{icon_style_version}_{icons_pack_package_name}_{key_hash}.png
      */
     private fun cacheGetFileName(key: String): File =
-        File(getIconsCacheDir().toString() + File.separator + iconsPackPackageName + "_" + key.hashCode() + ".png")
+        File(
+            getIconsCacheDir().toString() +
+                File.separator +
+                HomeIconRenderPolicy.cacheStyleVersion +
+                "_" +
+                iconsPackPackageName +
+                "_" +
+                key.hashCode() +
+                ".png"
+        )
 
     /**
      * Returns icons cache directory.
@@ -265,7 +274,14 @@ class IconsHandler(private val ctx: Context) {
         }
     }
 
-    fun convertIcon(icon: Drawable?): Drawable = AdaptiveIconGenerator(ctx, icon!!).getResult()
+    fun convertIcon(icon: Drawable?): Drawable {
+        val safeIcon = requireNotNull(icon)
+        return if (HomeIconRenderPolicy.wrapLegacyFallbackIcons) {
+            AdaptiveIconGenerator(ctx, safeIcon).getResult()
+        } else {
+            safeIcon
+        }
+    }
 
     val fullResDefaultActivityIcon: Drawable
         get() = getFullResIcon(
@@ -290,7 +306,6 @@ class IconsHandler(private val ctx: Context) {
 
     companion object {
         private const val TAG = "IconsHandler"
-
         /**
          * Returns a drawable suitable for the all apps view. If the package or the
          * resource do not exist, it returns null.

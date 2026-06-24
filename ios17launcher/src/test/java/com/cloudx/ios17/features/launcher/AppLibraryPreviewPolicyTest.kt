@@ -21,4 +21,28 @@ class AppLibraryPreviewPolicyTest {
             AppLibraryPreviewPolicy.overflowPreviewApps(apps)
         )
     }
+
+    @Test
+    fun previewSlotContentUsesOverflowClusterOnlyInFourthSlotWhenMoreThanFourApps() {
+        assertEquals(
+            AppLibraryPreviewPolicy.SlotContent.LARGE_ICON,
+            AppLibraryPreviewPolicy.previewSlotContent(appCount = 5, slot = 0)
+        )
+        assertEquals(
+            AppLibraryPreviewPolicy.SlotContent.LARGE_ICON,
+            AppLibraryPreviewPolicy.previewSlotContent(appCount = 5, slot = 2)
+        )
+        assertEquals(
+            AppLibraryPreviewPolicy.SlotContent.OVERFLOW_CLUSTER,
+            AppLibraryPreviewPolicy.previewSlotContent(appCount = 5, slot = 3)
+        )
+    }
+
+    @Test
+    fun previewSlotContentKeepsFourthSlotLargeWhenThereAreOnlyFourApps() {
+        assertEquals(
+            AppLibraryPreviewPolicy.SlotContent.LARGE_ICON,
+            AppLibraryPreviewPolicy.previewSlotContent(appCount = 4, slot = 3)
+        )
+    }
 }

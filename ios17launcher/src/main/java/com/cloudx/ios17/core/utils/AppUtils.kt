@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.IconsHandler
+import com.cloudx.ios17.core.LauncherAppRenamePolicy
+import com.cloudx.ios17.core.LauncherAppRenamePreferences
 import com.cloudx.ios17.core.database.model.ApplicationItem
 import com.cloudx.ios17.features.launcher.AppProvider
 import java.util.LinkedHashMap
@@ -110,6 +112,15 @@ object AppUtils {
         if (appInfo.packageName.equals("com.generalmagic.magicearth", ignoreCase = true)) {
             applicationItem.title = context.getString(R.string.app_name_maps)
         }
+        applicationItem.title = LauncherAppRenamePreferences.renamedTitle(
+            context = context,
+            appKeys = LauncherAppRenamePolicy.appKeys(
+                appId = applicationItem.id,
+                componentName = applicationItem.componentName?.flattenToString(),
+                packageName = appInfo.packageName
+            ),
+            defaultTitle = applicationItem.title?.toString().orEmpty()
+        )
         applicationItem.packageName = appInfo.packageName
         return applicationItem
     }

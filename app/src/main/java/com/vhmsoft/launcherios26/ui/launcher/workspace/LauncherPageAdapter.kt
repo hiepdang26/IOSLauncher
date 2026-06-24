@@ -433,6 +433,8 @@ class LauncherPageAdapter(
         if (liquidGlassEnabled == enabled) return
         liquidGlassEnabled = enabled
         attachedHomePageHolders.values.forEach { holder -> holder.setLiquidGlassEnabled(enabled) }
+        attachedLibraryPageHolder?.setLiquidGlassEnabled(enabled)
+        notifyItemChanged(libraryAdapterPosition())
     }
 
     fun setWeatherLocationGranted(granted: Boolean) {
@@ -1466,6 +1468,7 @@ class LauncherPageAdapter(
             attachedLibraryPageHolder = this
             applyAppearance()
             groupAdapter.setDarkMode(darkMode)
+            groupAdapter.setLiquidGlassEnabled(liquidGlassEnabled)
             groupAdapter.submitGroups(groups)
         }
 
@@ -1474,13 +1477,22 @@ class LauncherPageAdapter(
             applyAppearance()
         }
 
+        fun setLiquidGlassEnabled(enabled: Boolean) {
+            groupAdapter.setLiquidGlassEnabled(enabled)
+            applyAppearance()
+        }
+
         private fun applyAppearance() {
-            val pillColor = if (darkMode) 0x66324B5C else 0x733B5B6A
+            val pillStyle = LauncherLiquidGlassStylePolicy.appLibrarySearchPill(
+                enabled = liquidGlassEnabled,
+                darkMode = darkMode
+            )
             val textColor = Color.WHITE
             binding.librarySearchPill.background = roundedBackground(
                 binding.root,
-                pillColor,
-                22
+                pillStyle.color,
+                pillStyle.radiusDp,
+                pillStyle.strokeColor
             )
             binding.librarySearchPillIcon.imageTintList = ColorStateList.valueOf(textColor)
             binding.librarySearchPillText.setTextColor(textColor)

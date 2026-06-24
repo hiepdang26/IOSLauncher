@@ -1,12 +1,8 @@
 package com.cloudx.ios17.features.weather
 
-import android.Manifest
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.os.Bundle
 import android.preference.EditTextPreference
 import android.preference.ListPreference
@@ -14,9 +10,7 @@ import android.preference.Preference
 import android.preference.PreferenceActivity
 import android.preference.PreferenceScreen
 import android.preference.SwitchPreference
-import android.provider.Settings
 import android.text.TextUtils
-import android.widget.Toast
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.Preferences
 import com.cloudx.ios17.core.utils.Constants
@@ -65,17 +59,6 @@ class WeatherPreferences : PreferenceActivity(),
         Preferences.setUseMetricUnits(mContext, defValue)
         mUseMetric.isChecked = defValue
 
-        if (!mUseCustomLoc.isChecked) {
-            if (!hasLocationPermission(this)) {
-                val permissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-                requestPermissions(permissions, LOCATION_PERMISSION_REQUEST_CODE)
-            } else {
-                val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                if (!lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                    showDialog()
-                }
-            }
-        }
     }
 
     override fun onResume() {
@@ -188,70 +171,12 @@ class WeatherPreferences : PreferenceActivity(),
             }
             mCustomWeatherLoc.summary = location
         } else {
-            if (!hasLocationPermission(mContext)) {
-                val permissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-                requestPermissions(permissions, LOCATION_PERMISSION_REQUEST_CODE)
-            }
             mCustomWeatherLoc.setSummary(R.string.weather_geolocated)
-        }
-    }
-
-    private fun showDialog() {
-        val builder = AlertDialog.Builder(mContext)
-
-        builder.setTitle(R.string.weather_retrieve_location_dialog_title)
-        builder.setMessage(R.string.weather_retrieve_location_dialog_message)
-        builder.setCancelable(false)
-        builder.setPositiveButton(R.string.weather_retrieve_location_dialog_enable_button) { _, _ ->
-            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            startActivityForResult(intent, 203)
-        }
-        builder.setNegativeButton(R.string.cancel, null)
-        val dialog = builder.create()
-        dialog.show()
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == 203) {
-            val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            if (!lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                Toast.makeText(this, getString(R.string.toast_custom_location), Toast.LENGTH_SHORT).show()
-            } else {
-                startService(
-                    Intent(this, WeatherUpdateService::class.java)
-                        .putExtra(WeatherUpdateService.ACTION_FORCE_UPDATE, true)
-                )
-            }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data)
         }
     }
 
     private fun updateIconSetSummary() {
         mIconSet.summary = mIconSet.entry
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // We only get here if user tried to enable the preference,
-                // hence safe to turn it on after permission is granted.
-                val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                if (!lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                    showDialog()
-                } else {
-                    startService(
-                        Intent(this, WeatherUpdateService::class.java)
-                            .putExtra(WeatherUpdateService.ACTION_FORCE_UPDATE, true)
-                    )
-                }
-            }
-        }
     }
 
     override fun onWeatherServiceProviderChanged(providerName: String?) {
@@ -281,11 +206,7 @@ class WeatherPreferences : PreferenceActivity(),
 
     companion object {
         private const val TAG = "WeatherPreferences"
-        const val LOCATION_PERMISSION_REQUEST_CODE = 1
-
         @JvmStatic
-        fun hasLocationPermission(context: Context): Boolean =
-            context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
+        fun hasLocationPermission(context: Context): Boolean = false
     }
 }

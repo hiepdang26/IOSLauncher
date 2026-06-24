@@ -46,4 +46,32 @@ class LauncherSearchEntryPolicyTest {
     fun searchInput_focusesWhenSearchOpens() {
         assertTrue(LauncherSearchEntryPolicy.shouldFocusInputWhenOpened())
     }
+
+    @Test
+    fun swipeDownSearch_startsOnHomePagesBeforeRightmostPage() {
+        assertTrue(
+            LauncherSearchEntryPolicy.canStartSwipeDownSearch(
+                currentPage = 1,
+                rightmostPage = 3
+            )
+        )
+    }
+
+    @Test
+    fun swipeDownSearch_ignoresWidgetAndRightmostPages() {
+        assertEquals(
+            false,
+            LauncherSearchEntryPolicy.canStartSwipeDownSearch(
+                currentPage = 0,
+                rightmostPage = 3
+            )
+        )
+        assertEquals(
+            false,
+            LauncherSearchEntryPolicy.canStartSwipeDownSearch(
+                currentPage = 3,
+                rightmostPage = 3
+            )
+        )
+    }
 }

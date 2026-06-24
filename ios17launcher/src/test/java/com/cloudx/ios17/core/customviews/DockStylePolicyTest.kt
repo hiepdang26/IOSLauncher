@@ -1,6 +1,8 @@
 package com.cloudx.ios17.core.customviews
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DockStylePolicyTest {
@@ -16,10 +18,35 @@ class DockStylePolicyTest {
     }
 
     @Test
+    fun styleFor_usesLiquidGlassDockWhenLiquidGlassIsEnabled() {
+        assertEquals(
+            DockStylePolicy.Style.LIQUID_GLASS,
+            DockStylePolicy.styleFor(
+                iphone8StyleEnabled = true,
+                liquidGlassEnabled = true
+            )
+        )
+        assertEquals(
+            DockStylePolicy.Style.LIQUID_GLASS,
+            DockStylePolicy.styleFor(
+                iphone8StyleEnabled = false,
+                liquidGlassEnabled = true
+            )
+        )
+    }
+
+    @Test
     fun layoutMetrics_keepDockHeightOnIconRowWhenBottomNavigationIsHidden() {
         assertEquals(
             DockStylePolicy.LayoutMetrics(heightPx = 88, bottomPaddingPx = 0),
             DockStylePolicy.layoutMetrics(hotseatCellHeightPx = 88, bottomInsetPx = 36)
         )
+    }
+
+    @Test
+    fun liquidGlassDrawsTintAboveBlurSoItIsVisible() {
+        assertTrue(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.LIQUID_GLASS))
+        assertFalse(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.ROUNDED))
+        assertFalse(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.CURRENT))
     }
 }

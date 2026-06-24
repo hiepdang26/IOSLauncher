@@ -2,6 +2,7 @@ package com.cloudx.ios17.core.database
 
 import android.content.Context
 import android.widget.GridLayout
+import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
 import com.cloudx.ios17.core.customviews.BlissFrameLayout
 import com.cloudx.ios17.core.database.model.FolderItem
 import com.cloudx.ios17.core.database.model.LauncherItem
@@ -28,6 +29,7 @@ class DatabaseManager private constructor(private val mContext: Context) {
 
     private fun saveLauncherItems(pages: List<GridLayout>, dock: GridLayout) {
         val items = ArrayList<LauncherItem>()
+        val autoArrangeApps = LauncherHomeLayoutPreferences.isAutoRearrangeAppsEnabled(mContext)
         for (i in 0 until dock.childCount) {
             val launcherItem = (dock.getChildAt(i) as BlissFrameLayout).launcherItem
             if (launcherItem.itemType == Constants.ITEM_TYPE_FOLDER) {
@@ -55,12 +57,18 @@ class DatabaseManager private constructor(private val mContext: Context) {
 
         for (i in pages.indices) {
             val gridLayout = pages[i]
+            val maxCells = gridLayout.rowCount * gridLayout.columnCount
             for (j in 0 until gridLayout.childCount) {
                 val launcherItem = (gridLayout.getChildAt(j) as BlissFrameLayout).launcherItem
+                val savedCell = if (autoArrangeApps) {
+                    j
+                } else {
+                    launcherItem.cell.takeIf { it in 0 until maxCells } ?: j
+                }
                 if (launcherItem.itemType == Constants.ITEM_TYPE_FOLDER) {
                     val folderItem = launcherItem as FolderItem
                     folderItem.screenId = i.toLong()
-                    folderItem.cell = j
+                    folderItem.cell = savedCell
                     folderItem.container = Constants.CONTAINER_DESKTOP.toLong()
                     items.add(folderItem)
 
@@ -75,7 +83,7 @@ class DatabaseManager private constructor(private val mContext: Context) {
                 } else {
                     launcherItem.screenId = i.toLong()
                     launcherItem.container = Constants.CONTAINER_DESKTOP.toLong()
-                    launcherItem.cell = j
+                    launcherItem.cell = savedCell
                     items.add(launcherItem)
                 }
             }

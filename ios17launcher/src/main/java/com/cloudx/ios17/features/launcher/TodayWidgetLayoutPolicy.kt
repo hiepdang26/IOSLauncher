@@ -61,6 +61,10 @@ object TodayWidgetLayoutPolicy {
         return mutable
     }
 
+    fun previewOrder(ids: List<Int>, draggedId: Int, targetIndex: Int): List<Int> {
+        return reorder(ids, draggedId, targetIndex)
+    }
+
     private const val WIDE_WIDGET_RATIO = 1.35f
     private const val HALF_ROW_CAPACITY = 2
 }

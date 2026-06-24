@@ -268,7 +268,7 @@ class HorizontalPager @JvmOverloads constructor(
         val yMoved = yDiff > mTouchSlop
 
         if (xMoved || yMoved) {
-            if (yMoved && y - mLastMotionY > 0 && yDiff > xDiff && inThresholdRegion() && currentPage != 0) {
+            if (yMoved && y - mLastMotionY > 0 && yDiff > xDiff && inThresholdRegion() && canStartSwipeDown()) {
                 mTouchState = TOUCH_STATE_VERTICAL_SCROLLING
                 (getContext() as OnSwipeDownListener).onSwipeStart()
             } else if (xMoved && yDiff < xDiff && inThresholdRegion()) {
@@ -285,6 +285,10 @@ class HorizontalPager @JvmOverloads constructor(
 
     private fun inThresholdRegion(): Boolean =
         mLastMotionRawY < BlissLauncher.getApplication(getContext()).deviceProfile.availableHeightPx
+
+    private fun canStartSwipeDown(): Boolean {
+        return (getContext() as? OnSwipeDownListener)?.canStartSwipeDown() == true
+    }
 
     fun enableChildrenCache() {
         setChildrenDrawingCacheEnabled(true)

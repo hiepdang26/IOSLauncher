@@ -1,7 +1,6 @@
 package com.cloudx.ios17.features.launcher
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,8 +17,8 @@ class LauncherDropCommitPolicyTest {
     }
 
     @Test
-    fun shouldNotReattachWhenDraggedViewAlreadyBelongsToTargetPage() {
-        assertFalse(
+    fun shouldAttachWhenDraggedViewAlreadyBelongsToTargetPageSoFinalDropCellIsCommitted() {
+        assertTrue(
             LauncherDropCommitPolicy.shouldAttachToTargetPage(
                 movingHasParent = true,
                 movingParentIsTargetPage = true

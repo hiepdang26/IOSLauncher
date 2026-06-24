@@ -1,6 +1,5 @@
 package com.cloudx.ios17.features.launcher
 
-import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
@@ -12,14 +11,12 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.WallpaperManager
-import android.app.usage.UsageStats
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.BroadcastReceiver
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ComponentName
-import android.content.ContentResolver
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -27,9 +24,9 @@ import android.content.IntentFilter
 import android.content.pm.ActivityInfo.CONFIG_ORIENTATION
 import android.content.pm.ActivityInfo.CONFIG_SCREEN_SIZE
 import android.content.pm.LauncherApps
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Rect
@@ -37,8 +34,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.location.LocationManager
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -48,11 +45,11 @@ import android.os.Process
 import android.os.StrictMode
 import android.os.UserManager
 import android.provider.Settings
-import android.service.notification.NotificationListenerService
 import android.text.Editable
 import android.text.InputType
 import android.text.TextUtils
 import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.DragEvent
 import android.view.Gravity
@@ -80,12 +77,12 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.doOnPreDraw
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -95,8 +92,11 @@ import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.Alarm
 import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.LauncherAppRenamePolicy
+import com.cloudx.ios17.core.LauncherAppRenamePreferences
 import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
 import com.cloudx.ios17.core.LauncherHomeLayoutSettings
+import com.cloudx.ios17.core.LauncherLiquidGlassStylePolicy
 import com.cloudx.ios17.core.Preferences
 import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.blur.BlurWallpaperProvider
@@ -137,8 +137,6 @@ import com.cloudx.ios17.core.utils.UserHandle
 import com.cloudx.ios17.core.utils.getActivityThemeRes
 import com.cloudx.ios17.core.utils.isWorkspaceDarkText
 import com.cloudx.ios17.core.wallpaper.WallpaperManagerCompat
-import com.cloudx.ios17.features.notification.NotificationRepository
-import com.cloudx.ios17.features.notification.NotificationService
 import com.cloudx.ios17.features.shortcuts.DeepShortcutManager
 import com.cloudx.ios17.features.shortcuts.ShortcutKey
 import com.cloudx.ios17.features.suggestions.AutoCompleteAdapter
@@ -147,7 +145,6 @@ import com.cloudx.ios17.features.suggestions.SuggestionProvider
 import com.cloudx.ios17.features.suggestions.SuggestionsResult
 import com.cloudx.ios17.features.launcher.workspace.LauncherPageIndicatorWheelView
 import com.cloudx.ios17.features.launcher.workspace.LauncherPageIndicatorWindowPolicy
-import com.cloudx.ios17.features.usagestats.AppUsageStats
 import com.cloudx.ios17.features.weather.DeviceStatusService
 import com.cloudx.ios17.features.weather.WeatherPreferences
 import com.cloudx.ios17.features.weather.WeatherSourceListenerService
@@ -194,6 +191,18 @@ class LauncherActivity : AppCompatActivity(),
         val span: TodayWidgetLayoutPolicy.Span
     )
 
+    private data class TodayQuickWidgetEntry(
+        val id: Int,
+        val type: TodayQuickWidgetType
+    )
+
+    private data class TodayRenderItem(
+        val id: Int,
+        val span: TodayWidgetLayoutPolicy.Span,
+        val quickEntry: TodayQuickWidgetEntry? = null,
+        val widgetEntry: TodayWidgetEntry? = null
+    )
+
     private data class TodayWidgetProvider(
         val providerInfo: AppWidgetProviderInfo,
         val label: CharSequence,
@@ -201,16 +210,24 @@ class LauncherActivity : AppCompatActivity(),
         val span: TodayWidgetLayoutPolicy.Span
     )
 
+    private enum class TodayQuickWidgetType(
+        val span: TodayWidgetLayoutPolicy.Span
+    ) {
+        WEATHER(TodayWidgetLayoutPolicy.Span.FULL),
+        BATTERY(TodayWidgetLayoutPolicy.Span.HALF),
+        PICTURE(TodayWidgetLayoutPolicy.Span.HALF),
+        APP_GROUP(TodayWidgetLayoutPolicy.Span.FULL),
+        FAVORITES(TodayWidgetLayoutPolicy.Span.FULL),
+        CALENDAR(TodayWidgetLayoutPolicy.Span.HALF)
+    }
+
     companion object {
         private const val TAG = "LauncherActivity"
         private const val WIDGET_PAGE = 0
         const val REORDER_TIMEOUT = 350
         private const val EMPTY_LOCATION_DRAG = -999
-        private const val REQUEST_PERMISSION_CALL_PHONE = 14
-        private const val REQUEST_LOCATION_SOURCE_SETTING = 267
         private const val REQUEST_TODAY_BIND_APPWIDGET = 721
         private const val REQUEST_TODAY_CREATE_APPWIDGET = 722
-        private const val STORAGE_PERMISSION_REQUEST_CODE = 586
         private const val PAGE_INDICATOR_VISIBLE_MS = 2000L
         private const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
         private const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
@@ -225,10 +242,12 @@ class LauncherActivity : AppCompatActivity(),
         private const val APP_LIBRARY_DIALOG_COLUMNS = 4
         private const val APP_LIBRARY_FOLDER_COLOR = 0x705F6663
         private const val APP_LIBRARY_EMPTY_FOLDER_COLOR = 0x365F6663
+        private const val TODAY_WIDGET_PREF_NAME = "ios_launcher_today_widgets"
+        private const val TODAY_WIDGET_PREF_QUICK = "quick_widgets"
+        private const val TODAY_WIDGET_PREF_ORDER = "widget_order"
+        private const val TODAY_QUICK_WIDGET_ID_START = -1000
+        private const val TODAY_WIDGET_SHEET_ANIMATION_MS = 170L
         const val ACTION_LAUNCHER_RESUME = "com.cloudx.ios17.LauncherActivity.LAUNCHER_RESUME"
-        const val EXTRA_FRAGMENT_ARG_KEY = ":settings:fragment_args_key"
-        const val EXTRA_SHOW_FRAGMENT_ARGS = ":settings:show_fragment_args"
-        const val NOTIFICATION_SETTING = "enabled_notification_listeners"
 
         @JvmField
         var longPressed = false
@@ -242,11 +261,6 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private lateinit var contentResolverRef: ContentResolver
-    private var permissionString: String? = null
-    private var unlockReceiver: BroadcastReceiver? = null
-    private lateinit var notificationComponentName: ComponentName
-
     private val mReorderAlarm = Alarm()
     private val mDockReorderAlarm = Alarm()
     private lateinit var mHorizontalPager: HorizontalPager
@@ -258,6 +272,7 @@ class LauncherActivity : AppCompatActivity(),
     private lateinit var selectedIconPreview: View
     private lateinit var selectedIconImage: ImageView
     private var launcherOptionsPopup: PopupWindow? = null
+    private var renameAppPanel: View? = null
     private val indicatorHandler = Handler(Looper.getMainLooper())
     private val hideIndicatorRunnable = Runnable { hidePageIndicator() }
     private var indicatorMode = IndicatorMode.SEARCH
@@ -278,6 +293,8 @@ class LauncherActivity : AppCompatActivity(),
     private lateinit var wobbleReverseAnimation: Animation
     private var scrollCorner = 0
     private var parentPage = -99
+    private var dragStartHomePage = -1
+    private var dragStartHomeCell = LauncherItem.INVALID_CELL
     private var folderFromDock = false
     private var isWobbling = false
     private var mCompositeDisposable: CompositeDisposable? = null
@@ -295,6 +312,7 @@ class LauncherActivity : AppCompatActivity(),
     private var dragShadowBuilder: BlissDragShadowBuilder? = null
     private var allAppsDisplayed = false
     private var forceRefreshSuggestedApps = false
+    private var liquidGlassEnabled = false
 
     private var mSuggestedApps: List<ApplicationItem> = ArrayList()
     private lateinit var swipeSearchContainer: FrameLayout
@@ -308,12 +326,18 @@ class LauncherActivity : AppCompatActivity(),
     private lateinit var mAppWidgetHost: WidgetHost
     private lateinit var widgetContainer: LinearLayout
     private val todayWidgetEntries: MutableList<TodayWidgetEntry> = ArrayList()
+    private val todayQuickWidgetEntries: MutableList<TodayQuickWidgetEntry> = ArrayList()
     private val todayWidgetHosts: MutableMap<Int, View> = HashMap()
+    private val todayWidgetVisualOrder: MutableList<Int> = ArrayList()
     private var isTodayWidgetEditing = false
     private var draggedTodayWidgetId: Int? = null
+    private var todayWidgetDragOriginalOrder: List<Int> = emptyList()
+    private var todayWidgetDragPreview: ImageView? = null
+    private var todayWidgetDragDropped = false
     private var widgetPickerOverlay: FrameLayout? = null
     private var widgetPreviewOverlay: FrameLayout? = null
     private var pendingTodayWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var nextTodayQuickWidgetId = TODAY_QUICK_WIDGET_ID_START
 
     private var widgetsPage: FrameLayout? = null
     private var appLibraryPage: ScrollView? = null
@@ -339,7 +363,6 @@ class LauncherActivity : AppCompatActivity(),
     private lateinit var oldConfig: Configuration
     private lateinit var wallpaperChangeReceiver: WallpaperChangeReceiver
     private var mDetector: GestureDetectorCompat? = null
-    private var enableLocationDialog: AlertDialog? = null
 
     private var mDepthManager: DepthManager? = null
 
@@ -360,23 +383,6 @@ class LauncherActivity : AppCompatActivity(),
             setTheme(themeRes)
         }
 
-        contentResolverRef = contentResolver
-        permissionString = Settings.Secure.getString(contentResolverRef, NOTIFICATION_SETTING)
-        notificationComponentName = ComponentName(this, NotificationService::class.java)
-
-        unlockReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val action = intent.action
-                if (Intent.ACTION_USER_PRESENT.equals(action, ignoreCase = true) &&
-                    Preferences.shouldShowNotificationDialog(context)
-                ) {
-                    if (permissionString == null || !permissionString!!.contains(packageName)) {
-                        showNotifPermissionDeniedDialog()
-                    }
-                }
-            }
-        }
-
         oldConfig = Configuration(resources.configuration)
         launcherHomeLayoutSettings = LauncherHomeLayoutPreferences.read(this)
         BlissLauncher.getApplication(this).resetDeviceProfile()
@@ -393,18 +399,6 @@ class LauncherActivity : AppCompatActivity(),
         wm.suggestDesiredDimensions(mDeviceProfile.widthPx, mDeviceProfile.heightPx)
 
         mProgressBar.visibility = VISIBLE
-
-        registerUnlockBroadcastReceiver()
-
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), STORAGE_PERMISSION_REQUEST_CODE)
-        }
-
-        NotificationListenerService.requestRebind(ComponentName(this, NotificationService::class.java))
 
         createOrUpdateIconGrid()
         addDefaultWidgets()
@@ -423,12 +417,6 @@ class LauncherActivity : AppCompatActivity(),
         mLightLayoutInflater = layoutInflater.cloneInContext(lightContext)
         mInsetsController = WindowInsetsControllerCompat(window, mLauncherView)
         applyLauncherSystemUi()
-    }
-
-    fun registerUnlockBroadcastReceiver() {
-        val unlockFilter = IntentFilter()
-        unlockFilter.addAction(Intent.ACTION_USER_PRESENT)
-        registerReceiver(unlockReceiver, unlockFilter)
     }
 
     fun getRootView(): View = mLauncherView
@@ -475,6 +463,8 @@ class LauncherActivity : AppCompatActivity(),
                 hideSwipeSearchContainer()
             }
         }
+        liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(this)
+        applyLiquidGlassAppearance()
     }
 
     private fun createOrUpdateIconGrid() {
@@ -588,24 +578,7 @@ class LauncherActivity : AppCompatActivity(),
         if (::mDock.isInitialized) {
             mDock.refreshStyle()
         }
-
-        if (!Preferences.shouldAskForNotificationAccess(this)) {
-            if (Preferences.shouldShowNotificationDialog(this)) {
-                showNotifPermissionDeniedDialog()
-                unlockReceiver?.let {
-                    unregisterReceiver(it)
-                    unlockReceiver = null
-                }
-            }
-
-            permissionString = if (permissionString == null) {
-                ""
-            } else {
-                "$permissionString:"
-            }
-
-            permissionString += notificationComponentName.flattenToString()
-        }
+        refreshLiquidGlassAppearanceIfNeeded()
 
         mDepthManager?.updateDepth()
 
@@ -659,6 +632,62 @@ class LauncherActivity : AppCompatActivity(),
         return true
     }
 
+    private fun refreshLiquidGlassAppearanceIfNeeded() {
+        val latestLiquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(this)
+        val liquidGlassChanged = latestLiquidGlassEnabled != liquidGlassEnabled
+        liquidGlassEnabled = latestLiquidGlassEnabled
+        applyLiquidGlassAppearance()
+        if (liquidGlassChanged) {
+            refreshVisibleFolderPreviewIcons()
+        }
+    }
+
+    private fun refreshVisibleFolderPreviewIcons() {
+        val graphicsUtil = GraphicsUtil(this)
+        fun refreshFolderIcon(view: View?, fromDock: Boolean) {
+            val folderView = view as? BlissFrameLayout ?: return
+            val folderItem = folderView.launcherItem as? FolderItem ?: return
+            updateIcon(
+                folderView,
+                folderItem,
+                graphicsUtil.generateFolderIcon(this, folderItem),
+                fromDock
+            )
+        }
+
+        if (::mDock.isInitialized) {
+            for (i in 0 until mDock.childCount) {
+                refreshFolderIcon(mDock.getChildAt(i), fromDock = true)
+            }
+        }
+        pages.forEach { page ->
+            for (i in 0 until page.childCount) {
+                refreshFolderIcon(page.getChildAt(i), fromDock = false)
+            }
+        }
+    }
+
+    private fun applyLiquidGlassAppearance() {
+        if (::mDock.isInitialized) {
+            mDock.refreshStyle()
+        }
+        if (::mIndicator.isInitialized) {
+            mIndicator.background = roundedRectangle(
+                LauncherLiquidGlassStylePolicy.pageIndicator(liquidGlassEnabled)
+            )
+        }
+        if (::mLauncherView.isInitialized) {
+            val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
+            folderBackground?.background =
+                roundedRectangle(LauncherLiquidGlassStylePolicy.folderPanel(liquidGlassEnabled))
+        }
+        if (::swipeSearchContainer.isInitialized) {
+            val searchInput = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
+            (searchInput?.parent as? View)?.background =
+                roundedRectangle(LauncherLiquidGlassStylePolicy.searchPill(liquidGlassEnabled))
+        }
+    }
+
     private fun applyLauncherSystemUi() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.navigationBarColor = Color.TRANSPARENT
@@ -687,6 +716,9 @@ class LauncherActivity : AppCompatActivity(),
         val span = TodayWidgetLayoutPolicy.spanFor(widgetInfo.minWidth, widgetInfo.minHeight)
         todayWidgetEntries.removeAll { it.widgetItem.id == widgetItem.id }
         todayWidgetEntries.add(TodayWidgetEntry(widgetItem, widgetInfo, widgetView, span))
+        if (!todayWidgetVisualOrder.contains(widgetItem.id)) {
+            todayWidgetVisualOrder.add(widgetItem.id)
+        }
         renderTodayWidgets()
     }
 
@@ -696,17 +728,22 @@ class LauncherActivity : AppCompatActivity(),
         }
 
         widgetContainer.removeAllViews()
+        widgetContainer.clipChildren = false
+        widgetContainer.clipToPadding = false
         todayWidgetHosts.clear()
 
-        val entriesById = todayWidgetEntries.associateBy { it.widgetItem.id }
+        val renderItems = orderedTodayRenderItems()
+        val entriesById = renderItems.associateBy { it.id }
         val rows = TodayWidgetLayoutPolicy.packRows(
-            todayWidgetEntries.map { TodayWidgetLayoutPolicy.Item(it.widgetItem.id, it.span) }
+            renderItems.map { TodayWidgetLayoutPolicy.Item(it.id, it.span) }
         )
 
         for (row in rows) {
             val rowLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
+                clipChildren = false
+                clipToPadding = false
             }
             rowLayout.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -715,11 +752,18 @@ class LauncherActivity : AppCompatActivity(),
 
             for (id in row.ids) {
                 val entry = entriesById[id] ?: continue
-                val host = createTodayWidgetHost(entry)
+                val host = when {
+                    entry.quickEntry != null -> createTodayQuickWidgetHost(entry.quickEntry)
+                    entry.widgetEntry != null -> createTodayWidgetHost(entry.widgetEntry)
+                    else -> null
+                } ?: continue
+                if (id == draggedTodayWidgetId) {
+                    host.visibility = View.INVISIBLE
+                }
                 val params = if (row.span == TodayWidgetLayoutPolicy.Span.FULL) {
                     LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
+                        todayRenderItemHeight(entry)
                     )
                 } else {
                     LinearLayout.LayoutParams(0, todayWidgetSquareSize(), 1f)
@@ -740,6 +784,34 @@ class LauncherActivity : AppCompatActivity(),
         applyTodayWidgetEditState()
     }
 
+    private fun orderedTodayRenderItems(): List<TodayRenderItem> {
+        val unordered = linkedMapOf<Int, TodayRenderItem>()
+        todayQuickWidgetEntries.forEach { entry ->
+            unordered[entry.id] = TodayRenderItem(
+                id = entry.id,
+                span = entry.type.span,
+                quickEntry = entry
+            )
+        }
+        todayWidgetEntries.forEach { entry ->
+            unordered[entry.widgetItem.id] = TodayRenderItem(
+                id = entry.widgetItem.id,
+                span = entry.span,
+                widgetEntry = entry
+            )
+        }
+
+        val ordered = mutableListOf<TodayRenderItem>()
+        todayWidgetVisualOrder.forEach { id ->
+            unordered.remove(id)?.let { ordered.add(it) }
+        }
+        ordered.addAll(unordered.values)
+
+        todayWidgetVisualOrder.clear()
+        todayWidgetVisualOrder.addAll(ordered.map { it.id })
+        return ordered
+    }
+
     private fun createTodayWidgetHost(entry: TodayWidgetEntry): FrameLayout {
         val host = FrameLayout(this).apply {
             tag = entry.widgetItem.id
@@ -751,41 +823,387 @@ class LauncherActivity : AppCompatActivity(),
         (entry.widgetView.parent as? ViewGroup)?.removeView(entry.widgetView)
         entry.widgetView.clearAnimation()
         entry.widgetView.setOnLongClickListener {
-            if (isTodayWidgetEditing) {
-                startTodayWidgetDrag(entry.widgetItem.id, host)
-            } else {
-                showResizeContainerIfAvailable(entry.widgetView)
-            }
-            true
+            startTodayWidgetDrag(entry.widgetItem.id, host)
         }
 
-        val widgetHeight = todayWidgetHeight(entry)
         host.addView(
             entry.widgetView,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                widgetHeight
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
 
-        val removeButton = TextView(this).apply {
+        host.addView(createTodayWidgetRemoveButton(entry.widgetItem.id))
+
+        return host
+    }
+
+    private fun createTodayQuickWidgetHost(entry: TodayQuickWidgetEntry): FrameLayout {
+        return FrameLayout(this).apply {
+            tag = entry.id
+            clipChildren = false
+            clipToPadding = false
+            setOnLongClickListener { startTodayWidgetDrag(entry.id, this) }
+            addView(
+                createTodayQuickWidgetView(entry.type),
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+            addView(createTodayWidgetRemoveButton(entry.id))
+        }
+    }
+
+    private fun createTodayWidgetRemoveButton(widgetId: Int): TextView {
+        return TextView(this).apply {
             tag = "today_widget_remove"
             text = "\u2212"
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
-            textSize = 20f
-            setTextColor(Color.rgb(65, 72, 80))
-            background = roundedRectangle(0xEAF2F5F8.toInt(), 12)
-            elevation = dp(2).toFloat()
+            textSize = 17f
+            setTextColor(Color.BLACK)
+            background = roundedRectangle(0xEEF2F5F8.toInt(), 14)
+            elevation = dp(4).toFloat()
             visibility = if (isTodayWidgetEditing) VISIBLE else GONE
-            setOnClickListener { removeTodayWidgetFromPage(entry.widgetItem.id, deleteHost = true) }
+            setOnClickListener { removeTodayWidgetFromPage(widgetId, deleteHost = true) }
+            layoutParams = FrameLayout.LayoutParams(dp(28), dp(28), Gravity.START or Gravity.TOP).apply {
+                leftMargin = -dp(13)
+                topMargin = -dp(13)
+            }
         }
-        val removeParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.START or Gravity.TOP)
-        removeParams.leftMargin = -dp(4)
-        removeParams.topMargin = -dp(4)
-        host.addView(removeButton, removeParams)
+    }
 
-        return host
+    private fun todayRenderItemHeight(item: TodayRenderItem): Int {
+        item.widgetEntry?.let { return todayWidgetHeight(it) }
+        return when (item.quickEntry?.type) {
+            TodayQuickWidgetType.WEATHER -> dp(184)
+            TodayQuickWidgetType.APP_GROUP -> dp(190)
+            TodayQuickWidgetType.FAVORITES -> dp(172)
+            TodayQuickWidgetType.BATTERY,
+            TodayQuickWidgetType.PICTURE,
+            TodayQuickWidgetType.CALENDAR,
+            null -> todayWidgetSquareSize()
+        }
+    }
+
+    private fun createTodayQuickWidgetView(type: TodayQuickWidgetType): View {
+        return when (type) {
+            TodayQuickWidgetType.WEATHER -> createTodayWeatherWidget()
+            TodayQuickWidgetType.BATTERY -> createTodayBatteryWidget()
+            TodayQuickWidgetType.PICTURE -> createTodayPictureWidget()
+            TodayQuickWidgetType.APP_GROUP -> createTodayAppGroupWidget()
+            TodayQuickWidgetType.FAVORITES -> createTodayFavoritesWidget()
+            TodayQuickWidgetType.CALENDAR -> createTodayCalendarWidget()
+        }
+    }
+
+    private fun createTodayWeatherWidget(): View {
+        return FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF07081B.toInt(), 0xFF253655.toInt())
+            ).apply {
+                cornerRadius = dp(18).toFloat()
+            }
+            addView(
+                TextView(context).apply {
+                    text = getString(R.string.today_widget_weather_location)
+                    setTextColor(Color.WHITE)
+                    textSize = 15f
+                    typeface = Typeface.DEFAULT_BOLD
+                },
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.START or Gravity.TOP
+                ).apply {
+                    leftMargin = dp(18)
+                    topMargin = dp(16)
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = "38\u00b0"
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    textSize = 48f
+                },
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.START or Gravity.TOP
+                ).apply {
+                    leftMargin = dp(18)
+                    topMargin = dp(54)
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = "\u2601"
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    textSize = 42f
+                    gravity = Gravity.CENTER
+                },
+                FrameLayout.LayoutParams(dp(62), dp(54), Gravity.END or Gravity.TOP).apply {
+                    topMargin = dp(18)
+                    rightMargin = dp(18)
+                }
+            )
+            addView(
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.END
+                    addView(
+                        TextView(context).apply {
+                            text = getString(R.string.today_widget_weather_condition)
+                            setTextColor(Color.WHITE)
+                            textSize = 15f
+                            typeface = Typeface.DEFAULT_BOLD
+                            gravity = Gravity.END
+                        }
+                    )
+                    addView(
+                        TextView(context).apply {
+                            text = getString(R.string.today_widget_weather_high_low)
+                            setTextColor(Color.WHITE)
+                            textSize = 13f
+                            gravity = Gravity.END
+                        }
+                    )
+                },
+                FrameLayout.LayoutParams(
+                    dp(150),
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.END or Gravity.CENTER_VERTICAL
+                ).apply {
+                    rightMargin = dp(18)
+                }
+            )
+        }
+    }
+
+    private fun createTodayBatteryWidget(): View {
+        return FrameLayout(this).apply {
+            background = roundedRectangle(Color.BLACK, 18)
+            addView(
+                FrameLayout(context).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(Color.TRANSPARENT)
+                        setStroke(dp(6), 0xFF00E321.toInt())
+                    }
+                    addView(
+                        ImageView(context).apply {
+                            setImageResource(R.drawable.ic_phone_home_20)
+                            setColorFilter(Color.WHITE)
+                        },
+                        FrameLayout.LayoutParams(dp(38), dp(38), Gravity.CENTER)
+                    )
+                },
+                FrameLayout.LayoutParams(dp(74), dp(74), Gravity.START or Gravity.TOP).apply {
+                    leftMargin = dp(18)
+                    topMargin = dp(16)
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = "${todayBatteryPercentage()}%"
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    textSize = 36f
+                },
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.START or Gravity.BOTTOM
+                ).apply {
+                    leftMargin = dp(12)
+                    bottomMargin = dp(24)
+                }
+            )
+        }
+    }
+
+    private fun createTodayPictureWidget(): View {
+        return FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.BL_TR,
+                intArrayOf(0xFF455E8A.toInt(), 0xFFFFA126.toInt(), 0xFFFFE07A.toInt())
+            ).apply {
+                cornerRadius = dp(18).toFloat()
+            }
+            addView(
+                TextView(context).apply {
+                    text = "PHOTO"
+                    gravity = Gravity.TOP or Gravity.START
+                    setTextColor(0xEEFFFFFF.toInt())
+                    textSize = 18f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setPadding(dp(14), dp(12), 0, 0)
+                },
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+    }
+
+    private fun createTodayAppGroupWidget(): View {
+        val apps = availableTodayWidgetApps(8)
+        return LinearLayout(this).apply {
+            background = roundedRectangle(0x88D8DEE2.toInt(), 20)
+            clipChildren = false
+            clipToPadding = false
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            repeat(2) { rowIndex ->
+                addView(
+                    LinearLayout(context).apply {
+                        gravity = Gravity.CENTER
+                        orientation = LinearLayout.HORIZONTAL
+                        repeat(4) { columnIndex ->
+                            val app = apps.getOrNull(rowIndex * 4 + columnIndex)
+                            addView(
+                                FrameLayout(context).apply {
+                                    addView(createTodayWidgetAppIcon(app), FrameLayout.LayoutParams(dp(62), dp(62), Gravity.CENTER))
+                                },
+                                LinearLayout.LayoutParams(0, dp(72), 1f)
+                            )
+                        }
+                    },
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f
+                    )
+                )
+            }
+        }
+    }
+
+    private fun createTodayFavoritesWidget(): View {
+        val names = listOf("Anna", "Eden", "Justin", "Armando")
+        val colors = listOf(0xFFC9F0D1.toInt(), 0xFFF6C3D7.toInt(), 0xFFC7E3F8.toInt(), 0xFFF9C1BF.toInt())
+        return LinearLayout(this).apply {
+            background = roundedRectangle(0x8FAAB6C2.toInt(), 20)
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(18), dp(14), dp(10))
+            names.forEachIndexed { index, name ->
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        addView(
+                            TextView(context).apply {
+                                text = name.take(1)
+                                gravity = Gravity.CENTER
+                                textSize = 26f
+                                typeface = Typeface.DEFAULT_BOLD
+                                setTextColor(0xFF263238.toInt())
+                                background = GradientDrawable().apply {
+                                    shape = GradientDrawable.OVAL
+                                    setColor(colors[index])
+                                }
+                            },
+                            LinearLayout.LayoutParams(dp(58), dp(58))
+                        )
+                        addView(
+                            TextView(context).apply {
+                                text = name
+                                setTextColor(Color.BLACK)
+                                textSize = 13f
+                                typeface = Typeface.DEFAULT_BOLD
+                                gravity = Gravity.CENTER
+                                maxLines = 1
+                                ellipsize = TextUtils.TruncateAt.END
+                            },
+                            LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                topMargin = dp(10)
+                            }
+                        )
+                    },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+                )
+            }
+        }
+    }
+
+    private fun createTodayCalendarWidget(): View {
+        val day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH).toString()
+        return LinearLayout(this).apply {
+            background = roundedRectangle(Color.WHITE, 18)
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(14), dp(14), dp(12))
+            addView(
+                TextView(context).apply {
+                    text = "THURSDAY"
+                    setTextColor(0xFFB54752.toInt())
+                    textSize = 13f
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = day
+                    includeFontPadding = false
+                    setTextColor(Color.BLACK)
+                    textSize = 48f
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = "No more events"
+                    setTextColor(0xFF9E9E9E.toInt())
+                    textSize = 13f
+                    maxLines = 2
+                }
+            )
+        }
+    }
+
+    private fun createTodayWidgetAppIcon(app: ApplicationItem?): ImageView {
+        return ImageView(this).apply {
+            setImageDrawable(app?.icon)
+            visibility = if (app == null) View.INVISIBLE else VISIBLE
+            contentDescription = app?.title
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            if (app != null) {
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { startActivitySafely(this@LauncherActivity, app, it) }
+            }
+        }
+    }
+
+    private fun availableTodayWidgetApps(limit: Int): List<ApplicationItem> {
+        val source = if (mSuggestedApps.isNotEmpty()) {
+            mSuggestedApps
+        } else {
+            appLibraryApps
+        }
+        return source
+            .filterIsInstance<ApplicationItem>()
+            .distinctBy { it.id }
+            .take(limit)
+    }
+
+    private fun todayBatteryPercentage(): Int {
+        val status = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 100
+        val level = status.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = status.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        if (level < 0 || scale <= 0) {
+            return 100
+        }
+        return (level * 100 / scale).coerceIn(0, 100)
     }
 
     private fun todayWidgetHeight(entry: TodayWidgetEntry): Int {
@@ -833,13 +1251,17 @@ class LauncherActivity : AppCompatActivity(),
             if (isTodayWidgetEditing) VISIBLE else GONE
         page.findViewById<View?>(R.id.edit_widgets_button)?.visibility =
             if (isTodayWidgetEditing) GONE else VISIBLE
+        page.findViewById<TextView?>(R.id.add_today_widget_button)?.setTextColor(Color.BLACK)
+        page.findViewById<TextView?>(R.id.done_today_widget_edit_button)?.setTextColor(Color.BLACK)
+        hideWidgetPageIndicator()
 
         todayWidgetHosts.values.forEachIndexed { index, host ->
             host.findViewWithTag<View>("today_widget_remove")?.visibility =
                 if (isTodayWidgetEditing) VISIBLE else GONE
-            if (isTodayWidgetEditing) {
+            val shouldWobble = isTodayWidgetEditing && draggedTodayWidgetId == null
+            if (shouldWobble) {
                 if (host.animation == null) {
-                    host.startAnimation(if (index % 2 == 0) wobbleAnimation else wobbleReverseAnimation)
+                    host.startAnimation(todayWidgetWobbleAnimation(index % 2 != 0))
                 }
             } else {
                 host.clearAnimation()
@@ -847,52 +1269,263 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun todayWidgetWobbleAnimation(reverse: Boolean): Animation {
+        return AnimationUtils.loadAnimation(
+            this,
+            if (reverse) R.anim.today_widget_wobble_reverse else R.anim.today_widget_wobble
+        )
+    }
+
     private fun startTodayWidgetDrag(widgetId: Int, host: View): Boolean {
         if (!isTodayWidgetEditing) {
-            return false
+            setTodayWidgetEditing(true)
+            return true
         }
 
         draggedTodayWidgetId = widgetId
-        host.alpha = 0.55f
+        todayWidgetDragDropped = false
+        todayWidgetDragOriginalOrder = orderedTodayRenderItems().map { it.id }
+        createTodayWidgetDragPreview(host)
         val data = ClipData.newPlainText("today_widget", widgetId.toString())
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            host.startDragAndDrop(data, View.DragShadowBuilder(host), widgetId, 0)
+        val shadowBuilder = InvisibleTodayWidgetDragShadowBuilder(host)
+        val started = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            host.startDragAndDrop(data, shadowBuilder, widgetId, 0)
         } else {
             @Suppress("DEPRECATION")
-            host.startDrag(data, View.DragShadowBuilder(host), widgetId, 0)
+            host.startDrag(data, shadowBuilder, widgetId, 0)
         }
+        if (started) {
+            host.visibility = View.INVISIBLE
+            val hostLocation = IntArray(2)
+            host.getLocationOnScreen(hostLocation)
+            updateTodayWidgetDragPreview(
+                hostLocation[0] + host.width / 2f,
+                hostLocation[1] + host.height / 2f
+            )
+            hideWidgetPageIndicator()
+        } else {
+            draggedTodayWidgetId = null
+            todayWidgetDragOriginalOrder = emptyList()
+            removeTodayWidgetDragPreview()
+        }
+        return started
     }
 
-    private fun handleTodayWidgetDragEvent(event: DragEvent): Boolean {
+    private fun createTodayWidgetDragPreview(host: View) {
+        removeTodayWidgetDragPreview()
+        if (host.width <= 0 || host.height <= 0) {
+            return
+        }
+
+        val dragLayer = widgetsPage?.findViewById<FrameLayout>(R.id.drag_layer) ?: return
+        val bitmap = Bitmap.createBitmap(host.width, host.height, Bitmap.Config.ARGB_8888)
+        host.draw(Canvas(bitmap))
+        todayWidgetDragPreview = ImageView(this).apply {
+            setImageBitmap(bitmap)
+            scaleType = ImageView.ScaleType.FIT_XY
+            alpha = 0.96f
+            elevation = dp(18).toFloat()
+            isClickable = false
+            isFocusable = false
+        }
+        dragLayer.addView(
+            todayWidgetDragPreview,
+            FrameLayout.LayoutParams(host.width, host.height)
+        )
+    }
+
+    private fun updateTodayWidgetDragPreview(rawX: Float, rawY: Float) {
+        val preview = todayWidgetDragPreview ?: return
+        val dragLayer = widgetsPage?.findViewById<FrameLayout>(R.id.drag_layer) ?: return
+        val dragLayerLocation = IntArray(2)
+        dragLayer.getLocationOnScreen(dragLayerLocation)
+        preview.x = rawX - dragLayerLocation[0] - preview.width / 2f
+        preview.y = rawY - dragLayerLocation[1] - preview.height / 2f
+    }
+
+    private fun removeTodayWidgetDragPreview() {
+        todayWidgetDragPreview?.let { preview ->
+            (preview.parent as? ViewGroup)?.removeView(preview)
+            (preview.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.recycle()
+        }
+        todayWidgetDragPreview = null
+    }
+
+    private fun handleTodayWidgetDragEvent(source: View, event: DragEvent): Boolean {
         val draggedId = draggedTodayWidgetId ?: return false
+        val rawPoint = todayWidgetDragRawPoint(source, event)
         when (event.action) {
-            DragEvent.ACTION_DRAG_ENDED -> {
-                todayWidgetHosts[draggedId]?.alpha = 1f
-                draggedTodayWidgetId = null
-            }
-            DragEvent.ACTION_DROP -> {
-                val containerLocation = IntArray(2)
-                widgetContainer.getLocationOnScreen(containerLocation)
+            DragEvent.ACTION_DRAG_STARTED -> return true
+            DragEvent.ACTION_DRAG_LOCATION -> {
+                updateTodayWidgetDragPreview(rawPoint.first, rawPoint.second)
                 val targetIndex = findTodayWidgetDropIndex(
-                    containerLocation[0] + event.x,
-                    containerLocation[1] + event.y,
+                    rawPoint.first,
+                    rawPoint.second,
                     draggedId
                 )
-                val currentIds = todayWidgetEntries.map { it.widgetItem.id }
-                val reorderedIds = TodayWidgetLayoutPolicy.reorder(currentIds, draggedId, targetIndex)
-                val entriesById = todayWidgetEntries.associateBy { it.widgetItem.id }
-                todayWidgetEntries.clear()
-                reorderedIds.mapNotNullTo(todayWidgetEntries) { entriesById[it] }
-                todayWidgetEntries.forEachIndexed { index, entry -> entry.widgetItem.order = index }
-                saveTodayWidgetOrder()
-                renderTodayWidgets()
+                val currentIds = orderedTodayRenderItems().map { it.id }
+                val previewOrder = TodayWidgetLayoutPolicy.previewOrder(currentIds, draggedId, targetIndex)
+                if (previewOrder != todayWidgetVisualOrder) {
+                    applyTodayWidgetVisualOrder(
+                        previewOrder,
+                        render = true,
+                        animateMoves = true,
+                        skipAnimatedId = draggedId
+                    )
+                    updateTodayWidgetDragPreview(rawPoint.first, rawPoint.second)
+                }
+            }
+            DragEvent.ACTION_DRAG_ENDED -> {
+                val shouldRestoreOrder = !todayWidgetDragDropped && todayWidgetDragOriginalOrder.isNotEmpty()
+                val endedDraggedId = draggedId
+                draggedTodayWidgetId = null
+                todayWidgetDragDropped = false
+                removeTodayWidgetDragPreview()
+                if (shouldRestoreOrder) {
+                    applyTodayWidgetVisualOrder(
+                        todayWidgetDragOriginalOrder,
+                        render = true,
+                        animateMoves = true,
+                        skipAnimatedId = endedDraggedId
+                    )
+                } else {
+                    todayWidgetHosts[draggedId]?.apply {
+                        alpha = 1f
+                        visibility = VISIBLE
+                    }
+                }
+                todayWidgetDragOriginalOrder = emptyList()
+                hideWidgetPageIndicator()
+            }
+            DragEvent.ACTION_DROP -> {
+                todayWidgetDragDropped = true
+                updateTodayWidgetDragPreview(rawPoint.first, rawPoint.second)
+                val targetIndex = findTodayWidgetDropIndex(
+                    rawPoint.first,
+                    rawPoint.second,
+                    draggedId
+                )
+                val currentIds = orderedTodayRenderItems().map { it.id }
+                val reorderedIds = TodayWidgetLayoutPolicy.previewOrder(currentIds, draggedId, targetIndex)
+                draggedTodayWidgetId = null
+                todayWidgetDragOriginalOrder = emptyList()
+                removeTodayWidgetDragPreview()
+                applyTodayWidgetFinalOrder(
+                    reorderedIds,
+                    animateMoves = true,
+                    skipAnimatedId = draggedId
+                )
             }
         }
         return true
     }
 
+    private fun todayWidgetDragRawPoint(source: View, event: DragEvent): Pair<Float, Float> {
+        val sourceLocation = IntArray(2)
+        source.getLocationOnScreen(sourceLocation)
+        return Pair(sourceLocation[0] + event.x, sourceLocation[1] + event.y)
+    }
+
+    private fun applyTodayWidgetVisualOrder(
+        ids: List<Int>,
+        render: Boolean,
+        animateMoves: Boolean = false,
+        skipAnimatedId: Int? = null
+    ) {
+        val previousBounds = if (render && animateMoves) {
+            todayWidgetHostBounds()
+        } else {
+            emptyMap()
+        }
+        todayWidgetVisualOrder.clear()
+        todayWidgetVisualOrder.addAll(ids)
+        if (render) {
+            renderTodayWidgets()
+            if (animateMoves) {
+                animateTodayWidgetHostMoves(previousBounds, skipAnimatedId)
+            }
+        }
+    }
+
+    private fun applyTodayWidgetFinalOrder(
+        ids: List<Int>,
+        animateMoves: Boolean = false,
+        skipAnimatedId: Int? = null
+    ) {
+        val previousBounds = if (animateMoves) {
+            todayWidgetHostBounds()
+        } else {
+            emptyMap()
+        }
+        applyTodayWidgetVisualOrder(ids, render = false)
+
+        val entriesById = todayWidgetEntries.associateBy { it.widgetItem.id }
+        val quickEntriesById = todayQuickWidgetEntries.associateBy { it.id }
+        todayWidgetEntries.clear()
+        ids.mapNotNullTo(todayWidgetEntries) { entriesById[it] }
+        todayQuickWidgetEntries.clear()
+        ids.mapNotNullTo(todayQuickWidgetEntries) { quickEntriesById[it] }
+        todayWidgetEntries.forEachIndexed { index, entry -> entry.widgetItem.order = index }
+        saveTodayWidgetOrder()
+        renderTodayWidgets()
+        if (animateMoves) {
+            animateTodayWidgetHostMoves(previousBounds, skipAnimatedId)
+        }
+    }
+
+    private fun todayWidgetHostBounds(): Map<Int, Rect> {
+        if (!::widgetContainer.isInitialized) {
+            return emptyMap()
+        }
+        return todayWidgetHosts.mapNotNull { (id, host) ->
+            val bounds = Rect()
+            if (host.getGlobalVisibleRect(bounds)) {
+                id to Rect(bounds)
+            } else {
+                null
+            }
+        }.toMap()
+    }
+
+    private fun animateTodayWidgetHostMoves(previousBounds: Map<Int, Rect>, skipAnimatedId: Int?) {
+        if (previousBounds.isEmpty() || !::widgetContainer.isInitialized) {
+            return
+        }
+
+        widgetContainer.doOnPreDraw {
+            todayWidgetHosts.forEach { (id, host) ->
+                if (id == skipAnimatedId) {
+                    return@forEach
+                }
+                val previous = previousBounds[id] ?: return@forEach
+                val current = Rect()
+                if (!host.getGlobalVisibleRect(current)) {
+                    return@forEach
+                }
+                val translation = TodayWidgetDragAnimationPolicy.startTranslation(
+                    previousLeft = previous.left,
+                    previousTop = previous.top,
+                    currentLeft = current.left,
+                    currentTop = current.top
+                )
+                if (translation.x == 0f && translation.y == 0f) {
+                    return@forEach
+                }
+                host.animate().cancel()
+                host.translationX = translation.x
+                host.translationY = translation.y
+                host.animate()
+                    .translationX(0f)
+                    .translationY(0f)
+                    .setDuration(TodayWidgetDragAnimationPolicy.MOVE_DURATION_MS)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+        }
+    }
+
     private fun findTodayWidgetDropIndex(rawX: Float, rawY: Float, draggedId: Int): Int {
-        val remainingIds = todayWidgetEntries.map { it.widgetItem.id }.filter { it != draggedId }
+        val remainingIds = orderedTodayRenderItems().map { it.id }.filter { it != draggedId }
         for ((index, id) in remainingIds.withIndex()) {
             val host = todayWidgetHosts[id] ?: continue
             val bounds = Rect()
@@ -907,11 +1540,14 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun removeTodayWidgetFromPage(widgetId: Int, deleteHost: Boolean) {
-        if (deleteHost) {
+        if (widgetId < 0) {
+            todayQuickWidgetEntries.removeAll { it.id == widgetId }
+        } else if (deleteHost) {
             mAppWidgetHost.deleteAppWidgetId(widgetId)
+            DatabaseManager.getManager(this).removeWidget(widgetId)
         }
-        DatabaseManager.getManager(this).removeWidget(widgetId)
         todayWidgetEntries.removeAll { it.widgetItem.id == widgetId }
+        todayWidgetVisualOrder.remove(widgetId)
         renderTodayWidgets()
         saveTodayWidgetOrder()
     }
@@ -921,18 +1557,83 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun saveTodayWidgetOrder() {
-        DatabaseManager.getManager(this).saveWidgetOrder(todayWidgetEntries.map { it.widgetItem.id })
+        val nativeIds = todayWidgetVisualOrder.filter { id ->
+            todayWidgetEntries.any { entry -> entry.widgetItem.id == id }
+        }
+        val orderedNativeIds = if (nativeIds.isEmpty()) {
+            todayWidgetEntries.map { it.widgetItem.id }
+        } else {
+            nativeIds
+        }
+        DatabaseManager.getManager(this).saveWidgetOrder(orderedNativeIds)
+        saveTodayQuickWidgets()
+    }
+
+    private fun loadTodayQuickWidgets() {
+        val preferences = getSharedPreferences(TODAY_WIDGET_PREF_NAME, Context.MODE_PRIVATE)
+        val storedWidgets = preferences.getString(TODAY_WIDGET_PREF_QUICK, null)
+        todayQuickWidgetEntries.clear()
+
+        if (storedWidgets == null) {
+            listOf(
+                TodayQuickWidgetType.WEATHER,
+                TodayQuickWidgetType.BATTERY,
+                TodayQuickWidgetType.APP_GROUP,
+                TodayQuickWidgetType.PICTURE
+            ).forEachIndexed { index, type ->
+                todayQuickWidgetEntries.add(TodayQuickWidgetEntry(TODAY_QUICK_WIDGET_ID_START - index, type))
+            }
+        } else if (storedWidgets.isNotBlank()) {
+            storedWidgets.split(",")
+                .mapNotNull { encoded ->
+                    val parts = encoded.split(":")
+                    val id = parts.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+                    val type = parts.getOrNull(1)?.let {
+                        runCatching { TodayQuickWidgetType.valueOf(it) }.getOrNull()
+                    } ?: return@mapNotNull null
+                    TodayQuickWidgetEntry(id, type)
+                }
+                .let { todayQuickWidgetEntries.addAll(it) }
+        }
+
+        nextTodayQuickWidgetId = (todayQuickWidgetEntries.minOfOrNull { it.id } ?: TODAY_QUICK_WIDGET_ID_START) - 1
+
+        todayWidgetVisualOrder.clear()
+        preferences.getString(TODAY_WIDGET_PREF_ORDER, null)
+            ?.split(",")
+            ?.mapNotNull { it.toIntOrNull() }
+            ?.let { todayWidgetVisualOrder.addAll(it) }
+        if (todayWidgetVisualOrder.isEmpty()) {
+            todayWidgetVisualOrder.addAll(todayQuickWidgetEntries.map { it.id })
+        }
+    }
+
+    private fun saveTodayQuickWidgets() {
+        val quickWidgets = todayQuickWidgetEntries.joinToString(",") { entry ->
+            "${entry.id}:${entry.type.name}"
+        }
+        val order = todayWidgetVisualOrder.joinToString(",")
+        getSharedPreferences(TODAY_WIDGET_PREF_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(TODAY_WIDGET_PREF_QUICK, quickWidgets)
+            .putString(TODAY_WIDGET_PREF_ORDER, order)
+            .apply()
+    }
+
+    private fun addTodayQuickWidget(type: TodayQuickWidgetType) {
+        val entry = TodayQuickWidgetEntry(nextTodayQuickWidgetId--, type)
+        todayQuickWidgetEntries.add(entry)
+        todayWidgetVisualOrder.add(entry.id)
+        saveTodayWidgetOrder()
+        renderTodayWidgets()
+        setTodayWidgetEditing(true)
     }
 
     private fun showTodayWidgetPicker() {
         dismissTodayWidgetPreview()
         dismissTodayWidgetPicker()
 
-        val providers = todayWidgetProviders()
-        if (providers.isEmpty()) {
-            Toast.makeText(this, R.string.choose_widget, Toast.LENGTH_SHORT).show()
-            return
-        }
+        val options = todayWidgetSheetOptions()
 
         val content = findViewById<ViewGroup>(android.R.id.content)
         val overlay = FrameLayout(this).apply {
@@ -956,28 +1657,44 @@ class LauncherActivity : AppCompatActivity(),
                 Gravity.BOTTOM
             )
         )
-
-        addSheetGrabber(sheet)
+        val grabber = addSheetGrabber(sheet)
+        setupTodayWidgetSheetDrag(overlay, sheet, grabber)
 
         val searchInput = EditText(this).apply {
-            hint = getString(R.string.search)
+            hint = getString(R.string.today_widget_search_hint)
             setSingleLine(true)
             imeOptions = EditorInfo.IME_ACTION_SEARCH
             inputType = InputType.TYPE_CLASS_TEXT
             textSize = 18f
-            setTextColor(Color.rgb(50, 54, 58))
-            setHintTextColor(0x99FFFFFF.toInt())
-            background = roundedRectangle(0x55FFFFFF, 12)
-            setPadding(dp(12), 0, dp(12), 0)
+            setTextColor(Color.WHITE)
+            setHintTextColor(0xCCFFFFFF.toInt())
+            background = ColorDrawable(Color.TRANSPARENT)
+            setPadding(dp(8), 0, dp(8), 0)
         }
         sheet.addView(
-            searchInput,
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = roundedRectangle(0x66A0A0A0, 14)
+                setPadding(dp(12), 0, dp(10), 0)
+                addView(
+                    ImageView(context).apply {
+                        setImageResource(R.drawable.ic_search_18)
+                        setColorFilter(Color.WHITE)
+                    },
+                    LinearLayout.LayoutParams(dp(18), dp(18))
+                )
+                addView(
+                    searchInput,
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+                )
+            },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(44)
+                dp(50)
             ).apply {
-                topMargin = dp(8)
-                bottomMargin = dp(18)
+                topMargin = dp(18)
+                bottomMargin = dp(20)
             }
         )
 
@@ -1004,12 +1721,12 @@ class LauncherActivity : AppCompatActivity(),
             )
         )
 
-        renderTodayWidgetPickerItems(resultContainer, providers, "")
+        renderTodayWidgetPickerItems(resultContainer, options, "")
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                renderTodayWidgetPickerItems(resultContainer, providers, s?.toString().orEmpty())
+                renderTodayWidgetPickerItems(resultContainer, options, s?.toString().orEmpty())
             }
 
             override fun afterTextChanged(s: Editable?) = Unit
@@ -1022,22 +1739,23 @@ class LauncherActivity : AppCompatActivity(),
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+        animateTodayWidgetSheetIn(overlay, sheet)
     }
 
     private fun renderTodayWidgetPickerItems(
         container: LinearLayout,
-        providers: List<TodayWidgetProvider>,
+        options: List<TodayQuickWidgetType>,
         query: String
     ) {
         val normalizedQuery = Utilities.stripCaseAndAccents(query)
-        val filteredProviders = providers.filter {
+        val filteredOptions = options.filter {
             normalizedQuery.isBlank() ||
-                Utilities.stripCaseAndAccents(it.label.toString()).contains(normalizedQuery)
+                Utilities.stripCaseAndAccents(todayQuickWidgetLabel(it)).contains(normalizedQuery)
         }
-        val indexedProviders = filteredProviders.mapIndexed { index, provider -> index to provider }.toMap()
+        val indexedOptions = filteredOptions.mapIndexed { index, option -> index to option }.toMap()
         val rows = TodayWidgetLayoutPolicy.packRows(
-            filteredProviders.mapIndexed { index, provider ->
-                TodayWidgetLayoutPolicy.Item(index, provider.span)
+            filteredOptions.mapIndexed { index, option ->
+                TodayWidgetLayoutPolicy.Item(index, option.span)
             }
         )
 
@@ -1056,8 +1774,8 @@ class LauncherActivity : AppCompatActivity(),
             )
 
             for (id in row.ids) {
-                val provider = indexedProviders[id] ?: continue
-                val card = createTodayWidgetProviderCard(provider, row.span == TodayWidgetLayoutPolicy.Span.FULL)
+                val option = indexedOptions[id] ?: continue
+                val card = createTodayWidgetOptionCard(option, row.span == TodayWidgetLayoutPolicy.Span.FULL)
                 val params = if (row.span == TodayWidgetLayoutPolicy.Span.FULL) {
                     LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1078,6 +1796,221 @@ class LauncherActivity : AppCompatActivity(),
                     }
                 )
             }
+        }
+    }
+
+    private fun todayWidgetSheetOptions(): List<TodayQuickWidgetType> {
+        return listOf(
+            TodayQuickWidgetType.BATTERY,
+            TodayQuickWidgetType.PICTURE,
+            TodayQuickWidgetType.APP_GROUP,
+            TodayQuickWidgetType.FAVORITES,
+            TodayQuickWidgetType.CALENDAR,
+            TodayQuickWidgetType.WEATHER
+        )
+    }
+
+    private fun createTodayWidgetOptionCard(type: TodayQuickWidgetType, fullWidth: Boolean): View {
+        val addWidget = View.OnClickListener {
+            addTodayQuickWidget(type)
+            dismissTodayWidgetPicker()
+        }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            isClickable = true
+            setOnClickListener(addWidget)
+        }
+        val preview = FrameLayout(this).apply {
+            clipToOutline = true
+            isClickable = true
+            setOnClickListener(addWidget)
+            addView(
+                createTodayWidgetOptionPreview(type),
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+        root.addView(
+            preview,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                if (fullWidth) dp(170) else dp(112)
+            )
+        )
+
+        root.addView(
+            TextView(this).apply {
+                text = todayQuickWidgetLabel(type)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                gravity = Gravity.CENTER
+                setTextColor(Color.BLACK)
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(6)
+            }
+        )
+        return root
+    }
+
+    private fun createTodayWidgetOptionPreview(type: TodayQuickWidgetType): View {
+        return when (type) {
+            TodayQuickWidgetType.BATTERY -> createTodayBatterySheetPreview()
+            TodayQuickWidgetType.APP_GROUP -> createTodayAppGroupSheetPreview()
+            else -> createTodayQuickWidgetView(type)
+        }
+    }
+
+    private fun createTodayBatterySheetPreview(): View {
+        return FrameLayout(this).apply {
+            background = roundedRectangle(0xFF9E9E9E.toInt(), 18)
+            addView(
+                TextView(context).apply {
+                    text = "${todayBatteryPercentage()}%"
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    textSize = 48f
+                },
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.START or Gravity.BOTTOM
+                ).apply {
+                    leftMargin = dp(16)
+                    bottomMargin = dp(18)
+                }
+            )
+            addView(
+                FrameLayout(context).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(Color.TRANSPARENT)
+                        setStroke(dp(4), 0xFF00E321.toInt())
+                    }
+                },
+                FrameLayout.LayoutParams(dp(54), dp(54), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+                    topMargin = -dp(18)
+                }
+            )
+        }
+    }
+
+    private fun createTodayAppGroupSheetPreview(): View {
+        val apps = availableTodayWidgetApps(8)
+        return LinearLayout(this).apply {
+            background = roundedRectangle(0xEE20202F.toInt(), 18)
+            clipChildren = false
+            clipToPadding = false
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            repeat(2) { rowIndex ->
+                addView(
+                    LinearLayout(context).apply {
+                        gravity = Gravity.CENTER
+                        orientation = LinearLayout.HORIZONTAL
+                        repeat(4) { columnIndex ->
+                            val app = apps.getOrNull(rowIndex * 4 + columnIndex)
+                            addView(
+                                FrameLayout(context).apply {
+                                    addView(createTodayWidgetAppIcon(app), FrameLayout.LayoutParams(dp(54), dp(54), Gravity.CENTER))
+                                },
+                                LinearLayout.LayoutParams(0, dp(62), 1f)
+                            )
+                        }
+                    },
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f
+                    )
+                )
+            }
+        }
+    }
+
+    private fun todayQuickWidgetLabel(type: TodayQuickWidgetType): String {
+        return when (type) {
+            TodayQuickWidgetType.WEATHER -> getString(R.string.weather)
+            TodayQuickWidgetType.BATTERY -> getString(R.string.today_widget_battery)
+            TodayQuickWidgetType.PICTURE -> getString(R.string.today_widget_picture)
+            TodayQuickWidgetType.APP_GROUP -> getString(R.string.today_widget_suggestions)
+            TodayQuickWidgetType.FAVORITES -> getString(R.string.today_widget_favorites)
+            TodayQuickWidgetType.CALENDAR -> getString(R.string.today_widget_calendar)
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupTodayWidgetSheetDrag(overlay: FrameLayout, sheet: View, dragHandle: View) {
+        var startRawY = 0f
+        var startTranslationY = 0f
+        val touchListener = View.OnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    sheet.animate().cancel()
+                    startRawY = event.rawY
+                    startTranslationY = sheet.translationY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val maxTranslation = (sheet.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels) * 0.7f
+                    sheet.translationY = TodayWidgetSheetPolicy.dragTranslation(
+                        startTranslation = startTranslationY,
+                        deltaY = event.rawY - startRawY,
+                        minTranslation = -dp(156).toFloat(),
+                        maxTranslation = maxTranslation
+                    )
+                    true
+                }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    when (TodayWidgetSheetPolicy.snapTarget(sheet.translationY, sheet.height.toFloat())) {
+                        TodayWidgetSheetPolicy.SnapTarget.EXPANDED -> {
+                            sheet.animate()
+                                .translationY(-dp(156).toFloat())
+                                .setDuration(TODAY_WIDGET_SHEET_ANIMATION_MS)
+                                .setInterpolator(DecelerateInterpolator())
+                                .start()
+                        }
+                        TodayWidgetSheetPolicy.SnapTarget.RESTING -> {
+                            sheet.animate()
+                                .translationY(0f)
+                                .setDuration(TODAY_WIDGET_SHEET_ANIMATION_MS)
+                                .setInterpolator(DecelerateInterpolator())
+                                .start()
+                        }
+                        TodayWidgetSheetPolicy.SnapTarget.DISMISS -> dismissTodayWidgetPicker()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        dragHandle.setOnTouchListener(touchListener)
+        overlay.setOnClickListener { dismissTodayWidgetPicker() }
+    }
+
+    private fun animateTodayWidgetSheetIn(overlay: View, sheet: View) {
+        overlay.alpha = 0f
+        sheet.post {
+            sheet.translationY = sheet.height.toFloat()
+            overlay.animate()
+                .alpha(1f)
+                .setDuration(140L)
+                .start()
+            sheet.animate()
+                .translationY(0f)
+                .setDuration(220L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
         }
     }
 
@@ -1280,15 +2213,17 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun addSheetGrabber(sheet: LinearLayout) {
+    private fun addSheetGrabber(sheet: LinearLayout): View {
+        val grabber = View(this).apply {
+            background = roundedRectangle(0x33000000, 2)
+        }
         sheet.addView(
-            View(this).apply {
-                background = roundedRectangle(0x33000000, 2)
-            },
+            grabber,
             LinearLayout.LayoutParams(dp(42), dp(4)).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
             }
         )
+        return grabber
     }
 
     private fun dismissTodayWidgetPicker() {
@@ -1384,6 +2319,7 @@ class LauncherActivity : AppCompatActivity(),
         dismissTodayWidgetPreview()
         hideAppLibrarySearchOverlay(animated = false)
         hideAppLibraryDetailOverlay(animated = false)
+        hideRenameAppPicker()
         dismissLauncherOptionsPopup()
         if (widgetsPage != null) {
             hideWidgetResizeContainer()
@@ -1399,9 +2335,6 @@ class LauncherActivity : AppCompatActivity(),
         managedProfileReceiver?.let { ManagedProfileBroadcastReceiver.unregister(this, it) }
         compositeDisposableBag.dispose()
         events?.unsubscribe()
-        if (enableLocationDialog?.isShowing == true) {
-            enableLocationDialog?.dismiss()
-        }
         BlissLauncher.getApplication(this).appProvider.clear()
         WallpaperManagerCompat.getInstance(this).removeOnChangeListener(this)
         super.onDestroy()
@@ -1453,11 +2386,7 @@ class LauncherActivity : AppCompatActivity(),
         }
 
         val view = prepareLauncherItem(launcherItem)
-
-        var current = 0
-        while (current < pages.size && pages[current].childCount == mDeviceProfile.maxAppsPerPage) {
-            current++
-        }
+        val current = findHomePageForNewItem()
 
         if (current == pages.size) {
             val page = preparePage()
@@ -1465,11 +2394,42 @@ class LauncherActivity : AppCompatActivity(),
             addHomePageToPager(page)
             refreshPageIndicator()
         }
+
+        val page = pages[current]
         launcherItem.screenId = current.toLong()
-        launcherItem.cell = pages[current].childCount - 1
+        launcherItem.cell = if (isAutoRearrangeAppsEnabled()) {
+            LauncherHomeCellPolicy.compactCell(page.childCount)
+        } else {
+            LauncherHomeCellPolicy.nextAppendCell(
+                occupiedCells = occupiedHomeCells(page),
+                maxCells = mDeviceProfile.maxAppsPerPage
+            ) ?: 0
+        }
         launcherItem.container = Constants.CONTAINER_DESKTOP.toLong()
-        addAppToGrid(pages[current], view)
+        addAppToGrid(page, view)
         moveTo = current + 1
+    }
+
+    private fun findHomePageForNewItem(): Int {
+        if (isAutoRearrangeAppsEnabled()) {
+            for (index in pages.indices) {
+                if (pages[index].childCount < mDeviceProfile.maxAppsPerPage) {
+                    return index
+                }
+            }
+            return pages.size
+        }
+
+        for (index in pages.indices) {
+            val nextCell = LauncherHomeCellPolicy.nextAppendCell(
+                occupiedCells = occupiedHomeCells(pages[index]),
+                maxCells = mDeviceProfile.maxAppsPerPage
+            )
+            if (nextCell != null) {
+                return index
+            }
+        }
+        return pages.size
     }
 
     private fun updateOrAddShortcut(shortcutItem: ShortcutItem) {
@@ -1837,27 +2797,8 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createOrUpdateBadgeCount() {
-        compositeDisposableBag.add(
-            NotificationRepository.getNotificationRepository().getNotifications()
-                .subscribeWith(object : DisposableObserver<Set<String>>() {
-                    override fun onNext(packages: Set<String>) {
-                        mAppsWithNotifications = packages
-                        updateBadges(mAppsWithNotifications)
-                    }
-
-                    override fun onError(e: Throwable) {
-                        Toast.makeText(
-                            this@LauncherActivity,
-                            getString(R.string.toast_recreating_launcher),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        e.printStackTrace()
-                        recreate()
-                    }
-
-                    override fun onComplete() = Unit
-                })
-        )
+        mAppsWithNotifications = emptySet()
+        updateBadges(mAppsWithNotifications)
     }
 
     private fun updateBadges(appsWithNotifications: Set<String>) {
@@ -2013,6 +2954,9 @@ class LauncherActivity : AppCompatActivity(),
                     updateWorkspaceChromeForPage(currentPageNumber)
                     showPageIndicator(currentPageNumber)
                 }
+                if (page == WIDGET_PAGE) {
+                    hideWidgetPageIndicator()
+                }
             }
         })
     }
@@ -2037,36 +2981,32 @@ class LauncherActivity : AppCompatActivity(),
     fun refreshSuggestedApps(viewGroup: ViewGroup, forceRefresh: Boolean) {
         val openUsageAccessSettingsTv = viewGroup.findViewById<TextView?>(R.id.openUsageAccessSettings)
         val suggestedAppsGridLayout = viewGroup.findViewById<GridLayout?>(R.id.suggestedAppGrid)
-        val appUsageStats = AppUsageStats(this)
-        val usageStats = appUsageStats.getUsageStats()
-
-        val suggestedApps = if (usageStats.isEmpty()) {
-            fallbackSuggestedApps(LauncherSearchResultPolicy.EMPTY_QUERY_SUGGESTION_LIMIT)
-        } else {
-            usageStats
-                .map { it.packageName }
-                .mapNotNull { AppUtils.createAppItem(this, it, UserHandle()) }
-                .take(LauncherSearchResultPolicy.EMPTY_QUERY_SUGGESTION_LIMIT)
+        if (!SuggestedAppsViewPolicy.hasRequiredViews(openUsageAccessSettingsTv, suggestedAppsGridLayout)) {
+            return
         }
+        val openUsageAccessSettings = openUsageAccessSettingsTv ?: return
+        val suggestedAppsGrid = suggestedAppsGridLayout ?: return
+
+        val suggestedApps = fallbackSuggestedApps(LauncherSearchResultPolicy.EMPTY_QUERY_SUGGESTION_LIMIT)
 
         if (suggestedApps.isEmpty()) {
-            openUsageAccessSettingsTv!!.visibility = VISIBLE
-            suggestedAppsGridLayout!!.visibility = GONE
+            openUsageAccessSettings.visibility = VISIBLE
+            suggestedAppsGrid.visibility = GONE
             mSuggestedApps = ArrayList()
             return
         }
 
-        openUsageAccessSettingsTv!!.visibility = GONE
-        suggestedAppsGridLayout!!.visibility = VISIBLE
+        openUsageAccessSettings.visibility = GONE
+        suggestedAppsGrid.visibility = VISIBLE
 
         if (!forceRefresh && suggestedApps == mSuggestedApps) {
             return
         }
 
-        suggestedAppsGridLayout.removeAllViews()
-        suggestedAppsGridLayout.columnCount = LauncherSearchResultPolicy.GRID_COLUMNS
-        suggestedAppsGridLayout.rowCount = LauncherSearchResultPolicy.rowCountFor(suggestedApps.size)
-        suggestedApps.map { prepareSuggestedApp(it) }.forEach { addAppToGrid(suggestedAppsGridLayout, it) }
+        suggestedAppsGrid.removeAllViews()
+        suggestedAppsGrid.columnCount = LauncherSearchResultPolicy.GRID_COLUMNS
+        suggestedAppsGrid.rowCount = LauncherSearchResultPolicy.rowCountFor(suggestedApps.size)
+        suggestedApps.map { prepareSuggestedApp(it) }.forEach { addAppToGrid(suggestedAppsGrid, it) }
         mSuggestedApps = suggestedApps
         forceRefreshSuggestedApps = false
     }
@@ -2099,6 +3039,7 @@ class LauncherActivity : AppCompatActivity(),
     private fun createUI(launcherItems: List<LauncherItem>) {
         mHorizontalPager.setUiCreated(false)
         mDock.isEnabled = false
+        val autoArrangeApps = isAutoRearrangeAppsEnabled()
 
         pages = ArrayList()
 
@@ -2122,19 +3063,33 @@ class LauncherActivity : AppCompatActivity(),
                     hotseatCell = launcherItem.cell
                 }
             } else if (launcherItem.container == Constants.CONTAINER_DESKTOP.toLong()) {
-                if (workspaceScreen.childCount >= mDeviceProfile.maxAppsPerPage ||
-                    launcherItem.screenId > pages.size - 1
-                ) {
-                    workspaceScreen = preparePage()
-                    pages.add(workspaceScreen)
+                if (autoArrangeApps) {
+                    if (workspaceScreen.childCount >= mDeviceProfile.maxAppsPerPage ||
+                        launcherItem.screenId > pages.size - 1
+                    ) {
+                        workspaceScreen = preparePage()
+                        pages.add(workspaceScreen)
+                    }
+                    launcherItem.screenId = (pages.size - 1).toLong()
+                    launcherItem.cell = workspaceScreen.childCount
+                } else {
+                    val pageIndex = launcherItem.screenId.toInt().coerceAtLeast(0)
+                    val placement = LauncherHomeCellPolicy.resolvePageCell(
+                        preferredPage = pageIndex,
+                        preferredCell = launcherItem.cell,
+                        occupiedCellsByPage = occupiedHomeCellsByPage(),
+                        maxCells = mDeviceProfile.maxAppsPerPage
+                    )
+                    workspaceScreen = ensureHomePage(placement.page)
+                    launcherItem.screenId = placement.page.toLong()
+                    launcherItem.cell = placement.cell
                 }
-                launcherItem.screenId = (pages.size - 1).toLong()
-                launcherItem.cell = workspaceScreen.childCount
                 addAppToGrid(workspaceScreen, appView)
             }
         }
 
         for (page in pages) {
+            relayoutHomePageCells(page)
             mHorizontalPager.addView(page)
         }
         appLibraryApps = collectAppLibraryApps(launcherItems)
@@ -2144,6 +3099,14 @@ class LauncherActivity : AppCompatActivity(),
         mHorizontalPager.setUiCreated(true)
         mDock.isEnabled = true
         setUpSwipeSearchContainer()
+    }
+
+    private fun ensureHomePage(pageIndex: Int): GridLayout {
+        val safePageIndex = pageIndex.coerceAtLeast(0)
+        while (pages.size <= safePageIndex) {
+            pages.add(preparePage())
+        }
+        return pages[safePageIndex]
     }
 
     private fun addHomePageToPager(page: GridLayout) {
@@ -2206,9 +3169,25 @@ class LauncherActivity : AppCompatActivity(),
     private fun createWidgetsPage() {
         widgetsPage = layoutInflater.inflate(R.layout.widgets_page, mHorizontalPager, false) as FrameLayout
         val page = widgetsPage ?: return
+        page.clipChildren = false
+        page.clipToPadding = false
         widgetContainer = page.findViewById(R.id.widget_container)
+        val todayWidgetDragListener = View.OnDragListener { source, event ->
+            handleTodayWidgetDragEvent(source, event)
+        }
+        page.findViewById<ViewGroup?>(R.id.drag_layer)?.apply {
+            clipChildren = false
+            clipToPadding = false
+            setOnDragListener(todayWidgetDragListener)
+        }
+        page.findViewById<ViewGroup?>(R.id.widgets_scroll_container)?.apply {
+            clipChildren = false
+            clipToPadding = false
+        }
+        loadTodayQuickWidgets()
+        renderTodayWidgets()
         mHorizontalPager.addView(page, 0)
-        page.setOnDragListener(null)
+        page.setOnDragListener(todayWidgetDragListener)
         val scrollView = page.findViewById<ScrollView>(R.id.widgets_scroll_container)
         scrollView.setOnTouchListener { _, _ ->
             if (page.findViewById<View>(R.id.widget_resizer_container).visibility == VISIBLE) {
@@ -2219,7 +3198,7 @@ class LauncherActivity : AppCompatActivity(),
         currentPageNumber = 1
         mHorizontalPager.setCurrentPage(currentPageNumber)
 
-        widgetContainer.setOnDragListener { _, event -> handleTodayWidgetDragEvent(event) }
+        widgetContainer.setOnDragListener(todayWidgetDragListener)
 
         page.findViewById<View?>(R.id.edit_widgets_button)?.setOnClickListener {
             setTodayWidgetEditing(true)
@@ -2236,25 +3215,7 @@ class LauncherActivity : AppCompatActivity(),
             startService(Intent(this, DeviceStatusService::class.java))
         }
 
-        if (!Preferences.useCustomWeatherLocation(this)) {
-            if (!WeatherPreferences.hasLocationPermission(this)) {
-                requestPermissions(
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    WeatherPreferences.LOCATION_PERMISSION_REQUEST_CODE
-                )
-            } else {
-                val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                if (!lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) && Preferences.getEnableLocation(this)) {
-                    showLocationEnableDialog()
-                    Preferences.setEnableLocation(this)
-                } else {
-                    startService(
-                        Intent(this, WeatherUpdateService::class.java)
-                            .setAction(WeatherUpdateService.ACTION_FORCE_UPDATE)
-                    )
-                }
-            }
-        } else {
+        if (Preferences.useCustomWeatherLocation(this)) {
             startService(
                 Intent(this, WeatherUpdateService::class.java)
                     .setAction(WeatherUpdateService.ACTION_FORCE_UPDATE)
@@ -2308,7 +3269,7 @@ class LauncherActivity : AppCompatActivity(),
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            background = roundedRectangle(0x66FFFFFF, 24)
+            background = roundedRectangle(LauncherLiquidGlassStylePolicy.searchPill(liquidGlassEnabled))
             isClickable = true
             isFocusable = true
             setOnClickListener { showAppLibrarySearchOverlay() }
@@ -2375,8 +3336,10 @@ class LauncherActivity : AppCompatActivity(),
 
             val folderCard = FrameLayout(context).apply {
                 background = roundedRectangle(
-                    if (group.apps.isEmpty()) APP_LIBRARY_EMPTY_FOLDER_COLOR else APP_LIBRARY_FOLDER_COLOR,
-                    20
+                    LauncherLiquidGlassStylePolicy.appLibraryFolder(
+                        enabled = liquidGlassEnabled,
+                        empty = group.apps.isEmpty()
+                    )
                 )
                 clipToOutline = true
                 isClickable = group.apps.isNotEmpty()
@@ -2432,15 +3395,16 @@ class LauncherActivity : AppCompatActivity(),
         group: AppLibraryGroup<ApplicationItem>,
         slot: Int
     ): View {
-        val useOverflowCluster = slot == APP_LIBRARY_PREVIEW_SLOTS - 1 &&
-            AppLibraryPreviewPolicy.shouldUseOverflowCluster(group.apps.size)
-
         return FrameLayout(this).apply {
             addView(
-                if (useOverflowCluster) {
-                    createAppLibraryOverflowPreview(AppLibraryPreviewPolicy.overflowPreviewApps(group.apps))
-                } else {
-                    createAppLibraryPreviewIcon(group.apps.getOrNull(slot))
+                when (AppLibraryPreviewPolicy.previewSlotContent(group.apps.size, slot)) {
+                    AppLibraryPreviewPolicy.SlotContent.OVERFLOW_CLUSTER -> {
+                        createAppLibraryOverflowPreview(AppLibraryPreviewPolicy.overflowPreviewApps(group.apps))
+                    }
+
+                    AppLibraryPreviewPolicy.SlotContent.LARGE_ICON -> {
+                        createAppLibraryPreviewIcon(group.apps.getOrNull(slot))
+                    }
                 },
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -2465,24 +3429,35 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createAppLibraryOverflowPreview(apps: List<ApplicationItem>): View {
-        return GridLayout(this).apply {
-            rowCount = 2
-            columnCount = 2
-            repeat(APP_LIBRARY_OVERFLOW_SLOTS) { slot ->
-                val app = apps.getOrNull(slot)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            repeat(2) { row ->
                 addView(
-                    ImageView(context).apply {
-                        visibility = if (app == null) View.INVISIBLE else VISIBLE
-                        setImageDrawable(app?.icon)
-                        contentDescription = app?.title?.toString()
-                        scaleType = ImageView.ScaleType.FIT_CENTER
-                        if (app != null) {
-                            isClickable = true
-                            isFocusable = true
-                            setOnClickListener { view -> startActivitySafely(applicationContext, app, view) }
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        repeat(2) { column ->
+                            val app = apps.getOrNull(row * 2 + column)
+                            addView(
+                                ImageView(context).apply {
+                                    visibility = if (app == null) View.INVISIBLE else VISIBLE
+                                    setImageDrawable(app?.icon)
+                                    contentDescription = app?.title?.toString()
+                                    scaleType = ImageView.ScaleType.FIT_CENTER
+                                    if (app != null) {
+                                        isClickable = true
+                                        isFocusable = true
+                                        setOnClickListener { view -> startActivitySafely(applicationContext, app, view) }
+                                    }
+                                },
+                                appLibraryOverflowLayoutParams()
+                            )
                         }
                     },
-                    appLibraryOverflowLayoutParams()
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1f
+                    )
                 )
             }
         }
@@ -2637,13 +3612,12 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun appLibraryOverflowLayoutParams(): GridLayout.LayoutParams {
-        return GridLayout.LayoutParams(
-            GridLayout.spec(GridLayout.UNDEFINED, 1f),
-            GridLayout.spec(GridLayout.UNDEFINED, 1f)
+    private fun appLibraryOverflowLayoutParams(): LinearLayout.LayoutParams {
+        return LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            1f
         ).apply {
-            width = 0
-            height = 0
             setMargins(dp(1), dp(1), dp(1), dp(1))
         }
     }
@@ -2797,7 +3771,7 @@ class LauncherActivity : AppCompatActivity(),
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = roundedRectangle(0x66FFFFFF, 22)
+            background = roundedRectangle(LauncherLiquidGlassStylePolicy.searchField(liquidGlassEnabled))
             setPadding(dp(10), 0, dp(12), 0)
             addView(
                 ImageView(context).apply {
@@ -3003,11 +3977,28 @@ class LauncherActivity : AppCompatActivity(),
             }
     }
 
-    private fun roundedRectangle(color: Int, radiusDp: Int): GradientDrawable {
+    private fun roundedRectangle(style: LauncherLiquidGlassStylePolicy.BackgroundStyle): GradientDrawable {
+        return roundedRectangle(
+            color = style.color,
+            radiusDp = style.radiusDp,
+            strokeColor = style.strokeColor,
+            strokeWidthDp = style.strokeWidthDp
+        )
+    }
+
+    private fun roundedRectangle(
+        color: Int,
+        radiusDp: Int,
+        strokeColor: Int? = null,
+        strokeWidthDp: Int = 1
+    ): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(radiusDp).toFloat()
             setColor(color)
+            if (strokeColor != null) {
+                setStroke(dp(strokeWidthDp), strokeColor)
+            }
         }
     }
 
@@ -3050,74 +4041,6 @@ class LauncherActivity : AppCompatActivity(),
         renderTodayWidgets()
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == WeatherPreferences.LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                if (!lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                    showLocationEnableDialog()
-                    Preferences.setEnableLocation(this)
-                } else {
-                    startService(
-                        Intent(this, WeatherUpdateService::class.java)
-                            .setAction(WeatherUpdateService.ACTION_FORCE_UPDATE)
-                    )
-                }
-            }
-        } else if (requestCode == STORAGE_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                BlurWallpaperProvider.getInstance(applicationContext).updateAsync()
-            }
-        }
-    }
-
-    private fun showNotifPermissionDeniedDialog() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle(R.string.perm_required)
-        builder.setMessage(R.string.notification_badge_warning)
-        builder.setPositiveButton(R.string.grant) { dialog, _ ->
-            val showFragmentArgs = Bundle()
-            showFragmentArgs.putString(EXTRA_FRAGMENT_ARG_KEY, notificationComponentName.flattenToString())
-            if (permissionString == null || !permissionString!!.contains(packageName)) {
-                dialog.dismiss()
-                startActivity(
-                    Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-                        .putExtra(EXTRA_FRAGMENT_ARG_KEY, notificationComponentName.flattenToString())
-                        .putExtra(EXTRA_SHOW_FRAGMENT_ARGS, showFragmentArgs)
-                )
-                Preferences.setNotToAskForNotificationAccess(this)
-                Preferences.setNotToShowNotificationDialog(this)
-            }
-        }
-        builder.setNegativeButton(R.string.ignore) { dialog, _ ->
-            Preferences.setNotToShowNotificationDialog(this)
-            dialog.dismiss()
-        }
-        builder.setCancelable(false)
-
-        builder.create().show()
-    }
-
-    private fun showLocationEnableDialog() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle(R.string.weather_retrieve_location_dialog_title)
-        builder.setMessage(R.string.weather_retrieve_location_dialog_message)
-        builder.setCancelable(false)
-        builder.setPositiveButton(R.string.weather_retrieve_location_dialog_enable_button) { _, _ ->
-            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            startActivityForResult(intent, REQUEST_LOCATION_SOURCE_SETTING)
-        }
-        builder.setNegativeButton(R.string.cancel, null)
-        enableLocationDialog = builder.create()
-        enableLocationDialog?.show()
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_TODAY_BIND_APPWIDGET) {
             val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingTodayWidgetId)
@@ -3136,16 +4059,6 @@ class LauncherActivity : AppCompatActivity(),
             } else if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                 mAppWidgetHost.deleteAppWidgetId(appWidgetId)
                 pendingTodayWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-            }
-        } else if (requestCode == REQUEST_LOCATION_SOURCE_SETTING) {
-            val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-            if (!lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                Toast.makeText(this, getString(R.string.toast_custom_location), Toast.LENGTH_SHORT).show()
-            } else {
-                startService(
-                    Intent(this, WeatherUpdateService::class.java)
-                        .setAction(WeatherUpdateService.ACTION_FORCE_UPDATE)
-                )
             }
         } else {
             super.onActivityResult(requestCode, resultCode, data)
@@ -3238,6 +4151,17 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun addAppToGrid(page: GridLayout, view: BlissFrameLayout, index: Int, cellWidthPx: Int) {
+        if (pages.contains(page) && !isAutoRearrangeAppsEnabled()) {
+            val cell = LauncherHomeCellPolicy.resolveCell(
+                preferredCell = view.launcherItem.cell,
+                requestedIndex = index,
+                occupiedCells = occupiedHomeCells(page, except = view),
+                maxCells = mDeviceProfile.maxAppsPerPage
+            )
+            addAppToGridAtCell(page, view, cell, cellWidthPx)
+            return
+        }
+
         val rowSpec = GridLayout.spec(GridLayout.UNDEFINED)
         val colSpec = GridLayout.spec(GridLayout.UNDEFINED)
         val iconLayoutParams = GridLayout.LayoutParams(rowSpec, colSpec)
@@ -3246,11 +4170,130 @@ class LauncherActivity : AppCompatActivity(),
         view.findViewById<View>(R.id.app_label).visibility = VISIBLE
         view.layoutParams = iconLayoutParams
         view.setWithText(true)
-        if (index == EMPTY_LOCATION_DRAG || index == LauncherItem.INVALID_CELL || index > page.childCount) {
+        val shouldAppend = index == EMPTY_LOCATION_DRAG || index == LauncherItem.INVALID_CELL || index > page.childCount
+        if (pages.contains(page)) {
+            view.launcherItem.cell = LauncherHomeCellPolicy.compactCell(if (shouldAppend) page.childCount else index)
+        }
+        if (shouldAppend) {
             page.addView(view)
         } else {
             page.addView(view, index)
         }
+    }
+
+    private fun addAppToGridAtCell(
+        page: GridLayout,
+        view: BlissFrameLayout,
+        cell: Int,
+        cellWidthPx: Int
+    ) {
+        applyHomeCellLayoutParams(page, view, cell, cellWidthPx)
+        page.addView(view)
+    }
+
+    private fun applyHomeCellLayoutParams(
+        page: GridLayout,
+        view: BlissFrameLayout,
+        cell: Int,
+        cellWidthPx: Int
+    ) {
+        val cellHeightPx = homeCellHeightForPage(page)
+        val manualLayout = LauncherHomeCellPolicy.manualLayoutForCell(
+            cell = cell,
+            columns = page.columnCount,
+            cellWidth = cellWidthPx,
+            cellHeight = cellHeightPx
+        )
+        val iconLayoutParams = GridLayout.LayoutParams(
+            GridLayout.spec(manualLayout.specRow),
+            GridLayout.spec(manualLayout.specColumn)
+        )
+        iconLayoutParams.height = cellHeightPx
+        iconLayoutParams.width = cellWidthPx
+        iconLayoutParams.leftMargin = manualLayout.left
+        iconLayoutParams.topMargin = manualLayout.top
+        iconLayoutParams.setGravity(Gravity.START or Gravity.TOP)
+        view.findViewById<View>(R.id.app_label).visibility = VISIBLE
+        view.layoutParams = iconLayoutParams
+        view.launcherItem.cell = cell
+        view.setWithText(true)
+    }
+
+    private fun homeCellHeightForPage(page: GridLayout): Int {
+        return LauncherHomeCellPolicy.cellHeightForPage(
+            workspaceHeight = mDeviceProfile.workspaceHeight,
+            normalTopPadding = dp(LauncherHomeLayoutPreferences.HOME_PAGE_TOP_PADDING_DP),
+            currentTopPadding = page.paddingTop,
+            rows = page.rowCount,
+            maxCellHeight = mDeviceProfile.cellHeightPx
+        )
+    }
+
+    private fun relayoutHomePageCells(page: GridLayout, compact: Boolean = false) {
+        val occupiedCells = mutableSetOf<Int>()
+        val compactedCells = if (LauncherHomeCellPolicy.shouldCompactCells(
+                autoArrangeEnabled = isAutoRearrangeAppsEnabled(),
+                forceCompact = compact
+            )
+        ) {
+            LauncherHomeCellPolicy.compactCells(page.childCount, mDeviceProfile.maxAppsPerPage)
+        } else {
+            emptyList()
+        }
+        for (index in 0 until page.childCount) {
+            val child = page.getChildAt(index) as? BlissFrameLayout ?: continue
+            val cell = compactedCells.getOrNull(index)
+                ?: LauncherHomeCellPolicy.resolveCell(
+                    preferredCell = child.launcherItem.cell,
+                    requestedIndex = LauncherItem.INVALID_CELL,
+                    occupiedCells = occupiedCells,
+                    maxCells = mDeviceProfile.maxAppsPerPage
+                )
+            occupiedCells.add(cell)
+            applyHomeCellLayoutParams(page, child, cell, mDeviceProfile.cellWidthPx)
+        }
+        page.requestLayout()
+    }
+
+    private fun occupiedHomeCells(page: GridLayout, except: BlissFrameLayout? = null): Set<Int> {
+        val occupiedCells = mutableSetOf<Int>()
+        val maxCells = mDeviceProfile.maxAppsPerPage
+        for (index in 0 until page.childCount) {
+            val child = page.getChildAt(index) as? BlissFrameLayout ?: continue
+            if (child === except) {
+                continue
+            }
+            val cell = child.launcherItem.cell
+            if (cell in 0 until maxCells) {
+                occupiedCells.add(cell)
+            }
+        }
+        return occupiedCells
+    }
+
+    private fun findHomeCellOccupant(
+        page: GridLayout,
+        cell: Int,
+        except: BlissFrameLayout? = null
+    ): BlissFrameLayout? {
+        for (index in 0 until page.childCount) {
+            val child = page.getChildAt(index) as? BlissFrameLayout ?: continue
+            if (child === except) {
+                continue
+            }
+            if (child.launcherItem.cell == cell) {
+                return child
+            }
+        }
+        return null
+    }
+
+    private fun occupiedHomeCellsByPage(): Map<Int, Set<Int>> {
+        return pages.indices.associateWith { index -> occupiedHomeCells(pages[index]) }
+    }
+
+    private fun isAutoRearrangeAppsEnabled(): Boolean {
+        return LauncherHomeLayoutPreferences.isAutoRearrangeAppsEnabled(this)
     }
 
     private fun addAppToDock(view: BlissFrameLayout, index: Int) {
@@ -3329,6 +4372,8 @@ class LauncherActivity : AppCompatActivity(),
                         } else {
                             -99
                         }
+                        dragStartHomePage = parentPage.takeIf { it >= 0 } ?: -1
+                        dragStartHomeCell = iconView.launcherItem.cell
                         iconView.clearAnimation()
                         movingApp?.visibility = View.INVISIBLE
                         dragDropEnabled = true
@@ -3383,6 +4428,10 @@ class LauncherActivity : AppCompatActivity(),
             popup.dismiss()
             openLauncherItemInfo(launcherItem)
         }
+        menu.findViewById<View>(R.id.renameButton)?.setOnClickListener {
+            popup.dismiss()
+            showRenameAppPicker()
+        }
         menu.findViewById<View>(R.id.hideButton)?.setOnClickListener {
             popup.dismiss()
         }
@@ -3421,6 +4470,284 @@ class LauncherActivity : AppCompatActivity(),
             popup.dismiss()
         } else if (::contextOverlay.isInitialized) {
             hideLauncherOptionsOverlay()
+        }
+    }
+
+    private fun showRenameAppPicker() {
+        val apps = renamePickerApps()
+        if (apps.isEmpty()) {
+            Toast.makeText(this, R.string.settings_no_apps_found, Toast.LENGTH_SHORT).show()
+            return
+        }
+        showRenameAppPicker(apps)
+    }
+
+    private fun showRenameAppPicker(apps: List<ApplicationItem>) {
+        hideRenameAppPicker()
+
+        val backgroundColor = 0xFFF2F2F7.toInt()
+        val toolbarColor = Color.WHITE
+        val primaryTextColor = Color.BLACK
+        val secondaryTextColor = 0xFF5E6675.toInt()
+        val dividerColor = 0xFFE5E5EA.toInt()
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(backgroundColor)
+            elevation = dp(42).toFloat()
+            isClickable = true
+            isFocusable = true
+        }
+
+        panel.addView(
+            FrameLayout(this).apply {
+                setBackgroundColor(toolbarColor)
+                addView(
+                    TextView(context).apply {
+                        text = getString(R.string.layout_back_settings)
+                        setTextColor(0xFF007AFF.toInt())
+                        textSize = 25f
+                        gravity = Gravity.CENTER_VERTICAL
+                        includeFontPadding = false
+                        setOnClickListener { hideRenameAppPicker() }
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(56),
+                        Gravity.START or Gravity.BOTTOM
+                    ).apply {
+                        leftMargin = dp(14)
+                    }
+                )
+                addView(
+                    TextView(context).apply {
+                        text = getString(R.string.settings_rename)
+                        setTextColor(primaryTextColor)
+                        textSize = 20f
+                        typeface = Typeface.DEFAULT_BOLD
+                        gravity = Gravity.CENTER
+                        includeFontPadding = false
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(56),
+                        Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(112))
+        )
+
+        panel.addView(
+            View(this).apply { setBackgroundColor(dividerColor) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+        )
+
+        panel.addView(
+            ScrollView(this).apply {
+                isFillViewport = true
+                overScrollMode = View.OVER_SCROLL_NEVER
+                setBackgroundColor(backgroundColor)
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        apps.forEach { app ->
+                            addView(createRenameAppRow(app, secondaryTextColor, dividerColor, backgroundColor))
+                        }
+                    },
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+
+        renameAppPanel = panel
+        (mLauncherView as? ViewGroup)?.addView(
+            panel,
+            RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
+
+    private fun createRenameAppRow(
+        app: ApplicationItem,
+        textColor: Int,
+        dividerColor: Int,
+        backgroundColor: Int
+    ): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(backgroundColor)
+            addView(
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    isClickable = true
+                    isFocusable = true
+                    setPadding(dp(18), 0, dp(14), 0)
+                    setOnClickListener { showRenameAppDialog(app) }
+
+                    addView(
+                        ImageView(context).apply {
+                            setImageDrawable(app.icon)
+                            contentDescription = app.title?.toString()
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                        },
+                        LinearLayout.LayoutParams(dp(58), dp(58))
+                    )
+
+                    addView(
+                        TextView(context).apply {
+                            text = app.title?.toString().orEmpty()
+                            setTextColor(textColor)
+                            textSize = 18f
+                            maxLines = 1
+                            ellipsize = TextUtils.TruncateAt.END
+                            includeFontPadding = false
+                        },
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            marginStart = dp(14)
+                        }
+                    )
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(82))
+            )
+            addView(
+                View(context).apply { setBackgroundColor(dividerColor) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
+                    leftMargin = dp(92)
+                }
+            )
+        }
+    }
+
+    private fun showRenameAppDialog(app: ApplicationItem) {
+        val currentTitle = app.title?.toString().orEmpty()
+        val input = EditText(this).apply {
+            setSingleLine(true)
+            hint = getString(R.string.settings_rename_hint)
+            setText(currentTitle)
+            selectAll()
+            textSize = 18f
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_rename)
+            .setView(container)
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .setPositiveButton(R.string.dialog_ok) { _, _ ->
+                val updatedTitle = LauncherAppRenamePolicy.submittedTitle(
+                    input = input.text?.toString().orEmpty(),
+                    currentTitle = currentTitle
+                )
+                renameApplication(app, updatedTitle)
+            }
+            .show()
+    }
+
+    private fun renameApplication(app: ApplicationItem, updatedTitle: String) {
+        val appKeys = renameKeysFor(app)
+        LauncherAppRenamePreferences.save(this, appKeys, updatedTitle)
+        applyRenamedTitleToLauncher(appKeys, updatedTitle)
+        DatabaseManager.getManager(this).saveLayouts(pages, mDock)
+        refreshAppLibraryPage()
+        hideRenameAppPicker()
+        Toast.makeText(this, getString(R.string.settings_rename_done, updatedTitle), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun hideRenameAppPicker() {
+        val panel = renameAppPanel ?: return
+        renameAppPanel = null
+        (panel.parent as? ViewGroup)?.removeView(panel)
+    }
+
+    private fun renamePickerApps(): List<ApplicationItem> {
+        val appsById = linkedMapOf<String, ApplicationItem>()
+
+        fun collect(item: LauncherItem) {
+            when (item.itemType) {
+                Constants.ITEM_TYPE_APPLICATION -> appsById[item.id] = item as ApplicationItem
+                Constants.ITEM_TYPE_FOLDER -> (item as FolderItem).items.orEmpty().forEach(::collect)
+            }
+        }
+
+        appLibraryApps.forEach { app -> appsById[app.id] = app }
+        for (i in 0 until mDock.childCount) {
+            collect(getAppDetails(mDock.getChildAt(i) as BlissFrameLayout))
+        }
+        pages.forEach { page ->
+            for (i in 0 until page.childCount) {
+                collect(getAppDetails(page.getChildAt(i) as BlissFrameLayout))
+            }
+        }
+
+        return appsById.values.sortedWith { left, right ->
+            Collator.getInstance().compare(left.title?.toString().orEmpty(), right.title?.toString().orEmpty())
+        }
+    }
+
+    private fun renameKeysFor(app: ApplicationItem): List<String> {
+        return LauncherAppRenamePolicy.appKeys(
+            appId = app.id,
+            componentName = app.componentName?.flattenToString(),
+            packageName = app.packageName
+        )
+    }
+
+    private fun applyRenamedTitleToLauncher(appKeys: List<String>, updatedTitle: String) {
+        appLibraryApps.forEach { app ->
+            if (LauncherAppRenamePolicy.matchesApp(appKeys, renameKeysFor(app))) {
+                app.title = updatedTitle
+            }
+        }
+        mSuggestedApps.forEach { app ->
+            if (LauncherAppRenamePolicy.matchesApp(appKeys, renameKeysFor(app))) {
+                app.title = updatedTitle
+            }
+        }
+
+        fun updateItem(item: LauncherItem) {
+            when (item.itemType) {
+                Constants.ITEM_TYPE_APPLICATION -> {
+                    if (LauncherAppRenamePolicy.matchesApp(appKeys, renameKeysFor(item as ApplicationItem))) {
+                        item.title = updatedTitle
+                    }
+                }
+                Constants.ITEM_TYPE_FOLDER -> (item as FolderItem).items.orEmpty().forEach(::updateItem)
+            }
+        }
+
+        fun updateContainer(container: ViewGroup) {
+            for (i in 0 until container.childCount) {
+                val appView = container.getChildAt(i) as? BlissFrameLayout ?: continue
+                val item = getAppDetails(appView)
+                updateItem(item)
+                if (
+                    item.itemType == Constants.ITEM_TYPE_APPLICATION &&
+                    LauncherAppRenamePolicy.matchesApp(appKeys, renameKeysFor(item as ApplicationItem))
+                ) {
+                    appView.findViewById<TextView>(R.id.app_label)?.text = updatedTitle
+                }
+            }
+        }
+
+        updateContainer(mDock)
+        pages.forEach(::updateContainer)
+        if (mFolderWindowContainer.visibility == VISIBLE) {
+            for (i in 0 until mFolderAppsViewPager.childCount) {
+                (mFolderAppsViewPager.getChildAt(i) as? ViewGroup)?.let(::updateContainer)
+            }
         }
     }
 
@@ -3660,14 +4987,7 @@ class LauncherActivity : AppCompatActivity(),
                 StrictMode.setVmPolicy(oldPolicy)
             }
         } catch (e: SecurityException) {
-            if (intent.component == null &&
-                Intent.ACTION_CALL == intent.action &&
-                context.checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(arrayOf(Manifest.permission.CALL_PHONE), REQUEST_PERMISSION_CALL_PHONE)
-            } else {
-                throw e
-            }
+            throw e
         }
     }
 
@@ -3696,6 +5016,7 @@ class LauncherActivity : AppCompatActivity(),
 
         for (page in pages) {
             applyHomePageGridPadding(page, shouldPlay)
+            relayoutHomePageCells(page)
             toggleWobbleAnimation(page, shouldPlay)
         }
         toggleWobbleAnimation(mDock, shouldPlay)
@@ -4087,7 +5408,14 @@ class LauncherActivity : AppCompatActivity(),
                         }
 
                         if (!folderInterest && !mReorderAlarm.alarmPending()) {
-                            val reorderAlarmListener = ReorderAlarmListener(page, moving.parent as ViewGroup, index)
+                            val targetCell = dropCellForHomeGrid(page, cX, cY)
+                                .takeUnless { isAutoRearrangeAppsEnabled() }
+                            val reorderAlarmListener = ReorderAlarmListener(
+                                page,
+                                moving.parent as ViewGroup,
+                                index,
+                                targetCell
+                            )
                             mReorderAlarm.setOnAlarmListener(reorderAlarmListener)
                             mReorderAlarm.setAlarm(REORDER_TIMEOUT.toLong())
                         }
@@ -4169,6 +5497,8 @@ class LauncherActivity : AppCompatActivity(),
                     Handler(Looper.getMainLooper()).post {
                         moving.visibility = VISIBLE
                         movingApp = null
+                        dragStartHomePage = -1
+                        dragStartHomeCell = LauncherItem.INVALID_CELL
                     }
 
                     mWobblingCountDownTimer?.cancel()
@@ -4209,11 +5539,91 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
 
+        val targetCell = dropCellForHomeGrid(gridLayout, dropX, dropY)
+            .takeUnless { isAutoRearrangeAppsEnabled() }
+        if (targetCell != null) {
+            swapOccupiedHomeCellIfNeeded(gridLayout, moving, targetCell)
+        }
         (moving.parent as? ViewGroup)?.removeView(moving)
+        if (targetCell != null) {
+            moving.launcherItem.cell = targetCell
+        }
         val requestedIndex = getIndex(gridLayout, dropX, dropY)
         val targetIndex = LauncherDropCommitPolicy.targetInsertIndex(requestedIndex, gridLayout.childCount)
         addAppToGrid(gridLayout, moving, targetIndex)
+        relayoutHomePageCells(gridLayout)
         parentPage = getCurrentAppsPageNumber()
+    }
+
+    private fun swapOccupiedHomeCellIfNeeded(
+        gridLayout: GridLayout,
+        moving: BlissFrameLayout,
+        targetCell: Int
+    ) {
+        val displacedApp = findHomeCellOccupant(gridLayout, targetCell, except = moving) ?: return
+        val movingOriginalCell = if (dragStartHomePage == getCurrentAppsPageNumber()) {
+            dragStartHomeCell
+        } else {
+            LauncherItem.INVALID_CELL
+        }
+        val displacedCell = LauncherHomeCellPolicy.displacedCellForCollision(
+            movingOriginalCell = movingOriginalCell,
+            targetCell = targetCell,
+            occupiedCells = occupiedHomeCells(gridLayout, except = moving),
+            maxCells = mDeviceProfile.maxAppsPerPage
+        )
+        displacedApp.launcherItem.cell = displacedCell
+        applyHomeCellLayoutParams(gridLayout, displacedApp, displacedCell, mDeviceProfile.cellWidthPx)
+    }
+
+    private fun previewDroppedAppToPage(
+        gridLayout: GridLayout,
+        moving: BlissFrameLayout,
+        targetCell: Int
+    ) {
+        val movingCurrentCell = moving.launcherItem.cell
+        (moving.parent as? ViewGroup)?.removeView(moving)
+        if (gridLayout.childCount >= mDeviceProfile.maxAppsPerPage) {
+            return
+        }
+
+        val preview = LauncherHomeCellPolicy.collisionPreview(
+            movingCurrentCell = movingCurrentCell,
+            targetCell = targetCell,
+            occupiedCells = occupiedHomeCells(gridLayout, except = moving),
+            maxCells = mDeviceProfile.maxAppsPerPage
+        )
+        val displacedCell = preview.displacedCell
+        if (displacedCell != null) {
+            findHomeCellOccupant(gridLayout, preview.movingCell, except = moving)?.let { displacedApp ->
+                applyHomeCellLayoutParams(
+                    gridLayout,
+                    displacedApp,
+                    displacedCell,
+                    mDeviceProfile.cellWidthPx
+                )
+            }
+        }
+        addAppToGridAtCell(gridLayout, moving, preview.movingCell, mDeviceProfile.cellWidthPx)
+        relayoutHomePageCells(gridLayout)
+        parentPage = getCurrentAppsPageNumber()
+    }
+
+    private fun dropCellForHomeGrid(gridLayout: GridLayout, dropX: Float, dropY: Float): Int {
+        val gridLeft = gridLayout.left - mHorizontalPager.scrollX
+        val gridTop = mHorizontalPager.y.toInt() + gridLayout.top
+        return LauncherHomeCellPolicy.dropCell(
+            dropX = dropX,
+            dropY = dropY,
+            gridLeft = gridLeft,
+            gridTop = gridTop,
+            paddingLeft = gridLayout.paddingLeft,
+            paddingTop = gridLayout.paddingTop,
+            cellWidth = mDeviceProfile.cellWidthPx,
+            cellHeight = homeCellHeightForPage(gridLayout),
+            rows = gridLayout.rowCount,
+            columns = gridLayout.columnCount
+        )
     }
 
     private fun cleanupDockReorder(cancelAlarm: Boolean) {
@@ -4477,6 +5887,11 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun refreshPageIndicator() {
+        if (currentPageNumber == WIDGET_PAGE) {
+            hideWidgetPageIndicator()
+            return
+        }
+
         if (isHomePage(currentPageNumber)) {
             if (isWobbling || indicatorMode == IndicatorMode.DOTS) {
                 showDotsInIndicator(homePagePositionForPagerPage(currentPageNumber), false)
@@ -4488,10 +5903,21 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun hideWidgetPageIndicator() {
+        if (!::mIndicator.isInitialized) {
+            return
+        }
+
+        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
+        mIndicator.animate().cancel()
+        mIndicator.isClickable = false
+        mIndicator.alpha = 0f
+        mIndicator.visibility = GONE
+    }
+
     private fun showPageIndicator(page: Int) {
         if (!isHomePage(page)) {
-            indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-            mIndicator.visibility = GONE
+            hideWidgetPageIndicator()
             return
         }
 
@@ -4553,6 +5979,10 @@ class LauncherActivity : AppCompatActivity(),
         }
         val pageWidth = max(1, mHorizontalPager.getPageWidth())
         val pagerPosition = scrollX / pageWidth.toFloat()
+        if (pagerPosition < 1f) {
+            hideWidgetPageIndicator()
+            return
+        }
         val fromPage = floor(pagerPosition).toInt()
         if (!isHomePage(fromPage) && !isHomePage(fromPage + 1)) {
             return
@@ -4725,9 +6155,13 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun displayFolder(app: FolderItem, v: BlissFrameLayout) {
         currentAnimator?.cancel()
+        forceHideSwipeSearchForFolder()
 
         activeFolder = app
         activeFolderView = v
+        val folderMetrics = folderOpenMetrics()
+        applyFolderOpenMetrics(folderMetrics)
+        applyLiquidGlassAppearance()
 
         startBounds = Rect()
         finalBounds = Rect()
@@ -4761,15 +6195,16 @@ class LauncherActivity : AppCompatActivity(),
             .with(ObjectAnimator.ofFloat(mFolderWindowContainer, View.SCALE_X, startScale, 1f))
             .with(ObjectAnimator.ofFloat(mFolderWindowContainer, View.SCALE_Y, startScale, 1f))
             .with(ObjectAnimator.ofFloat(blurLayer, View.ALPHA, 1f))
-            .with(ObjectAnimator.ofFloat(mHorizontalPager, View.ALPHA, 0f))
+            .with(ObjectAnimator.ofFloat(mHorizontalPager, View.ALPHA, FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA))
             .with(ObjectAnimator.ofFloat(mIndicator, View.ALPHA, 0f))
-            .with(ObjectAnimator.ofFloat(mDock, View.ALPHA, 0f))
+            .with(ObjectAnimator.ofFloat(mDock, View.ALPHA, FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA))
         set.duration = 300
         set.interpolator = LinearInterpolator()
         set.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationStart(animation: Animator) {
                 super.onAnimationStart(animation)
                 mFolderWindowContainer.visibility = VISIBLE
+                mFolderWindowContainer.bringToFront()
                 mFolderWindowContainer.pivotX = 0f
                 mFolderWindowContainer.pivotY = 0f
             }
@@ -4777,9 +6212,9 @@ class LauncherActivity : AppCompatActivity(),
             override fun onAnimationEnd(animation: Animator) {
                 currentAnimator = null
                 blurLayer.alpha = 1f
-                mHorizontalPager.alpha = 0f
+                mHorizontalPager.alpha = FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
                 mIndicator.alpha = 0f
-                mDock.alpha = 0f
+                mDock.alpha = FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
             }
 
             override fun onAnimationCancel(animation: Animator) {
@@ -4799,11 +6234,64 @@ class LauncherActivity : AppCompatActivity(),
         mFolderTitleInput.isCursorVisible = false
 
         mFolderAppsViewPager.adapter = FolderAppsPagerAdapter(this, app.items!!)
-        mFolderAppsViewPager.layoutParams.width = mDeviceProfile.cellWidthPx * 3 +
-            mDeviceProfile.iconDrawablePaddingPx
-        mFolderAppsViewPager.layoutParams.height = mDeviceProfile.cellHeightPx * 3 +
-            mDeviceProfile.iconDrawablePaddingPx
         (mLauncherView.findViewById<View>(R.id.indicator) as CircleIndicator).setViewPager(mFolderAppsViewPager)
+    }
+
+    private fun folderOpenMetrics(): FolderOpenLayoutPolicy.Metrics =
+        FolderOpenLayoutPolicy.metrics(
+            availableWidth = mDeviceProfile.availableWidthPx,
+            availableHeight = mDeviceProfile.availableHeightPx,
+            homeCellHeight = mDeviceProfile.cellHeightPx,
+            iconSize = mDeviceProfile.iconSizePx,
+            density = resources.displayMetrics.density
+        )
+
+    private fun applyFolderOpenMetrics(metrics: FolderOpenLayoutPolicy.Metrics) {
+        val folderBlur = mLauncherView.findViewById<View>(R.id.folder_bg_blur)
+        folderBlur.layoutParams = folderBlur.layoutParams.apply {
+            width = metrics.panelWidth
+            height = metrics.panelHeight
+        }
+
+        val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
+        folderBackground.layoutParams = folderBackground.layoutParams.apply {
+            width = metrics.panelWidth
+            height = metrics.panelHeight
+        }
+
+        mFolderAppsViewPager.layoutParams = mFolderAppsViewPager.layoutParams.apply {
+            width = metrics.panelWidth
+            height = metrics.gridHeight
+        }
+
+        val folderIndicator = mLauncherView.findViewById<View>(R.id.indicator)
+        folderIndicator.layoutParams = folderIndicator.layoutParams.apply {
+            width = metrics.panelWidth
+            height = metrics.indicatorHeight
+        }
+
+        (mFolderTitleInput.layoutParams as? RelativeLayout.LayoutParams)?.let { titleParams ->
+            titleParams.bottomMargin = metrics.titleBottomGap
+            mFolderTitleInput.layoutParams = titleParams
+        }
+        mFolderTitleInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, metrics.titleTextSizeSp)
+        mFolderTitleInput.setTextColor(Color.argb(215, 255, 255, 255))
+        mFolderTitleInput.setTypeface(Typeface.DEFAULT, Typeface.NORMAL)
+    }
+
+    private fun forceHideSwipeSearchForFolder() {
+        if (!::swipeSearchContainer.isInitialized) {
+            return
+        }
+        swipeSearchContainer.animate().cancel()
+        swipeSearchContainer.visibility = GONE
+        swipeSearchContainer.translationY = mDeviceProfile.availableHeightPx.toFloat()
+        swipeSearchContainer.findViewById<BlissInput>(R.id.search_input).setText("")
+        swipeSearchContainer.findViewById<View>(R.id.search_input).clearFocus()
+        if (searchDisposableObserver?.isDisposed == false) {
+            searchDisposableObserver?.dispose()
+        }
+        showSwipeSearch = false
     }
 
     private fun getLauncherView(): Bitmap {
@@ -4888,6 +6376,11 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun returnToHomeScreen() {
+        if (renameAppPanel != null) {
+            hideRenameAppPicker()
+            return
+        }
+
         if (widgetPreviewOverlay != null) {
             dismissTodayWidgetPreview()
             return
@@ -5035,6 +6528,7 @@ class LauncherActivity : AppCompatActivity(),
                 false
             }
         }
+        applyLiquidGlassAppearance()
     }
 
     private fun focusSearchInput(searchEditText: BlissInput) {
@@ -5097,6 +6591,13 @@ class LauncherActivity : AppCompatActivity(),
         swipeSearchContainer.translationY = BlissLauncher.getApplication(this).deviceProfile.availableHeightPx.toFloat()
         swipeSearchContainer.visibility = GONE
         showSwipeSearch = false
+    }
+
+    override fun canStartSwipeDown(): Boolean {
+        return LauncherSearchEntryPolicy.canStartSwipeDownSearch(
+            currentPage = currentPageNumber,
+            rightmostPage = mHorizontalPager.childCount - 1
+        )
     }
 
     override fun onSwipe(position: Int) {
@@ -5273,22 +6774,18 @@ class LauncherActivity : AppCompatActivity(),
         private val mFolderAppItems: List<LauncherItem>
     ) : PagerAdapter() {
         override fun instantiateItem(container: ViewGroup, position: Int): Any {
+            val folderMetrics = folderOpenMetrics()
             val viewGroup = LayoutInflater.from(mContext).inflate(R.layout.apps_page, container, false) as GridLayout
             viewGroup.rowCount = 3
             viewGroup.columnCount = 3
-            viewGroup.setPadding(
-                mDeviceProfile.iconDrawablePaddingPx / 2,
-                mDeviceProfile.iconDrawablePaddingPx / 2,
-                mDeviceProfile.iconDrawablePaddingPx / 2,
-                mDeviceProfile.iconDrawablePaddingPx / 2
-            )
+            viewGroup.setPadding(0, 0, 0, 0)
             var i = 0
             while (9 * position + i < mFolderAppItems.size && i < 9) {
                 val appItem = mFolderAppItems[9 * position + i]
                 val appView = prepareLauncherItem(appItem)
                 val iconLayoutParams = GridLayout.LayoutParams()
-                iconLayoutParams.height = mDeviceProfile.cellHeightPx
-                iconLayoutParams.width = mDeviceProfile.cellWidthPx
+                iconLayoutParams.height = folderMetrics.cellHeight
+                iconLayoutParams.width = folderMetrics.cellWidth
                 appView.findViewById<View>(R.id.app_label).visibility = VISIBLE
                 appView.layoutParams = iconLayoutParams
                 viewGroup.addView(appView)
@@ -5310,7 +6807,8 @@ class LauncherActivity : AppCompatActivity(),
     inner class ReorderAlarmListener(
         private val mPage: GridLayout,
         private val mParent: ViewGroup,
-        private val mIndex: Int
+        private val mIndex: Int,
+        private val targetCell: Int? = null
     ) : Alarm.OnAlarmListener {
         override fun onAlarm(alarm: Alarm) {
             val moving = movingApp ?: return
@@ -5318,9 +6816,15 @@ class LauncherActivity : AppCompatActivity(),
             if (moving.parent != null &&
                 (parentPage == getCurrentAppsPageNumber() || gridLayout.childCount < mDeviceProfile.maxAppsPerPage)
             ) {
+                if (targetCell != null && !isAutoRearrangeAppsEnabled()) {
+                    previewDroppedAppToPage(gridLayout, moving, targetCell)
+                    return
+                }
                 (moving.parent as ViewGroup).removeView(moving)
                 if (gridLayout.childCount < mDeviceProfile.maxAppsPerPage) {
+                    targetCell?.let { moving.launcherItem.cell = it }
                     addAppToGrid(gridLayout, moving, mIndex)
+                    relayoutHomePageCells(gridLayout)
                     parentPage = getCurrentAppsPageNumber()
                 }
             }

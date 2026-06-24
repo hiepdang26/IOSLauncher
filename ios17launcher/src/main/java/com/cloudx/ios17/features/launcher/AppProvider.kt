@@ -16,6 +16,7 @@ import android.provider.MediaStore
 import android.util.LongSparseArray
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
+import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
 import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.broadcast.PackageAddedRemovedHandler
 import com.cloudx.ios17.core.database.DatabaseManager
@@ -273,7 +274,7 @@ class AppProvider private constructor(private val mContext: Context) {
 
         Timber.tag(TAG).i("Total number of apps: %s", applicationItems.size)
         Timber.tag(TAG).i("Total number of items in database: %s", databaseItems.size)
-        for (databaseItem in databaseItems) {
+        for (databaseItem in LauncherDatabaseItemOrderPolicy.parentsBeforeFolderChildren(databaseItems)) {
             if (databaseItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
                 var applicationItem = mApplicationItems[databaseItem.id]
                 if (applicationItem == null) {
@@ -473,16 +474,23 @@ class AppProvider private constructor(private val mContext: Context) {
             }
         }
 
+        val desktopItems = ArrayList<ApplicationItem>()
         for ((_, applicationItem) in mApplicationItems) {
             if (!pinnedItems.contains(applicationItem)) {
-                launcherItems.add(applicationItem)
+                desktopItems.add(applicationItem)
             }
         }
 
-        launcherItems.sortWith { app1, app2 ->
-            Collator.getInstance().compare(app1.title.toString(), app2.title.toString())
+        val arrangedDesktopItems = DefaultLauncherHomeLayoutPolicy.arrangeDesktopItems(
+            apps = desktopItems,
+            launcherPackageName = mContext.packageName,
+            maxAppsPerPage = LauncherHomeLayoutPreferences.read(mContext).maxAppsPerPage
+        )
+        arrangedDesktopItems.filterIsInstance<FolderItem>().forEach { folderItem ->
+            folderItem.icon = GraphicsUtil(mContext).generateFolderIcon(mContext, folderItem)
         }
 
+        launcherItems.addAll(arrangedDesktopItems)
         launcherItems.addAll(pinnedItems)
         return launcherItems
     }

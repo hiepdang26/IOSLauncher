@@ -627,14 +627,16 @@ class LauncherIconAdapter(
         }
 
         private fun folderPreviewBackground(): GradientDrawable {
+            val style = LauncherLiquidGlassStylePolicy.folderPreview(
+                enabled = liquidGlassEnabled,
+                darkMode = darkMode
+            )
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(16).toFloat()
-                if (liquidGlassEnabled) {
-                    setColor(0x4DFFFFFF)
-                    setStroke(dp(1), 0x9AFFFFFF.toInt())
-                } else {
-                    setColor(if (darkMode) 0x5A42484B else 0x705F6663)
+                cornerRadius = dp(style.radiusDp).toFloat()
+                setColor(style.color)
+                style.strokeColor?.let { strokeColor ->
+                    setStroke(dp(style.strokeWidthDp), strokeColor)
                 }
             }
         }

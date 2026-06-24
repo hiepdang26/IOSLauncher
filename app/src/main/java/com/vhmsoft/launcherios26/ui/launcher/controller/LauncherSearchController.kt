@@ -19,6 +19,7 @@ import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibrarySearchAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
+import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherLiquidGlassStylePolicy
 import java.util.Locale
 
 class LauncherSearchController(
@@ -42,6 +43,7 @@ class LauncherSearchController(
     private val librarySearchAdapter = AppLibrarySearchAdapter(onLibrarySearchAppClicked)
     private var allApps: List<LauncherIconUiModel> = emptyList()
     private var darkMode = false
+    private var liquidGlassEnabled = false
 
     fun install() {
         binding.workspace.searchPill.setOnClickListener {
@@ -99,6 +101,13 @@ class LauncherSearchController(
         darkMode = enabled
         searchAdapter.setDarkMode(enabled)
         librarySearchAdapter.setDarkMode(enabled)
+        applySearchAppearance()
+    }
+
+    fun setLiquidGlassEnabled(enabled: Boolean) {
+        if (liquidGlassEnabled == enabled) return
+        liquidGlassEnabled = enabled
+        searchAdapter.setLiquidGlassEnabled(enabled)
         applySearchAppearance()
     }
 
@@ -351,15 +360,35 @@ class LauncherSearchController(
 
     private fun applySearchAppearance() {
         val overlayColor = Color.TRANSPARENT
-        val fieldColor = if (darkMode) 0x72FFFFFF else 0x8AFFFFFF.toInt()
-        val resultsColor = if (darkMode) 0x62FFFFFF else 0x78FFFFFF
+        val fieldStyle = LauncherLiquidGlassStylePolicy.searchField(
+            enabled = liquidGlassEnabled,
+            darkMode = darkMode
+        )
+        val resultsStyle = LauncherLiquidGlassStylePolicy.searchResultsPanel(
+            enabled = liquidGlassEnabled,
+            darkMode = darkMode
+        )
+        val libraryFieldStyle = LauncherLiquidGlassStylePolicy.librarySearchField(
+            enabled = liquidGlassEnabled,
+            darkMode = darkMode
+        )
         val textColor = Color.WHITE
         val hintColor = 0xD8FFFFFF.toInt()
         val tint = ColorStateList.valueOf(textColor)
 
         binding.workspace.searchOverlay.setBackgroundColor(overlayColor)
-        binding.workspace.searchField.background = roundedBackground(fieldColor, 28)
-        binding.workspace.searchResultsRecyclerView.background = roundedBackground(resultsColor, 28)
+        binding.workspace.searchField.background = roundedBackground(
+            color = fieldStyle.color,
+            radiusDp = fieldStyle.radiusDp,
+            strokeColor = fieldStyle.strokeColor,
+            strokeWidthDp = fieldStyle.strokeWidthDp
+        )
+        binding.workspace.searchResultsRecyclerView.background = roundedBackground(
+            color = resultsStyle.color,
+            radiusDp = resultsStyle.radiusDp,
+            strokeColor = resultsStyle.strokeColor,
+            strokeWidthDp = resultsStyle.strokeWidthDp
+        )
         binding.workspace.searchFieldIcon.imageTintList = tint
         binding.workspace.searchMicIcon.imageTintList = tint
         binding.workspace.searchEditText.setTextColor(textColor)
@@ -367,7 +396,12 @@ class LauncherSearchController(
         binding.workspace.cancelSearchButton.setTextColor(textColor)
         binding.workspace.searchSuggestionsLabel.setTextColor(0xD8FFFFFF.toInt())
 
-        binding.workspace.librarySearchField.background = roundedBackground(fieldColor, 22)
+        binding.workspace.librarySearchField.background = roundedBackground(
+            color = libraryFieldStyle.color,
+            radiusDp = libraryFieldStyle.radiusDp,
+            strokeColor = libraryFieldStyle.strokeColor,
+            strokeWidthDp = libraryFieldStyle.strokeWidthDp
+        )
         binding.workspace.librarySearchFieldIcon.imageTintList = tint
         binding.workspace.librarySearchEditText.setTextColor(textColor)
         binding.workspace.librarySearchEditText.setHintTextColor(hintColor)
@@ -404,13 +438,14 @@ class LauncherSearchController(
     private fun roundedBackground(
         color: Int,
         radiusDp: Int,
-        strokeColor: Int? = null
+        strokeColor: Int? = null,
+        strokeWidthDp: Int = 1
     ): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(radiusDp).toFloat()
             setColor(color)
-            strokeColor?.let { setStroke(dp(1), it) }
+            strokeColor?.let { setStroke(dp(strokeWidthDp), it) }
         }
     }
 

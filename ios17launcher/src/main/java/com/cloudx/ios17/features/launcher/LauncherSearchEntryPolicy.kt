@@ -18,5 +18,9 @@ object LauncherSearchEntryPolicy {
         }
     }
 
+    fun canStartSwipeDownSearch(currentPage: Int, rightmostPage: Int): Boolean {
+        return currentPage > 0 && currentPage < rightmostPage
+    }
+
     fun shouldFocusInputWhenOpened(): Boolean = true
 }

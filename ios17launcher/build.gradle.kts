@@ -56,11 +56,9 @@ dependencies {
     implementation("org.greenrobot:eventbus:3.3.1")
     implementation("me.relex:circleindicator:2.1.6")
     implementation("io.github.hokofly:hoko-blur:1.4.0")
-    implementation("com.github.ChickenHook:RestrictionBypass:2.2")
     implementation("com.jakewharton.timber:timber:5.0.1")
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("foundation.e:elib:0.0.1-alpha11")
-    implementation("foundation.e.lib:telemetry:0.0.7-alpha")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation(libs.junit)
 }
