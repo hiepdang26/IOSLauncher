@@ -15,6 +15,7 @@ class LauncherHomeLayoutPreferencesTest {
         assertEquals(4, settings.columns)
         assertEquals(24, settings.maxAppsPerPage)
         assertFalse(settings.autoArrangeApps)
+        assertFalse(settings.darkMode)
     }
 
     @Test
@@ -70,10 +71,17 @@ class LauncherHomeLayoutPreferencesTest {
         val settings = LauncherHomeLayoutPreferences.resolve(
             iconSizeDp = 70,
             rows = 6,
-            autoArrangeApps = true
+            autoArrangeApps = true,
+            darkMode = true
         )
 
         assertTrue(settings.autoArrangeApps)
+        assertTrue(settings.darkMode)
+    }
+
+    @Test
+    fun darkMode_defaultsToCurrentLightAppearance() {
+        assertFalse(LauncherHomeLayoutPreferences.DEFAULT_DARK_MODE)
     }
 
     @Test
@@ -121,8 +129,8 @@ class LauncherHomeLayoutPreferencesTest {
     }
 
     @Test
-    fun homePageTopPadding_movesAppsBelowEditControlsWhileEditing() {
+    fun homePageTopPadding_keepsIconGridStableWhileEditing() {
         assertEquals(40, LauncherHomeLayoutPreferences.homePageTopPaddingDp(isEditing = false))
-        assertEquals(78, LauncherHomeLayoutPreferences.homePageTopPaddingDp(isEditing = true))
+        assertEquals(40, LauncherHomeLayoutPreferences.homePageTopPaddingDp(isEditing = true))
     }
 }

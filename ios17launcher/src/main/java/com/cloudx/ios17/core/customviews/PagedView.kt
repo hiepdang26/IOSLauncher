@@ -1075,7 +1075,10 @@ abstract class PagedView<T> @JvmOverloads constructor(
     protected fun isInOverScroll(): Boolean = mOverScrollX > mMaxScrollX || mOverScrollX < 0
 
     protected fun getPageSnapDuration(): Int =
-        if (isInOverScroll()) OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION else PAGE_SNAP_ANIMATION_DURATION
+        WorkspacePageSwipeAnimationPolicy.pageSnapDuration(
+            isInOverScroll = isInOverScroll(),
+            overScrollDurationMs = OVERSCROLL_PAGE_SNAP_ANIMATION_DURATION
+        )
 
     private fun distanceInfluenceForSnapDuration(value: Float): Float {
         var f = value
@@ -1092,7 +1095,7 @@ abstract class PagedView<T> @JvmOverloads constructor(
         val delta = newX - getUnboundedScrollX()
 
         if (abs(velocityInput) < mMinFlingVelocity) {
-            return snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION)
+            return snapToPage(whichPage, WorkspacePageSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS)
         }
 
         val distanceRatio = min(1f, 1.0f * abs(delta) / (2 * halfScreenSize))
@@ -1101,15 +1104,18 @@ abstract class PagedView<T> @JvmOverloads constructor(
         var velocity = abs(velocityInput)
         velocity = max(mMinSnapVelocity, velocity)
 
-        val duration = 4 * (1000 * abs(distance / velocity)).roundToInt()
+        val duration = WorkspacePageSwipeAnimationPolicy.flingSnapDuration(
+            4 * (1000 * abs(distance / velocity)).roundToInt()
+        )
 
         return snapToPage(whichPage, delta, duration)
     }
 
-    fun snapToPage(whichPage: Int): Boolean = snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION)
+    fun snapToPage(whichPage: Int): Boolean =
+        snapToPage(whichPage, WorkspacePageSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS)
 
     fun snapToPageImmediately(whichPage: Int): Boolean =
-        snapToPage(whichPage, PAGE_SNAP_ANIMATION_DURATION, true, null)
+        snapToPage(whichPage, WorkspacePageSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS, true, null)
 
     fun snapToPage(whichPage: Int, duration: Int): Boolean = snapToPage(whichPage, duration, false, null)
 

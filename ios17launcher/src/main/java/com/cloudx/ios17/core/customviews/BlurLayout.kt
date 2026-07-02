@@ -19,6 +19,14 @@ open class BlurLayout @JvmOverloads constructor(context: Context, attrs: Attribu
         outlineProvider = delegate.outlineProvider
     }
 
+    var blurCornerRadius: Float
+        get() = delegate.blurCornerRadius
+        set(value) {
+            delegate.blurCornerRadius = value
+            invalidateOutline()
+            invalidate()
+        }
+
     override fun onDraw(canvas: Canvas) {
         delegate.draw(canvas)
         super.onDraw(canvas)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
-        android:layout_height="62dp"
+        android:layout_height="54dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
@@ -9,22 +9,22 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="61dp"
+            android:layout_height="53dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp">
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
 
             <FrameLayout
                 android:id="@+id/iconContainer"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:background="@drawable/bg_feature_icon">
 
                 <ImageView
                     android:id="@+id/rowIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:layout_gravity="center"
                     android:contentDescription="@null"
                     android:tint="@color/white" />
@@ -40,12 +40,12 @@
                 android:gravity="center_vertical"
                 android:maxLines="1"
                 android:textColor="@color/launcher_text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textSize="15sp"
+                android:textStyle="normal" />
 
             <ImageView
-                android:layout_width="26dp"
-                android:layout_height="26dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:contentDescription="@null"
                 android:src="@drawable/ic_chevron_right_24"
                 android:tint="@color/settings_chevron" />
@@ -55,6 +55,6 @@
             android:id="@+id/rowDivider"
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:layout_marginStart="64dp"
+            android:layout_marginStart="56dp"
             android:background="@color/settings_divider" />
     </LinearLayout>

@@ -36,6 +36,17 @@ class DockStylePolicyTest {
     }
 
     @Test
+    fun styleFor_usesLiquidGlassDockWhenDarkModeIsEnabled() {
+        assertEquals(
+            DockStylePolicy.Style.LIQUID_GLASS,
+            DockStylePolicy.styleFor(
+                iphone8StyleEnabled = true,
+                darkModeEnabled = true
+            )
+        )
+    }
+
+    @Test
     fun layoutMetrics_keepDockHeightOnIconRowWhenBottomNavigationIsHidden() {
         assertEquals(
             DockStylePolicy.LayoutMetrics(heightPx = 88, bottomPaddingPx = 0),
@@ -44,9 +55,9 @@ class DockStylePolicyTest {
     }
 
     @Test
-    fun liquidGlassDrawsTintAboveBlurSoItIsVisible() {
+    fun roundedAndLiquidGlassDrawTintAboveBlurSoEdgesStaySoft() {
         assertTrue(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.LIQUID_GLASS))
-        assertFalse(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.ROUNDED))
+        assertTrue(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.ROUNDED))
         assertFalse(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.CURRENT))
     }
 }

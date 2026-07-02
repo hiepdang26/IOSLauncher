@@ -277,20 +277,22 @@
 
         <View
             android:id="@+id/folderDragLeftEdgeGlow"
-            android:layout_width="10dp"
+            android:layout_width="18dp"
             android:layout_height="match_parent"
             android:layout_gravity="start"
-            android:background="#88FFFFFF"
+            android:background="@drawable/bg_launcher_drag_edge_left"
             android:elevation="68dp"
+            android:importantForAccessibility="no"
             android:visibility="gone" />
 
         <View
             android:id="@+id/folderDragRightEdgeGlow"
-            android:layout_width="10dp"
+            android:layout_width="18dp"
             android:layout_height="match_parent"
             android:layout_gravity="end"
-            android:background="#88FFFFFF"
+            android:background="@drawable/bg_launcher_drag_edge_right"
             android:elevation="68dp"
+            android:importantForAccessibility="no"
             android:visibility="gone" />
 
         <FrameLayout
@@ -568,12 +570,14 @@
                 android:paddingBottom="16dp">
 
                 <View
+                    android:id="@+id/widgetSheetGrabber"
                     android:layout_width="42dp"
                     android:layout_height="5dp"
                     android:layout_gravity="center_horizontal"
                     android:background="#C7C7CC" />
 
                 <LinearLayout
+                    android:id="@+id/widgetSheetSearchBar"
                     android:layout_width="match_parent"
                     android:layout_height="46dp"
                     android:layout_marginTop="14dp"

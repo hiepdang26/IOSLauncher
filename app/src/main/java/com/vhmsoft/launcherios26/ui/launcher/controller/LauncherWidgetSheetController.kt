@@ -2,7 +2,10 @@ package com.vhmsoft.launcherios26.ui.launcher.controller
 
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import androidx.appcompat.app.AppCompatActivity
+import com.cloudx.ios17.features.launcher.TodayWidgetDragUpdatePolicy
+import com.cloudx.ios17.features.launcher.TodayWidgetSheetPolicy
 import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 
 class LauncherWidgetSheetController(
@@ -12,6 +15,9 @@ class LauncherWidgetSheetController(
     private val applySystemUi: () -> Unit
 ) {
     private var sheetDownY = 0f
+    private var sheetStartTranslationY = 0f
+    private var sheetDragging = false
+    private val sheetTouchSlop = ViewConfiguration.get(activity).scaledTouchSlop.toFloat()
 
     fun toggleEditWidgetPrompt() {
         if (binding.workspace.editWidgetPrompt.visibility == View.VISIBLE) {
@@ -48,6 +54,7 @@ class LauncherWidgetSheetController(
         }
         binding.workspace.widgetSheet.post {
             binding.workspace.widgetSheet.translationY = binding.workspace.widgetSheet.height.toFloat()
+            sheetDragging = false
             binding.workspace.widgetSheetOverlay.animate()
                 .alpha(1f)
                 .setDuration(140L)
@@ -84,27 +91,57 @@ class LauncherWidgetSheetController(
         return when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 sheetDownY = event.rawY
+                sheetStartTranslationY = binding.workspace.widgetSheet.translationY
+                sheetDragging = false
                 binding.workspace.widgetSheet.animate().cancel()
+                binding.workspace.widgetSheet.parent?.requestDisallowInterceptTouchEvent(true)
                 true
             }
 
             MotionEvent.ACTION_MOVE -> {
-                val dy = (event.rawY - sheetDownY).coerceAtLeast(0f)
-                binding.workspace.widgetSheet.translationY = dy * 0.72f
+                val dy = event.rawY - sheetDownY
+                if (!sheetDragging) {
+                    if (!TodayWidgetDragUpdatePolicy.shouldStartSheetDrag(dy, sheetTouchSlop)) {
+                        return true
+                    }
+                    sheetDragging = true
+                }
+                val sheetHeight = binding.workspace.widgetSheet.height
+                    .takeIf { height -> height > 0 }
+                    ?: activity.resources.displayMetrics.heightPixels
+                binding.workspace.widgetSheet.translationY = TodayWidgetSheetPolicy.dragTranslation(
+                    startTranslation = sheetStartTranslationY,
+                    deltaY = dy,
+                    minTranslation = -dp(WIDGET_SHEET_EXPAND_DRAG_DP).toFloat(),
+                    maxTranslation = sheetHeight * WIDGET_SHEET_MAX_DISMISS_RATIO
+                )
                 true
             }
 
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
-                val dy = event.rawY - sheetDownY
-                if (dy > dp(WIDGET_SHEET_DISMISS_DRAG_DP)) {
-                    hideWidgetSheet()
-                } else {
-                    binding.workspace.widgetSheet.animate()
-                        .translationY(0f)
-                        .setDuration(140L)
-                        .start()
+                binding.workspace.widgetSheet.parent?.requestDisallowInterceptTouchEvent(false)
+                if (sheetDragging) {
+                    when (TodayWidgetSheetPolicy.snapTarget(
+                        binding.workspace.widgetSheet.translationY,
+                        binding.workspace.widgetSheet.height.toFloat()
+                    )) {
+                        TodayWidgetSheetPolicy.SnapTarget.EXPANDED -> {
+                            binding.workspace.widgetSheet.animate()
+                                .translationY(-dp(WIDGET_SHEET_EXPAND_DRAG_DP).toFloat())
+                                .setDuration(140L)
+                                .start()
+                        }
+                        TodayWidgetSheetPolicy.SnapTarget.RESTING -> {
+                            binding.workspace.widgetSheet.animate()
+                                .translationY(0f)
+                                .setDuration(140L)
+                                .start()
+                        }
+                        TodayWidgetSheetPolicy.SnapTarget.DISMISS -> hideWidgetSheet()
+                    }
                 }
+                sheetDragging = false
                 true
             }
 
@@ -135,6 +172,7 @@ class LauncherWidgetSheetController(
     }
 
     private companion object {
-        const val WIDGET_SHEET_DISMISS_DRAG_DP = 86
+        const val WIDGET_SHEET_EXPAND_DRAG_DP = 128
+        const val WIDGET_SHEET_MAX_DISMISS_RATIO = 0.7f
     }
 }

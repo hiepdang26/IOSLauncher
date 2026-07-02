@@ -14,6 +14,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <View
+        android:id="@+id/dark_blur_layer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:background="#5C000000" />
+
     <com.cloudx.ios17.core.customviews.HorizontalPager
         android:id="@+id/pages_container"
         android:layout_width="match_parent"
@@ -82,6 +89,32 @@
     </FrameLayout>
 
     <View
+        android:id="@+id/drag_edge_left"
+        android:layout_width="18dp"
+        android:layout_height="match_parent"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentBottom="true"
+        android:alpha="0"
+        android:background="@drawable/bg_launcher_drag_edge_left"
+        android:elevation="64dp"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
+    <View
+        android:id="@+id/drag_edge_right"
+        android:layout_width="18dp"
+        android:layout_height="match_parent"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentBottom="true"
+        android:alpha="0"
+        android:background="@drawable/bg_launcher_drag_edge_right"
+        android:elevation="64dp"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
+    <View
         android:id="@+id/context_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -141,9 +174,9 @@
             android:layout_marginBottom="40dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:text="@string/untitled"
             android:textAlignment="center"
             android:textColor="#D7FFFFFF"
+            android:hint="@string/folder_unnamed_hint"
             android:textCursorDrawable="@drawable/folder_title_text_cursor"
             android:textSize="40sp" />
 
@@ -179,6 +212,16 @@
         </com.cloudx.ios17.core.customviews.BlurLayout>
 
     </RelativeLayout>
+
+    <View
+        android:id="@+id/search_background_blocker"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:background="#000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
 
     <com.cloudx.ios17.core.customviews.SwipeSearchContainer
         android:id="@+id/swipe_search_container"

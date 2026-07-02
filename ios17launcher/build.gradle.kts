@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.material)
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     implementation("androidx.room:room-runtime:2.8.4")
     ksp("androidx.room:room-compiler:2.8.4")
@@ -61,4 +62,5 @@ dependencies {
     implementation("foundation.e:elib:0.0.1-alpha11")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20260522")
 }

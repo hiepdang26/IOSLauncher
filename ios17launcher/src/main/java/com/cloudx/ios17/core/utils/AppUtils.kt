@@ -10,7 +10,8 @@ import android.content.pm.PackageManager
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.IconsHandler
-import com.cloudx.ios17.core.LauncherAppRenamePolicy
+import com.cloudx.ios17.core.LauncherCustomIconPolicy
+import com.cloudx.ios17.core.LauncherCustomIconPreferences
 import com.cloudx.ios17.core.LauncherAppRenamePreferences
 import com.cloudx.ios17.core.database.model.ApplicationItem
 import com.cloudx.ios17.features.launcher.AppProvider
@@ -97,7 +98,13 @@ object AppUtils {
         appInfo: ApplicationInfo
     ): ApplicationItem {
         val applicationItem = ApplicationItem(activityInfo, user)
-        applicationItem.icon = iconsHandler.getDrawableIconForPackage(activityInfo, user)
+        val appKeys = LauncherCustomIconPolicy.iconKeys(
+            appId = applicationItem.id,
+            componentName = applicationItem.componentName?.flattenToString(),
+            packageName = appInfo.packageName
+        )
+        applicationItem.icon = LauncherCustomIconPreferences.loadCustomIcon(context, appKeys)
+            ?: iconsHandler.getDrawableIconForPackage(activityInfo, user)
         val componentName = activityInfo.componentName.toString()
         applicationItem.appType =
             if (iconsHandler.isClock(componentName)) {
@@ -114,11 +121,7 @@ object AppUtils {
         }
         applicationItem.title = LauncherAppRenamePreferences.renamedTitle(
             context = context,
-            appKeys = LauncherAppRenamePolicy.appKeys(
-                appId = applicationItem.id,
-                componentName = applicationItem.componentName?.flattenToString(),
-                packageName = appInfo.packageName
-            ),
+            appKeys = appKeys,
             defaultTitle = applicationItem.title?.toString().orEmpty()
         )
         applicationItem.packageName = appInfo.packageName

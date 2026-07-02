@@ -6,13 +6,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.DeviceProfile
 import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
+import com.cloudx.ios17.core.LauncherLiquidGlassDrawableFactory
 import com.cloudx.ios17.core.LauncherLiquidGlassStylePolicy
 import com.cloudx.ios17.core.database.model.FolderItem
 import timber.log.Timber
@@ -22,12 +22,14 @@ class GraphicsUtil(private val mContext: Context) {
     private val appIconWidth: Int
     private val mFolderPreviewBackgroundColor: Int
     private val liquidGlassEnabled: Boolean
+    private val darkModeEnabled: Boolean
 
     init {
         val deviceProfile = BlissLauncher.getApplication(mContext).deviceProfile
         appIconWidth = deviceProfile.iconSizePx
         mFolderPreviewBackgroundColor = mContext.getColor(R.color.folder_preview_background_color)
         liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(mContext)
+        darkModeEnabled = LauncherHomeLayoutPreferences.isDarkModeEnabled(mContext)
     }
 
     /**
@@ -143,42 +145,19 @@ class GraphicsUtil(private val mContext: Context) {
         width: Int,
         height: Int
     ) {
-        if (!isFolder || !liquidGlassEnabled) {
+        if (!isFolder || (!liquidGlassEnabled && !darkModeEnabled)) {
             canvas.drawColor(if (isFolder) mFolderPreviewBackgroundColor else getDominantColor(workingBitmap))
             return
         }
 
-        val style = LauncherLiquidGlassStylePolicy.folderPreview(enabled = true)
-        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.style = Paint.Style.FILL
-            color = style.color
-        }
-        val radius = width * 0.22f
-        canvas.drawRoundRect(
-            RectF(0f, 0f, width.toFloat(), height.toFloat()),
-            radius,
-            radius,
-            fillPaint
+        val style = LauncherLiquidGlassStylePolicy.folderPreview(
+            enabled = liquidGlassEnabled,
+            darkMode = darkModeEnabled
         )
-        val strokeColor = style.strokeColor ?: return
-        val strokeWidth = (width / 96f).coerceAtLeast(1f)
-        val halfStroke = strokeWidth / 2f
-        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.style = Paint.Style.STROKE
-            this.strokeWidth = strokeWidth
-            color = strokeColor
+        LauncherLiquidGlassDrawableFactory.create(mContext, style).apply {
+            setBounds(0, 0, width, height)
+            draw(canvas)
         }
-        canvas.drawRoundRect(
-            RectF(
-                halfStroke,
-                halfStroke,
-                width - halfStroke,
-                height - halfStroke
-            ),
-            radius,
-            radius,
-            strokePaint
-        )
     }
 
     fun convertToRoundedCorner(context: Context, src: Bitmap): BitmapDrawable {

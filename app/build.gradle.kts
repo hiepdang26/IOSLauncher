@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.material)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20260522")
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
 }

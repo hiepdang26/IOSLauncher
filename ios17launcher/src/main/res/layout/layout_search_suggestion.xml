@@ -5,45 +5,77 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical">
 
-    <com.cloudx.ios17.core.customviews.BlurLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:blurCornerRadius="100dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <RelativeLayout
-            android:layout_width="match_parent"
+        <com.cloudx.ios17.core.customviews.BlurLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:background="@drawable/search_widget"
-            android:focusableInTouchMode="true"
-            android:padding="8dp">
+            android:layout_weight="1"
+            app:blurCornerRadius="100dp">
 
-            <com.cloudx.ios17.core.customviews.BlissInput
-                android:id="@+id/search_input"
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:layout_toStartOf="@+id/clearSuggestionImageView"
-                android:background="@android:color/transparent"
-                android:drawableStart="@drawable/ic_search_black_24dp"
-                android:drawablePadding="8dp"
-                android:hint="@string/search"
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:maxLines="1"
-                android:textColor="@color/on_surface_high_emphasis"
-                android:textColorHint="@color/on_surface_medium_emphasis"
-                android:theme="?searchBarTheme" />
+                android:background="@drawable/search_widget"
+                android:focusableInTouchMode="true"
+                android:minHeight="52dp"
+                android:paddingStart="14dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="8dp">
 
-            <ImageView
-                android:id="@+id/clearSuggestionImageView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:src="@drawable/ic_cancel_white_24dp"
-                android:visibility="gone" />
-        </RelativeLayout>
-    </com.cloudx.ios17.core.customviews.BlurLayout>
+                <com.cloudx.ios17.core.customviews.BlissInput
+                    android:id="@+id/search_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:layout_toStartOf="@+id/clearSuggestionImageView"
+                    android:background="@android:color/transparent"
+                    android:drawableStart="@drawable/ic_search_white_alpha_24dp"
+                    android:drawablePadding="8dp"
+                    android:hint="@string/launcher_search_hint"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="#FFFFFFFF"
+                    android:textColorHint="#BFFFFFFF"
+                    android:theme="?searchBarTheme" />
+
+                <ImageView
+                    android:id="@+id/clearSuggestionImageView"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_centerVertical="true"
+                    android:layout_toStartOf="@+id/voiceSearchImageView"
+                    android:padding="2dp"
+                    android:src="@drawable/ic_cancel_white_24dp"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/voiceSearchImageView"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:padding="4dp"
+                    android:src="@drawable/ic_mic_18" />
+            </RelativeLayout>
+        </com.cloudx.ios17.core.customviews.BlurLayout>
+
+        <TextView
+            android:id="@+id/search_cancel_button"
+            android:layout_width="58dp"
+            android:layout_height="52dp"
+            android:layout_marginStart="8dp"
+            android:gravity="center"
+            android:text="@string/launcher_search_cancel"
+            android:textColor="#DDE7F5"
+            android:textSize="16sp" />
+    </LinearLayout>
 
     <com.cloudx.ios17.core.customviews.BlurLayout
         android:layout_width="match_parent"

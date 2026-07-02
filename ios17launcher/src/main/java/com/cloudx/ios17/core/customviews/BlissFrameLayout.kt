@@ -15,7 +15,9 @@ import android.widget.TextView
 import com.cloudx.ios17.BlissLauncher
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.HomeIconRenderPolicy
 import com.cloudx.ios17.core.LauncherAppLabelStylePolicy
+import com.cloudx.ios17.core.LauncherFolderTitlePolicy
 import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.database.model.ApplicationItem
 import com.cloudx.ios17.core.database.model.CalendarIcon
@@ -146,8 +148,12 @@ class BlissFrameLayout @JvmOverloads constructor(
         val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
         icon.enableBlur()
         applyIconMetrics(icon, label)
+        squareImageView.iconContentScale = 1f
         squareImageView.setImageDrawable(folderItem.icon)
-        label.text = folderItem.title.toString()
+        label.text = LauncherFolderTitlePolicy.homeTitle(
+            rawTitle = folderItem.title?.toString(),
+            defaultFolderName = resources.getString(R.string.folder_default_name)
+        )
         tag = arrayListOf(squareImageView, label, folderItem)
     }
 
@@ -156,6 +162,7 @@ class BlissFrameLayout @JvmOverloads constructor(
         val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
         val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
         applyIconMetrics(icon, label)
+        squareImageView.iconContentScale = HomeIconRenderPolicy.homeScreenIconContentScale
         squareImageView.setImageDrawable(shortcutItem.icon)
         label.text = shortcutItem.title.toString()
         tag = arrayListOf(squareImageView, label, shortcutItem)
@@ -166,6 +173,7 @@ class BlissFrameLayout @JvmOverloads constructor(
         val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
         val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
         applyIconMetrics(icon, label)
+        squareImageView.iconContentScale = HomeIconRenderPolicy.homeScreenIconContentScale
         if (applicationItem.appType == ApplicationItem.TYPE_CLOCK) {
             val analogClock = findViewById<CustomAnalogClock>(R.id.icon_clock)
             analogClock.setAutoUpdate(true)

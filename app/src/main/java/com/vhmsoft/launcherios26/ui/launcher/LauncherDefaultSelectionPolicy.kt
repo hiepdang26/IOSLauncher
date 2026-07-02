@@ -9,6 +9,10 @@ object LauncherDefaultSelectionPolicy {
             openLauncherImmediately = false
         )
     }
+
+    fun shouldRequestHomeRoleBeforeSettings(sdkInt: Int): Boolean {
+        return false
+    }
 }
 
 data class DefaultLauncherPromptAction(

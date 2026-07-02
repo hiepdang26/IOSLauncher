@@ -169,6 +169,8 @@ class LauncherSearchController(
         binding.workspace.pageIndicator.visibility = View.GONE
         binding.workspace.librarySearchEditText.setText("")
         updateLibrarySearchResults("")
+        binding.workspace.homeContent.visibility =
+            LauncherLibrarySearchVisibilityPolicy.homeContentVisibility(librarySearchVisible = true)
 
         binding.workspace.librarySearchOverlay.apply {
             animate().cancel()
@@ -257,6 +259,8 @@ class LauncherSearchController(
             .withEndAction {
                 binding.workspace.librarySearchOverlay.visibility = View.GONE
                 binding.workspace.librarySearchOverlay.alpha = 1f
+                binding.workspace.homeContent.visibility =
+                    LauncherLibrarySearchVisibilityPolicy.homeContentVisibility(librarySearchVisible = false)
                 binding.workspace.librarySearchField.apply {
                     alpha = 1f
                     translationX = 0f

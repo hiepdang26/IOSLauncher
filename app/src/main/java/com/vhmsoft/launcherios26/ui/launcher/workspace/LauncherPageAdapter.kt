@@ -5,6 +5,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -20,10 +21,13 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.cloudx.ios17.features.launcher.TodayWidgetDragUpdatePolicy
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.databinding.ItemAppLibraryPageBinding
 import com.vhmsoft.launcherios26.databinding.ItemLauncherPageBinding
 import com.vhmsoft.launcherios26.databinding.ItemLauncherWidgetPageBinding
+import com.vhmsoft.launcherios26.weather.WeatherForecast
+import com.vhmsoft.launcherios26.weather.WeatherWidgetUiState
 
 class LauncherPageAdapter(
     private val onIconClicked: (LauncherIconUiModel) -> Unit,
@@ -47,7 +51,8 @@ class LauncherPageAdapter(
     private val onLibraryGroupClicked: (AppLibraryGroupUiModel) -> Unit = {},
     private val onWidgetEditClicked: () -> Unit = {},
     private val onWidgetAppClicked: (LauncherIconUiModel) -> Unit = {},
-    private val onWeatherPermissionClicked: () -> Unit = {}
+    private val onWeatherPermissionClicked: () -> Unit = {},
+    private val onWeatherWidgetClicked: () -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     private val sourceItems = mutableListOf<LauncherHomeItemUiModel>()
     private val pages = mutableListOf<List<LauncherHomeItemUiModel>>()
@@ -66,7 +71,7 @@ class LauncherPageAdapter(
     private var editing = false
     private var darkMode = false
     private var liquidGlassEnabled = false
-    private var weatherLocationGranted = false
+    private var weatherWidgetState: WeatherWidgetUiState = WeatherWidgetUiState.PermissionRequired
     private var pageRows = DEFAULT_PAGE_ROWS
     private var iconSizeDp = DEFAULT_ICON_SIZE_DP
     private var parentRecyclerView: RecyclerView? = null
@@ -437,9 +442,9 @@ class LauncherPageAdapter(
         notifyItemChanged(libraryAdapterPosition())
     }
 
-    fun setWeatherLocationGranted(granted: Boolean) {
-        if (weatherLocationGranted == granted) return
-        weatherLocationGranted = granted
+    fun setWeatherWidgetState(state: WeatherWidgetUiState) {
+        if (weatherWidgetState == state) return
+        weatherWidgetState = state
         attachedWidgetPageHolder?.bind(todayWidgets, availableTodayApps()) ?: notifyItemChanged(WIDGET_PAGE_POSITION)
     }
 
@@ -497,6 +502,9 @@ class LauncherPageAdapter(
         private var dragStartRawY = 0f
         private var lastWidgetTouchRawX = 0f
         private var lastWidgetTouchRawY = 0f
+        private var lastWidgetPreviewRawX = Float.NaN
+        private var lastWidgetPreviewRawY = Float.NaN
+        private var lastWidgetPreviewUptime = 0L
         private var lastWidgetPreviewTargetIndex = RecyclerView.NO_POSITION
 
         init {
@@ -512,6 +520,9 @@ class LauncherPageAdapter(
             draggingWidgetId = null
             draggingView = null
             lastWidgetPreviewTargetIndex = RecyclerView.NO_POSITION
+            lastWidgetPreviewRawX = Float.NaN
+            lastWidgetPreviewRawY = Float.NaN
+            lastWidgetPreviewUptime = 0L
             binding.todayWidgetContainer.removeAllViews()
 
             val rows = LauncherTodayWidgetLayoutPlanner.rows(
@@ -630,8 +641,13 @@ class LauncherPageAdapter(
             dragStartRawX = lastWidgetTouchRawX
             dragStartRawY = lastWidgetTouchRawY
             lastWidgetPreviewTargetIndex = boundWidgets.indexOfFirst { widget -> widget.id == widgetId }
+            lastWidgetPreviewRawX = Float.NaN
+            lastWidgetPreviewRawY = Float.NaN
+            lastWidgetPreviewUptime = 0L
             captureWidgetBaseCenters()
             binding.todayWidgetScroll.requestDisallowInterceptTouchEvent(true)
+            cancelAnimations()
+            widgetViews.values.forEach { widgetView -> widgetView.rotation = 0f }
             view.animate().cancel()
             view.bringToFront()
             view.elevation = dp(14).toFloat()
@@ -659,7 +675,9 @@ class LauncherPageAdapter(
                     }
                     view.translationX = event.rawX - dragStartRawX
                     view.translationY = event.rawY - dragStartRawY
-                    updateWidgetPushPreview(widgetId, event.rawX, event.rawY)
+                    if (shouldInspectWidgetPushPreview(event.rawX, event.rawY)) {
+                        updateWidgetPushPreview(widgetId, event.rawX, event.rawY)
+                    }
                     return true
                 }
 
@@ -680,6 +698,9 @@ class LauncherPageAdapter(
             draggingWidgetId = null
             draggingView = null
             lastWidgetPreviewTargetIndex = RecyclerView.NO_POSITION
+            lastWidgetPreviewRawX = Float.NaN
+            lastWidgetPreviewRawY = Float.NaN
+            lastWidgetPreviewUptime = 0L
             binding.todayWidgetScroll.requestDisallowInterceptTouchEvent(false)
             if (targetIndex != RecyclerView.NO_POSITION && targetIndex != fromIndex) {
                 moveTodayWidget(widgetId, targetIndex)
@@ -707,6 +728,26 @@ class LauncherPageAdapter(
             }
 
             return bestIndex
+        }
+
+        private fun shouldInspectWidgetPushPreview(rawX: Float, rawY: Float): Boolean {
+            val now = SystemClock.uptimeMillis()
+            val shouldInspect = TodayWidgetDragUpdatePolicy.shouldInspectMove(
+                lastRawX = lastWidgetPreviewRawX,
+                lastRawY = lastWidgetPreviewRawY,
+                rawX = rawX,
+                rawY = rawY,
+                lastUptimeMs = lastWidgetPreviewUptime,
+                nowUptimeMs = now,
+                minMovePx = dp(WIDGET_DRAG_PREVIEW_MIN_MOVE_DP).toFloat(),
+                minIntervalMs = WIDGET_DRAG_PREVIEW_THROTTLE_MS
+            )
+            if (shouldInspect) {
+                lastWidgetPreviewRawX = rawX
+                lastWidgetPreviewRawY = rawY
+                lastWidgetPreviewUptime = now
+            }
+            return shouldInspect
         }
 
         private fun updateWidgetPushPreview(widgetId: Long, rawX: Float, rawY: Float) {
@@ -808,11 +849,7 @@ class LauncherPageAdapter(
         private fun widgetHeightPx(widget: TodayWidget): Int {
             return when (widget.type) {
                 TodayWidgetType.WEATHER -> {
-                    if (weatherLocationGranted) {
-                        dp(WEATHER_FORECAST_WIDGET_HEIGHT_DP)
-                    } else {
-                        dp(WEATHER_PERMISSION_WIDGET_HEIGHT_DP)
-                    }
+                    dp(WEATHER_FORECAST_WIDGET_HEIGHT_DP)
                 }
 
                 TodayWidgetType.APP_GROUP -> dp(APP_GROUP_WIDGET_HEIGHT_DP)
@@ -870,19 +907,39 @@ class LauncherPageAdapter(
                 .setInterpolator(DecelerateInterpolator())
                 .withEndAction {
                     view.elevation = 0f
+                    restartWiggleIfEditing()
                 }
                 .start()
         }
 
-        private fun createWeatherWidget(): View {
-            return if (weatherLocationGranted) {
-                createWeatherForecastWidget()
-            } else {
-                createWeatherPermissionWidget()
+        private fun restartWiggleIfEditing() {
+            if (!editing || draggingWidgetId != null) return
+            cancelAnimations()
+            widgetViews.forEach { (widgetId, view) ->
+                view.rotation = 0f
+                startWiggle(view, widgetId)
             }
         }
 
-        private fun createWeatherPermissionWidget(): View {
+        private fun createWeatherWidget(): View {
+            return when (val state = weatherWidgetState) {
+                WeatherWidgetUiState.PermissionRequired -> createWeatherStatusWidget(
+                    text = binding.root.context.getString(R.string.launcher_widget_location_title),
+                    onClick = onWeatherPermissionClicked
+                )
+                WeatherWidgetUiState.NoNetwork -> createWeatherStatusWidget(
+                    text = binding.root.context.getString(R.string.launcher_widget_weather_no_network),
+                    onClick = onWeatherWidgetClicked
+                )
+                WeatherWidgetUiState.Loading -> createWeatherStatusWidget(
+                    text = binding.root.context.getString(R.string.launcher_widget_weather_loading),
+                    onClick = onWeatherWidgetClicked
+                )
+                is WeatherWidgetUiState.Forecast -> createWeatherForecastWidget(state.forecast)
+            }
+        }
+
+        private fun createWeatherStatusWidget(text: String, onClick: () -> Unit): View {
             return FrameLayout(binding.root.context).apply {
                 background = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
@@ -892,46 +949,25 @@ class LauncherPageAdapter(
                 }
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { onWeatherPermissionClicked() }
+                setOnClickListener { onClick() }
                 addView(
                     TextView(context).apply {
                         gravity = Gravity.CENTER
-                        text = context.getString(R.string.launcher_widget_location_title)
-                        setTextColor(0xFFFF2D55.toInt())
-                        textSize = 13f
-                        typeface = Typeface.DEFAULT_BOLD
-                    },
-                    FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(28),
-                        Gravity.TOP
-                    ).apply {
-                        topMargin = dp(12)
-                    }
-                )
-                addView(
-                    TextView(context).apply {
-                        gravity = Gravity.CENTER
-                        text = context.getString(R.string.launcher_widget_location_message)
+                        this.text = text
                         setTextColor(Color.WHITE)
-                        textSize = 13f
-                        typeface = Typeface.DEFAULT_BOLD
-                        maxLines = 2
+                        textSize = 19f
+                        typeface = Typeface.DEFAULT
                     },
                     FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(42),
-                        Gravity.BOTTOM
-                    ).apply {
-                        leftMargin = dp(4)
-                        rightMargin = dp(4)
-                        bottomMargin = dp(4)
-                    }
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        Gravity.CENTER
+                    )
                 )
             }
         }
 
-        private fun createWeatherForecastWidget(): View {
+        private fun createWeatherForecastWidget(forecast: WeatherForecast): View {
             return FrameLayout(binding.root.context).apply {
                 background = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
@@ -939,9 +975,12 @@ class LauncherPageAdapter(
                 ).apply {
                     cornerRadius = dp(18).toFloat()
                 }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { onWeatherWidgetClicked() }
                 addView(
                     TextView(context).apply {
-                        text = context.getString(R.string.launcher_widget_weather_location)
+                        text = forecast.locationName
                         setTextColor(Color.WHITE)
                         textSize = 15f
                     },
@@ -956,7 +995,10 @@ class LauncherPageAdapter(
                 )
                 addView(
                     TextView(context).apply {
-                        text = context.getString(R.string.launcher_widget_weather_temperature)
+                        text = context.getString(
+                            R.string.launcher_widget_weather_temperature_format,
+                            forecast.currentTemperatureC
+                        )
                         setTextColor(Color.WHITE)
                         textSize = 44f
                         includeFontPadding = false
@@ -986,7 +1028,7 @@ class LauncherPageAdapter(
                         gravity = Gravity.END
                         addView(
                             TextView(context).apply {
-                                text = context.getString(R.string.launcher_widget_weather_condition)
+                                text = forecast.condition
                                 setTextColor(Color.WHITE)
                                 textSize = 15f
                                 gravity = Gravity.END
@@ -994,7 +1036,11 @@ class LauncherPageAdapter(
                         )
                         addView(
                             TextView(context).apply {
-                                text = context.getString(R.string.launcher_widget_weather_high_low)
+                                text = context.getString(
+                                    R.string.launcher_widget_weather_high_low_format,
+                                    forecast.highTemperatureC,
+                                    forecast.lowTemperatureC
+                                )
                                 setTextColor(Color.WHITE)
                                 textSize = 13f
                                 gravity = Gravity.END
@@ -1144,10 +1190,14 @@ class LauncherPageAdapter(
         }
 
         private fun startWiggle(view: View, widgetId: Long) {
-            val startRotation = if (widgetId % 2L == 0L) -0.38f else 0.38f
+            val startRotation = if (widgetId % 2L == 0L) {
+                -WIDGET_WIGGLE_DEGREES
+            } else {
+                WIDGET_WIGGLE_DEGREES
+            }
             view.rotation = startRotation
             ObjectAnimator.ofFloat(view, View.ROTATION, startRotation, -startRotation).apply {
-                duration = 165L
+                duration = WIDGET_WIGGLE_DURATION_MS
                 repeatCount = ObjectAnimator.INFINITE
                 repeatMode = ObjectAnimator.REVERSE
                 interpolator = LinearInterpolator()
@@ -1541,7 +1591,6 @@ class LauncherPageAdapter(
         const val LIBRARY_COLUMNS = 2
         const val PAGE_COLUMNS = 4
         const val TODAY_APP_WIDGET_COUNT = 8
-        const val WEATHER_PERMISSION_WIDGET_HEIGHT_DP = 96
         const val WEATHER_FORECAST_WIDGET_HEIGHT_DP = 184
         const val APP_GROUP_WIDGET_HEIGHT_DP = 190
         const val SMALL_WIDGET_HEIGHT_DP = 168
@@ -1550,6 +1599,8 @@ class LauncherPageAdapter(
         const val WEATHER_WIDGET_BOTTOM_MARGIN_DP = 34
         const val WIDGET_BOTTOM_MARGIN_DP = 22
         const val WIDGET_PUSH_PREVIEW_MS = 130L
+        const val WIDGET_DRAG_PREVIEW_THROTTLE_MS = 28L
+        const val WIDGET_DRAG_PREVIEW_MIN_MOVE_DP = 4
         const val HOME_ICON_REORDER_MOVE_MS = 170L
         const val MIN_PAGE_ROWS = 5
         const val DEFAULT_PAGE_ROWS = 6
@@ -1557,5 +1608,7 @@ class LauncherPageAdapter(
         const val MIN_ICON_SIZE_DP = 44
         const val DEFAULT_ICON_SIZE_DP = 64
         const val MAX_ICON_SIZE_DP = 78
+        const val WIDGET_WIGGLE_DEGREES = 1.45f
+        const val WIDGET_WIGGLE_DURATION_MS = 130L
     }
 }

@@ -221,6 +221,28 @@ class LauncherHomeCellPolicyTest {
     }
 
     @Test
+    fun folderCreationCell_keepsTargetAppCellWhenEarlierGapsExist() {
+        val cell = LauncherHomeCellPolicy.folderCreationCell(
+            targetCell = 10,
+            targetIndex = 4,
+            maxCells = 24
+        )
+
+        assertEquals(10, cell)
+    }
+
+    @Test
+    fun folderCreationCell_fallsBackToTargetIndexWhenTargetCellIsInvalid() {
+        val cell = LauncherHomeCellPolicy.folderCreationCell(
+            targetCell = -1,
+            targetIndex = 4,
+            maxCells = 24
+        )
+
+        assertEquals(4, cell)
+    }
+
+    @Test
     fun resolvePageCell_movesOverflowItemToNextAvailablePage() {
         val placement = LauncherHomeCellPolicy.resolvePageCell(
             preferredPage = 1,
@@ -249,5 +271,38 @@ class LauncherHomeCellPolicyTest {
 
         assertEquals(1, placement.page)
         assertEquals(8, placement.cell)
+    }
+
+    @Test
+    fun newItemPlacement_fillsNearestPageGapBeforeCreatingNewPage() {
+        val placement = LauncherHomeCellPolicy.newItemPlacement(
+            preferredPage = 1,
+            existingPageCount = 3,
+            occupiedCellsByPage = mapOf(
+                0 to ((0 until 24).toSet() - 7),
+                1 to (0 until 24).toSet(),
+                2 to ((0 until 24).toSet() - 5)
+            ),
+            maxCells = 24
+        )
+
+        assertEquals(2, placement.page)
+        assertEquals(5, placement.cell)
+    }
+
+    @Test
+    fun newItemPlacement_createsNextPageWhenAllExistingPagesAreFull() {
+        val placement = LauncherHomeCellPolicy.newItemPlacement(
+            preferredPage = 0,
+            existingPageCount = 2,
+            occupiedCellsByPage = mapOf(
+                0 to (0 until 24).toSet(),
+                1 to (0 until 24).toSet()
+            ),
+            maxCells = 24
+        )
+
+        assertEquals(2, placement.page)
+        assertEquals(0, placement.cell)
     }
 }

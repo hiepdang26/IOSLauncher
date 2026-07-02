@@ -3,14 +3,15 @@ package com.cloudx.ios17.core.customviews
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.ViewOutlineProvider
 import android.widget.GridLayout
-import com.cloudx.ios17.R
 import com.cloudx.ios17.core.DeviceProfile
 import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
+import com.cloudx.ios17.core.LauncherLiquidGlassDrawableFactory
 import com.cloudx.ios17.core.LauncherLiquidGlassStylePolicy
 import com.cloudx.ios17.core.blur.BlurViewDelegate
 import com.cloudx.ios17.core.blur.BlurWallpaperProvider
@@ -24,7 +25,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
     private val offsetParentDelegate = OffsetParent.OffsetParentDelegate()
     private val lastInsets = Rect()
     private var appliedDockStyle = DockStylePolicy.Style.ROUNDED
-    private var aboveBlurStyleDrawable: GradientDrawable? = null
+    private var aboveBlurStyleDrawable: Drawable? = null
 
     override val offsetX: Float
         get() = translationX
@@ -89,12 +90,20 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
             }
 
             DockStylePolicy.Style.ROUNDED -> {
-                aboveBlurStyleDrawable = null
-                blurDelegate.overlayColor = defaultBlurOverlayColor
+                blurDelegate.overlayColor = 0
                 blurDelegate.blurCornerRadius = dp(38).toFloat()
                 outlineProvider = blurDelegate.outlineProvider
                 clipToOutline = true
-                setBackgroundResource(R.drawable.bg_ios_dock)
+                background = null
+                aboveBlurStyleDrawable = GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    LauncherLiquidGlassStylePolicy.dockGradient(
+                        enabled = false,
+                        darkMode = isDarkModeEnabled()
+                    )
+                ).apply {
+                    cornerRadius = dp(38).toFloat()
+                }
                 lp.leftMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
                 lp.rightMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
                 lp.bottomMargin = dp(LauncherHomeLayoutPreferences.DOCK_BOTTOM_MARGIN_DP)
@@ -112,13 +121,13 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
                 outlineProvider = blurDelegate.outlineProvider
                 clipToOutline = true
                 background = null
-                aboveBlurStyleDrawable = GradientDrawable(
-                    GradientDrawable.Orientation.LEFT_RIGHT,
-                    LauncherLiquidGlassStylePolicy.dockGradient(enabled = true)
-                ).apply {
-                    cornerRadius = dp(38).toFloat()
-                    setStroke(dp(1), 0xC8FFFFFF.toInt())
-                }
+                aboveBlurStyleDrawable = LauncherLiquidGlassDrawableFactory.create(
+                    context = context,
+                    style = LauncherLiquidGlassStylePolicy.dockMaterial(
+                        enabled = true,
+                        darkMode = isDarkModeEnabled()
+                    )
+                )
                 lp.leftMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
                 lp.rightMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
                 lp.bottomMargin = dp(LauncherHomeLayoutPreferences.DOCK_BOTTOM_MARGIN_DP)
@@ -157,8 +166,14 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         val prefs = mContext.getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
         return DockStylePolicy.styleFor(
             iphone8StyleEnabled = prefs.getBoolean(DockStylePolicy.KEY_LAYOUT_IPHONE8_STYLE, false),
-            liquidGlassEnabled = prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_LIQUID_GLASS, false)
+            liquidGlassEnabled = prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_LIQUID_GLASS, false),
+            darkModeEnabled = prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_DARK_MODE, false)
         )
+    }
+
+    private fun isDarkModeEnabled(): Boolean {
+        val prefs = mContext.getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_DARK_MODE, false)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()

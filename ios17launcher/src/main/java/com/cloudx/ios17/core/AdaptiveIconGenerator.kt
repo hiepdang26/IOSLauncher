@@ -165,7 +165,9 @@ class AdaptiveIconGenerator(
                 }
             (tmp.foreground as FixedScaleDrawable).setScale(foregroundScale)
         } else {
-            (tmp.foreground as FixedScaleDrawable).setScale(scale)
+            (tmp.foreground as FixedScaleDrawable).setScale(
+                scale * HomeIconRenderPolicy.legacyFallbackIconForegroundScale
+            )
         }
         (tmp.background as ColorDrawable).color = backgroundColor
         return tmp

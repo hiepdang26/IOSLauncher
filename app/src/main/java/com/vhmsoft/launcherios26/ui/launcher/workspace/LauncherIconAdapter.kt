@@ -700,7 +700,11 @@ class LauncherIconAdapter(
 
         private fun applyEditAnimation() {
             if (editing) {
-                val startRotation = if (bindingAdapterPosition % 2 == 0) -1.6f else 1.6f
+                val startRotation = if (bindingAdapterPosition % 2 == 0) {
+                    -EDIT_WIGGLE_DEGREES
+                } else {
+                    EDIT_WIGGLE_DEGREES
+                }
                 startWiggle(startRotation)
             } else {
                 stopWiggle()
@@ -717,7 +721,7 @@ class LauncherIconAdapter(
                 startRotation,
                 -startRotation
             ).apply {
-                duration = 95L
+                duration = EDIT_WIGGLE_DURATION_MS
                 repeatCount = ObjectAnimator.INFINITE
                 repeatMode = ObjectAnimator.REVERSE
                 interpolator = LinearInterpolator()
@@ -771,6 +775,8 @@ class LauncherIconAdapter(
         const val CELL_VERTICAL_GAP_DP = 7
         const val MIN_LABEL_HEIGHT_DP = 22
         const val TWO_LINE_LABEL_HEIGHT_DP = 30
+        const val EDIT_WIGGLE_DEGREES = 2.15f
+        const val EDIT_WIGGLE_DURATION_MS = 82L
     }
 
     private fun notifyDragVisibilityChanged(stableId: Long?) {

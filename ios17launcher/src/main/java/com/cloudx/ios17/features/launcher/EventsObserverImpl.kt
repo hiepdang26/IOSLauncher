@@ -3,6 +3,8 @@ package com.cloudx.ios17.features.launcher
 import com.cloudx.ios17.core.events.AppAddEvent
 import com.cloudx.ios17.core.events.AppChangeEvent
 import com.cloudx.ios17.core.events.AppRemoveEvent
+import com.cloudx.ios17.core.events.AppRenameEvent
+import com.cloudx.ios17.core.events.AppWallpaperEvent
 import com.cloudx.ios17.core.events.Event
 import com.cloudx.ios17.core.events.EventRelay
 import com.cloudx.ios17.core.events.ForceReloadEvent
@@ -23,6 +25,8 @@ class EventsObserverImpl(activity: LauncherActivity) : EventRelay.EventsObserver
             AppChangeEvent.TYPE -> activity.onAppChangeEvent(event as AppChangeEvent)
             AppRemoveEvent.TYPE -> activity.onAppRemoveEvent(event as AppRemoveEvent)
             ShortcutAddEvent.TYPE -> activity.onShortcutAddEvent(event as ShortcutAddEvent)
+            AppRenameEvent.TYPE -> activity.onAppRenameEvent(event as AppRenameEvent)
+            AppWallpaperEvent.TYPE -> activity.onAppWallpaperEvent(event as AppWallpaperEvent)
             TimeChangedEvent.TYPE -> activity.updateAllCalendarIcons(Calendar.getInstance())
             ForceReloadEvent.TYPE -> activity.forceReload()
         }

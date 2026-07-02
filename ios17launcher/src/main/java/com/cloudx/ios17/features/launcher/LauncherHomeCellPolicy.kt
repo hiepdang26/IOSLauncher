@@ -1,5 +1,7 @@
 package com.cloudx.ios17.features.launcher
 
+import kotlin.math.abs
+
 object LauncherHomeCellPolicy {
     const val DEFAULT_AUTO_REARRANGE_APPS = false
 
@@ -84,6 +86,14 @@ object LauncherHomeCellPolicy {
             movingCell = safeTargetCell,
             displacedCell = displacedCell
         )
+    }
+
+    fun folderCreationCell(targetCell: Int, targetIndex: Int, maxCells: Int): Int {
+        val safeMax = maxCells.coerceAtLeast(1)
+        if (targetCell in 0 until safeMax) {
+            return targetCell
+        }
+        return targetIndex.coerceIn(0, safeMax - 1)
     }
 
     fun gridPlacementForCell(cell: Int, columns: Int): GridPlacement {
@@ -222,5 +232,34 @@ object LauncherHomeCellPolicy {
             }
             page++
         }
+    }
+
+    fun newItemPlacement(
+        preferredPage: Int,
+        existingPageCount: Int,
+        occupiedCellsByPage: Map<Int, Set<Int>>,
+        maxCells: Int
+    ): PageCell {
+        val safeMax = maxCells.coerceAtLeast(1)
+        val safePageCount = existingPageCount.coerceAtLeast(0)
+        if (safePageCount == 0) {
+            return PageCell(0, 0)
+        }
+
+        val safePreferredPage = preferredPage.coerceIn(0, safePageCount - 1)
+        val candidatePages = (0 until safePageCount)
+            .sortedWith(
+                compareBy<Int> { abs(it - safePreferredPage) }
+                    .thenBy { if (it < safePreferredPage) 1 else 0 }
+                    .thenBy { it }
+            )
+        for (page in candidatePages) {
+            val occupiedCells = occupiedCellsByPage[page].orEmpty()
+            val cell = (0 until safeMax).firstOrNull { it !in occupiedCells }
+            if (cell != null) {
+                return PageCell(page, cell)
+            }
+        }
+        return PageCell(safePageCount, 0)
     }
 }

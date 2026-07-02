@@ -24,6 +24,9 @@ interface LauncherDao {
     @Query("DELETE FROM launcher_items WHERE item_id = :id")
     fun delete(id: String)
 
+    @Query("DELETE FROM launcher_items WHERE package = :packageName")
+    fun deletePackage(packageName: String)
+
     @Query("DELETE FROM launcher_items WHERE title = :name and item_type = " + Constants.ITEM_TYPE_SHORTCUT)
     fun deleteShortcut(name: String)
 

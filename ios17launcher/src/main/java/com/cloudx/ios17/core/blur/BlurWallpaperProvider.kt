@@ -92,9 +92,12 @@ class BlurWallpaperProvider(val context: Context) {
             try {
                 com.cloudx.ios17.core.Utilities.drawableToBitmap(wallpaperManager.drawable, true) as Bitmap
             } catch (e: Exception) {
+                Timber.w(e, "Unable to load wallpaper for blur")
                 com.cloudx.ios17.core.runOnMainThread {
-                    val msg = "Failed: ${e.message}"
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    if (BlurWallpaperErrorPolicy.shouldShowLoadFailureToast(e.message)) {
+                        val msg = "Failed: ${e.message}"
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
                     notifyWallpaperChanged()
                 }
                 return
@@ -221,7 +224,7 @@ class BlurWallpaperProvider(val context: Context) {
 
         val blurConfigBackground = BlurConfig({ it.background }, 2, 8)
 
-        val blurConfigDock = BlurConfig({ it.dock }, 2, 2)
+        val blurConfigDock = BlurConfig({ it.dock }, 4, 8)
 
         val blurConfigAppGroup = BlurConfig({ it.appGroup }, 6, 8)
 

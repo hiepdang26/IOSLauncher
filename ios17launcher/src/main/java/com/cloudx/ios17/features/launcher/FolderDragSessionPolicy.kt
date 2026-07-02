@@ -4,6 +4,7 @@ object FolderDragSessionPolicy {
     const val FOLDER_COLUMNS = 3
     const val FOLDER_ROWS = 3
     const val ITEMS_PER_PAGE = FOLDER_COLUMNS * FOLDER_ROWS
+    const val FOLDER_PAGE_SCROLL_ANIMATION_MS = 520
 
     data class FolderPlacement(
         val page: Int,

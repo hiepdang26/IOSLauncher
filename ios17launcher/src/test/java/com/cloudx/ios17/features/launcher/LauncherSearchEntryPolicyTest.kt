@@ -98,4 +98,47 @@ class LauncherSearchEntryPolicyTest {
             )
         )
     }
+
+    @Test
+    fun pageIndicator_hidesWhenScrollingIntoAppLibraryPage() {
+        assertEquals(
+            false,
+            LauncherSearchEntryPolicy.shouldShowIndicatorDuringPageScroll(
+                fromPage = 3,
+                toPage = 4,
+                firstHomePage = 1,
+                lastHomePage = 3,
+                appLibraryPage = 4
+            )
+        )
+        assertEquals(
+            false,
+            LauncherSearchEntryPolicy.shouldShowIndicatorDuringPageScroll(
+                fromPage = 4,
+                toPage = 3,
+                firstHomePage = 1,
+                lastHomePage = 3,
+                appLibraryPage = 4
+            )
+        )
+    }
+
+    @Test
+    fun pageIndicator_showsOnlyBetweenHomePages() {
+        assertEquals(
+            true,
+            LauncherSearchEntryPolicy.shouldShowIndicatorDuringPageScroll(
+                fromPage = 1,
+                toPage = 2,
+                firstHomePage = 1,
+                lastHomePage = 3,
+                appLibraryPage = 4
+            )
+        )
+    }
+
+    @Test
+    fun searchOverlay_hidesHomeIndicatorImmediately() {
+        assertTrue(LauncherSearchEntryPolicy.shouldHideIndicatorWhileSearchIsActive())
+    }
 }

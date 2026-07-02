@@ -120,41 +120,44 @@ class LauncherPageIndicatorWheelView @JvmOverloads constructor(
         if (fromMarkers.isNotEmpty() && toMarkers.isNotEmpty() && slideProgress < 1f) {
             drawWheelTransition(canvas)
         } else {
+            val markerCount = markers.size
             markers.forEachIndexed { index, marker ->
-                drawMarker(canvas, marker, slotX(index), 1f)
+                drawMarker(canvas, marker, slotX(index, markerCount), 1f)
             }
         }
     }
 
     private fun drawWheelTransition(canvas: Canvas) {
         val progress = slideProgress.coerceIn(0f, 1f)
+        val fromMarkerCount = fromMarkers.size
+        val toMarkerCount = toMarkers.size
         when (slideDirection) {
             LauncherPageIndicatorWindowPolicy.SlideDirection.FORWARD -> {
                 fromMarkers.forEachIndexed { index, marker ->
                     val fade = 1f - progress
-                    drawMarker(canvas, marker, slotX(index) - dotStepPx() * progress, fade)
+                    drawMarker(canvas, marker, slotX(index, fromMarkerCount) - dotStepPx() * progress, fade)
                 }
                 toMarkers.forEachIndexed { index, marker ->
-                    drawMarker(canvas, marker, slotX(index) + dotStepPx() * (1f - progress), progress)
+                    drawMarker(canvas, marker, slotX(index, toMarkerCount) + dotStepPx() * (1f - progress), progress)
                 }
             }
 
             LauncherPageIndicatorWindowPolicy.SlideDirection.BACKWARD -> {
                 toMarkers.forEachIndexed { index, marker ->
-                    drawMarker(canvas, marker, slotX(index) - dotStepPx() * (1f - progress), progress)
+                    drawMarker(canvas, marker, slotX(index, toMarkerCount) - dotStepPx() * (1f - progress), progress)
                 }
                 fromMarkers.forEachIndexed { index, marker ->
                     val fade = 1f - progress
-                    drawMarker(canvas, marker, slotX(index) + dotStepPx() * progress, fade)
+                    drawMarker(canvas, marker, slotX(index, fromMarkerCount) + dotStepPx() * progress, fade)
                 }
             }
 
             LauncherPageIndicatorWindowPolicy.SlideDirection.NONE -> {
                 fromMarkers.forEachIndexed { index, marker ->
-                    drawMarker(canvas, marker, slotX(index), 1f - progress)
+                    drawMarker(canvas, marker, slotX(index, fromMarkerCount), 1f - progress)
                 }
                 toMarkers.forEachIndexed { index, marker ->
-                    drawMarker(canvas, marker, slotX(index), progress)
+                    drawMarker(canvas, marker, slotX(index, toMarkerCount), progress)
                 }
             }
         }
@@ -185,8 +188,15 @@ class LauncherPageIndicatorWheelView @JvmOverloads constructor(
         }
     }
 
-    private fun slotX(slot: Int): Float {
-        return width / 2f + (slot - (VISIBLE_DOT_COUNT - 1) / 2f) * dotStepPx()
+    private fun slotX(
+        slot: Int,
+        markerCount: Int
+    ): Float {
+        return width / 2f + LauncherPageIndicatorWindowPolicy.markerCenterOffset(
+            slot = slot,
+            markerCount = markerCount,
+            dotStepPx = dotStepPx()
+        )
     }
 
     private fun dotStepPx(): Float = DOT_STEP_DP * resources.displayMetrics.density
@@ -199,7 +209,6 @@ class LauncherPageIndicatorWheelView @JvmOverloads constructor(
     )
 
     private companion object {
-        const val VISIBLE_DOT_COUNT = 4
         const val DOT_RADIUS_DP = 3f
         const val DOT_STEP_DP = 14f
         const val WHEEL_ANIMATION_MS = 268L

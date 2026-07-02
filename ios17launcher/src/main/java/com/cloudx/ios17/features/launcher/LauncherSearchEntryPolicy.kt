@@ -26,6 +26,22 @@ object LauncherSearchEntryPolicy {
 
     fun shouldFocusInputWhenOpened(): Boolean = true
 
+    fun shouldShowIndicatorDuringPageScroll(
+        fromPage: Int,
+        toPage: Int,
+        firstHomePage: Int,
+        lastHomePage: Int,
+        appLibraryPage: Int
+    ): Boolean {
+        if (fromPage == appLibraryPage || toPage == appLibraryPage) {
+            return false
+        }
+        return fromPage in firstHomePage..lastHomePage &&
+            toPage in firstHomePage..lastHomePage
+    }
+
+    fun shouldHideIndicatorWhileSearchIsActive(): Boolean = true
+
     fun searchOpenAnimationDurationMs(currentBlurAlpha: Float): Long {
         val remainingAlphaDuration = (currentBlurAlpha.coerceIn(0f, 1f) * SEARCH_OPEN_ANIMATION_MS).toLong()
         return if (remainingAlphaDuration > 0L) {

@@ -21,6 +21,10 @@ class DatabaseManager private constructor(private val mContext: Context) {
         mAppExecutors.diskIO().execute { LauncherDB.getDatabase(mContext).launcherDao().delete(itemId) }
     }
 
+    fun removeLauncherPackage(packageName: String) {
+        mAppExecutors.diskIO().execute { LauncherDB.getDatabase(mContext).launcherDao().deletePackage(packageName) }
+    }
+
     fun saveLayouts(pages: List<GridLayout>, dock: GridLayout) {
         val tempPages = pages
         val tempDock = dock
@@ -59,7 +63,7 @@ class DatabaseManager private constructor(private val mContext: Context) {
             val gridLayout = pages[i]
             val maxCells = gridLayout.rowCount * gridLayout.columnCount
             for (j in 0 until gridLayout.childCount) {
-                val launcherItem = (gridLayout.getChildAt(j) as BlissFrameLayout).launcherItem
+                val launcherItem = (gridLayout.getChildAt(j) as? BlissFrameLayout)?.launcherItem ?: continue
                 val savedCell = if (autoArrangeApps) {
                     j
                 } else {

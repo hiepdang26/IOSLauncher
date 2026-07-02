@@ -123,13 +123,14 @@ class BlurViewDelegate(
             this.draw(canvas)
         }
         if (overlayColor != 0) {
+            val rect = BlurOverlayDrawPolicy.localRoundRect(view.width, view.height, blurCornerRadius)
             canvas.drawRoundRect(
-                view.left.toFloat(),
-                view.top.toFloat(),
-                view.right.toFloat(),
-                view.bottom.toFloat(),
-                view.x,
-                view.y,
+                rect.left,
+                rect.top,
+                rect.right,
+                rect.bottom,
+                rect.radiusX,
+                rect.radiusY,
                 overlayPaint
             )
         }

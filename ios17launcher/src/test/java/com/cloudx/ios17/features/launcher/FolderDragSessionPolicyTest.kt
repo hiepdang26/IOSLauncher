@@ -29,6 +29,11 @@ class FolderDragSessionPolicyTest {
     }
 
     @Test
+    fun folderPageScrollAnimation_isSlowEnoughToReadDuringDrag() {
+        assertEquals(520, FolderDragSessionPolicy.FOLDER_PAGE_SCROLL_ANIMATION_MS)
+    }
+
+    @Test
     fun edgeTargetPage_movesOnlyAtHorizontalEdges() {
         assertEquals(
             0,

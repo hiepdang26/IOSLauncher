@@ -1,10 +1,8 @@
 package com.vhmsoft.launcherios26.data.source.local
 
 import android.content.Context
-import android.graphics.ImageDecoder
 import android.graphics.drawable.Drawable
-import android.net.Uri
-import android.os.Build
+import com.cloudx.ios17.core.LauncherCustomIconPreferences
 import com.vhmsoft.launcherios26.data.cache.AppIconCache
 import com.vhmsoft.launcherios26.data.cache.LauncherPreferences
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
@@ -89,23 +87,11 @@ class LauncherLocalDataSourceImpl(
     }
 
     override fun getCustomIcon(iconKey: String): Drawable? {
-        val rawUri = preferences.getCustomIconUri(iconKey) ?: return null
-        val uri = runCatching { Uri.parse(rawUri) }.getOrNull() ?: return null
-        return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val source = ImageDecoder.createSource(appContext.contentResolver, uri)
-                ImageDecoder.decodeDrawable(source)
-            } else {
-                @Suppress("DEPRECATION")
-                appContext.contentResolver.openInputStream(uri)?.use { input ->
-                    Drawable.createFromStream(input, uri.toString())
-                }
-            }
-        }.getOrNull()
+        return LauncherCustomIconPreferences.loadCustomIcon(appContext, listOf(iconKey))
     }
 
     override fun saveCustomIconUri(iconKey: String, uri: String?) {
-        preferences.saveCustomIconUri(iconKey, uri)
+        LauncherCustomIconPreferences.saveCustomIconUri(appContext, listOf(iconKey), uri)
         clearIconCache()
     }
 }

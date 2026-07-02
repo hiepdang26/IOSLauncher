@@ -23,6 +23,39 @@ class LauncherPageIndicatorWindowPolicyTest {
     }
 
     @Test
+    fun markerCenterOffsets_centerTwoDotsInsideIndicator() {
+        assertOffsets(
+            expected = listOf(-7f, 7f),
+            actual = LauncherPageIndicatorWindowPolicy.markerCenterOffsets(
+                markerCount = 2,
+                dotStepPx = 14f
+            )
+        )
+    }
+
+    @Test
+    fun markerCenterOffsets_centerThreeDotsInsideIndicator() {
+        assertOffsets(
+            expected = listOf(-14f, 0f, 14f),
+            actual = LauncherPageIndicatorWindowPolicy.markerCenterOffsets(
+                markerCount = 3,
+                dotStepPx = 14f
+            )
+        )
+    }
+
+    @Test
+    fun markerCenterOffsets_keepFourDotsInFullIndicatorWindow() {
+        assertOffsets(
+            expected = listOf(-21f, -7f, 7f, 21f),
+            actual = LauncherPageIndicatorWindowPolicy.markerCenterOffsets(
+                markerCount = 4,
+                dotStepPx = 14f
+            )
+        )
+    }
+
+    @Test
     fun markers_keepFirstPageActiveOnMiddleLeftDotWhenMorePagesExistOnTheRight() {
         val markers = LauncherPageIndicatorWindowPolicy.markers(
             pageCount = 6,
@@ -188,5 +221,15 @@ class LauncherPageIndicatorWindowPolicyTest {
         state: LauncherPageIndicatorWindowPolicy.MarkerState
     ): LauncherPageIndicatorWindowPolicy.Marker {
         return LauncherPageIndicatorWindowPolicy.Marker(pageIndex, state)
+    }
+
+    private fun assertOffsets(
+        expected: List<Float>,
+        actual: List<Float>
+    ) {
+        assertEquals(expected.size, actual.size)
+        expected.zip(actual).forEach { (expectedOffset, actualOffset) ->
+            assertEquals(expectedOffset, actualOffset, 0.001f)
+        }
     }
 }

@@ -6,12 +6,15 @@ import org.junit.Test
 class TodayWidgetDragShadowPolicyTest {
 
     @Test
-    fun invisibleShadowUsesSinglePixelMetrics() {
-        val metrics = TodayWidgetDragShadowPolicy.invisibleMetrics()
-
-        assertEquals(1, metrics.width)
-        assertEquals(1, metrics.height)
-        assertEquals(0, metrics.touchX)
-        assertEquals(0, metrics.touchY)
+    fun bitmapShadowTracksFingerFromTheCenterOfTheWidgetPreview() {
+        assertEquals(
+            TodayWidgetDragShadowPolicy.Metrics(
+                width = 240,
+                height = 120,
+                touchX = 120,
+                touchY = 60
+            ),
+            TodayWidgetDragShadowPolicy.bitmapMetrics(width = 240, height = 120)
+        )
     }
 }

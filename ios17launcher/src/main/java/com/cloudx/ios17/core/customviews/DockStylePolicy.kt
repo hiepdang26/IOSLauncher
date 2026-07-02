@@ -17,16 +17,17 @@ object DockStylePolicy {
 
     fun styleFor(
         iphone8StyleEnabled: Boolean,
-        liquidGlassEnabled: Boolean = false
+        liquidGlassEnabled: Boolean = false,
+        darkModeEnabled: Boolean = false
     ): Style {
-        if (liquidGlassEnabled) {
+        if (liquidGlassEnabled || darkModeEnabled) {
             return Style.LIQUID_GLASS
         }
         return if (iphone8StyleEnabled) Style.CURRENT else Style.ROUNDED
     }
 
     fun drawsStyleAboveBlur(style: Style): Boolean {
-        return style == Style.LIQUID_GLASS
+        return style == Style.ROUNDED || style == Style.LIQUID_GLASS
     }
 
     @Suppress("UNUSED_PARAMETER")

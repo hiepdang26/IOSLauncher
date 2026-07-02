@@ -105,6 +105,25 @@ internal object LauncherPageIndicatorWindowPolicy {
         }
     }
 
+    fun markerCenterOffset(
+        slot: Int,
+        markerCount: Int,
+        dotStepPx: Float
+    ): Float {
+        val visibleCount = markerCount.coerceAtLeast(1)
+        return (slot - (visibleCount - 1) / 2f) * dotStepPx
+    }
+
+    fun markerCenterOffsets(
+        markerCount: Int,
+        dotStepPx: Float
+    ): List<Float> {
+        if (markerCount <= 0) return emptyList()
+        return (0 until markerCount).map { slot ->
+            markerCenterOffset(slot, markerCount, dotStepPx)
+        }
+    }
+
     fun scrollFrame(
         pageCount: Int,
         pagePosition: Float
