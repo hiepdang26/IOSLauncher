@@ -36,11 +36,22 @@ class DockStylePolicyTest {
     }
 
     @Test
-    fun styleFor_usesLiquidGlassDockWhenDarkModeIsEnabled() {
+    fun styleFor_keepsCurrentDockWhenIphone8AndDarkModeAreEnabled() {
+        assertEquals(
+            DockStylePolicy.Style.CURRENT,
+            DockStylePolicy.styleFor(
+                iphone8StyleEnabled = true,
+                darkModeEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun styleFor_usesLiquidGlassDockWhenDarkModeIsEnabledWithoutIphone8Style() {
         assertEquals(
             DockStylePolicy.Style.LIQUID_GLASS,
             DockStylePolicy.styleFor(
-                iphone8StyleEnabled = true,
+                iphone8StyleEnabled = false,
                 darkModeEnabled = true
             )
         )

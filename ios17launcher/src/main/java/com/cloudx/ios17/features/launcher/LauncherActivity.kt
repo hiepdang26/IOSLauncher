@@ -159,6 +159,7 @@ import com.cloudx.ios17.core.utils.UserHandle
 import com.cloudx.ios17.core.utils.getActivityThemeRes
 import com.cloudx.ios17.core.utils.isWorkspaceDarkText
 import com.cloudx.ios17.core.wallpaper.WallpaperManagerCompat
+import com.cloudx.ios17.core.wallpaper.Ios26DefaultWallpaperInstaller
 import com.cloudx.ios17.features.shortcuts.DeepShortcutManager
 import com.cloudx.ios17.features.shortcuts.ShortcutKey
 import com.cloudx.ios17.features.suggestions.AutoCompleteAdapter
@@ -286,6 +287,7 @@ class LauncherActivity : AppCompatActivity(),
         private const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
         private const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
         private const val PAGE_INDICATOR_DOT_PADDING_DP = 4
+        private const val HOME_GRID_PREVIEW_DOT_TAG = "home_grid_preview_dot"
         private const val FOLDER_UNNAMED_HINT_TEXT_SIZE_SP = 22f
         private const val APP_LIBRARY_TITLE = "Thư viện ứng dụng"
         private const val APP_LIBRARY_PREF_NAME = "ios_launcher_preferences"
@@ -594,6 +596,7 @@ class LauncherActivity : AppCompatActivity(),
         mLauncherView = LayoutInflater.from(this).inflate(R.layout.activity_main, null)
         setContentView(mLauncherView)
         setupViews()
+        Ios26DefaultWallpaperInstaller.applyIfNeededWhenDefaultLauncher(this)
         applyCustomWallpaperFromPreferences()
 
         val wm = getSystemService(WALLPAPER_SERVICE) as WallpaperManager
@@ -839,6 +842,7 @@ class LauncherActivity : AppCompatActivity(),
         }
         refreshCustomIconsIfNeeded()
         refreshHiddenAppsIfNeeded()
+        Ios26DefaultWallpaperInstaller.applyIfNeededWhenDefaultLauncher(this)
         applyCustomWallpaperFromPreferences()
 
         if (::mDock.isInitialized) {
@@ -9568,8 +9572,14 @@ class LauncherActivity : AppCompatActivity(),
         selectedColor: Int,
         unselectedColor: Int
     ): View {
-        val grid5Option = createHomeGridOption(getString(R.string.layout_grid_5x4))
-        val grid6Option = createHomeGridOption(getString(R.string.layout_grid_6x4))
+        val grid5Option = createHomeGridOption(
+            rows = LauncherHomeLayoutPreferences.HOME_GRID_ROWS_5,
+            label = getString(R.string.layout_grid_5x4)
+        )
+        val grid6Option = createHomeGridOption(
+            rows = LauncherHomeLayoutPreferences.HOME_GRID_ROWS_6,
+            label = getString(R.string.layout_grid_6x4)
+        )
 
         fun updateGridSelection(selectedRows: Int) {
             tintHomeGridOption(grid5Option, selectedRows == LauncherHomeLayoutPreferences.HOME_GRID_ROWS_5, selectedColor, unselectedColor)
@@ -9602,22 +9612,13 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun createHomeGridOption(label: String): LinearLayout {
+    private fun createHomeGridOption(rows: Int, label: String): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             isClickable = true
             isFocusable = true
-            addView(
-                TextView(context).apply {
-                    text = label
-                    textSize = 28f
-                    typeface = Typeface.DEFAULT_BOLD
-                    gravity = Gravity.CENTER
-                    includeFontPadding = false
-                },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            )
+            addView(createHomeGridPreview(rows))
             addView(
                 TextView(context).apply {
                     text = label
@@ -9632,10 +9633,51 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun createHomeGridPreview(rows: Int): GridLayout {
+        val spec = LayoutGridPreviewPolicy.previewSpec(rows)
+        return GridLayout(this).apply {
+            rowCount = spec.rows
+            columnCount = spec.columns
+            clipChildren = false
+            clipToPadding = false
+            repeat(spec.cellCount) { index ->
+                addView(
+                    View(context).apply {
+                        tag = HOME_GRID_PREVIEW_DOT_TAG
+                    },
+                    GridLayout.LayoutParams(
+                        GridLayout.spec(index / spec.columns),
+                        GridLayout.spec(index % spec.columns)
+                    ).apply {
+                        width = dp(7)
+                        height = dp(7)
+                        setMargins(dp(1), dp(1), dp(1), dp(1))
+                    }
+                )
+            }
+        }
+    }
+
     private fun tintHomeGridOption(option: LinearLayout, selected: Boolean, selectedColor: Int, unselectedColor: Int) {
         val color = if (selected) selectedColor else unselectedColor
-        for (i in 0 until option.childCount) {
-            (option.getChildAt(i) as? TextView)?.setTextColor(color)
+        tintHomeGridOptionView(option, color)
+    }
+
+    private fun tintHomeGridOptionView(view: View, color: Int) {
+        when {
+            view.tag == HOME_GRID_PREVIEW_DOT_TAG -> {
+                view.background = roundedRectangle(color, 1)
+            }
+
+            view is TextView -> {
+                view.setTextColor(color)
+            }
+
+            view is ViewGroup -> {
+                for (index in 0 until view.childCount) {
+                    tintHomeGridOptionView(view.getChildAt(index), color)
+                }
+            }
         }
     }
 

@@ -79,6 +79,7 @@ import com.cloudx.ios17.core.LauncherAppRenamePolicy
 import com.cloudx.ios17.core.events.AppRenameEvent
 import com.cloudx.ios17.core.events.AppWallpaperEvent
 import com.cloudx.ios17.core.events.EventRelay
+import com.cloudx.ios17.core.wallpaper.Ios26DefaultWallpaperInstaller
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
@@ -4976,6 +4977,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         if (promptAction.openLauncherImmediately) {
             forceSettingsPanel = false
+            Ios26DefaultWallpaperInstaller.applyWhenDefaultLauncherSelected(this)
             showAlreadyDefaultLauncher()
             openCopiedIos17Launcher()
             return
@@ -5063,6 +5065,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         waitingForLauncherSelection = false
         if (isCurrentDefaultLauncher()) {
             forceSettingsPanel = false
+            Ios26DefaultWallpaperInstaller.applyWhenDefaultLauncherSelected(this)
             openCopiedIos17Launcher()
         } else {
             updateLauncherMode(forceAnimate = true)

@@ -20,10 +20,12 @@ object DockStylePolicy {
         liquidGlassEnabled: Boolean = false,
         darkModeEnabled: Boolean = false
     ): Style {
-        if (liquidGlassEnabled || darkModeEnabled) {
+        if (liquidGlassEnabled) {
             return Style.LIQUID_GLASS
         }
-        return if (iphone8StyleEnabled) Style.CURRENT else Style.ROUNDED
+        if (iphone8StyleEnabled) return Style.CURRENT
+        if (darkModeEnabled) return Style.LIQUID_GLASS
+        return Style.ROUNDED
     }
 
     fun drawsStyleAboveBlur(style: Style): Boolean {
