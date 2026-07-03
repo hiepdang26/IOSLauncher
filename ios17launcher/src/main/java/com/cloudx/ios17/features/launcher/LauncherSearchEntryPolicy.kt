@@ -40,6 +40,8 @@ object LauncherSearchEntryPolicy {
             toPage in firstHomePage..lastHomePage
     }
 
+    fun indicatorTranslationYForDockSlide(dockTranslationY: Float): Float = 0f
+
     fun shouldHideIndicatorWhileSearchIsActive(): Boolean = true
 
     fun searchOpenAnimationDurationMs(currentBlurAlpha: Float): Long {

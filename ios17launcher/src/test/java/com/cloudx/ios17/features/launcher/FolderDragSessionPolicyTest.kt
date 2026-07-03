@@ -30,7 +30,7 @@ class FolderDragSessionPolicyTest {
 
     @Test
     fun folderPageScrollAnimation_isSlowEnoughToReadDuringDrag() {
-        assertEquals(520, FolderDragSessionPolicy.FOLDER_PAGE_SCROLL_ANIMATION_MS)
+        assertEquals(320, FolderDragSessionPolicy.FOLDER_PAGE_SCROLL_ANIMATION_MS)
     }
 
     @Test
@@ -99,6 +99,50 @@ class FolderDragSessionPolicyTest {
                 right = 300,
                 bottom = 300,
                 thresholdPx = 24
+            )
+        )
+    }
+
+    @Test
+    fun shouldExitHoverOpenedFolder_waitsUntilDragEntersExpandedPanel() {
+        assertFalse(
+            FolderDragSessionPolicy.shouldExitHoverOpenedFolder(
+                x = 0f,
+                y = 0f,
+                left = 100,
+                top = 100,
+                right = 300,
+                bottom = 300,
+                thresholdPx = 24,
+                hasEnteredOpenFolder = false
+            )
+        )
+    }
+
+    @Test
+    fun shouldExitHoverOpenedFolder_exitsAfterLeavingExpandedPanelWithThreshold() {
+        assertFalse(
+            FolderDragSessionPolicy.shouldExitHoverOpenedFolder(
+                x = 95f,
+                y = 120f,
+                left = 100,
+                top = 100,
+                right = 300,
+                bottom = 300,
+                thresholdPx = 24,
+                hasEnteredOpenFolder = true
+            )
+        )
+        assertTrue(
+            FolderDragSessionPolicy.shouldExitHoverOpenedFolder(
+                x = 70f,
+                y = 120f,
+                left = 100,
+                top = 100,
+                right = 300,
+                bottom = 300,
+                thresholdPx = 24,
+                hasEnteredOpenFolder = true
             )
         )
     }

@@ -4,7 +4,7 @@ object FolderDragSessionPolicy {
     const val FOLDER_COLUMNS = 3
     const val FOLDER_ROWS = 3
     const val ITEMS_PER_PAGE = FOLDER_COLUMNS * FOLDER_ROWS
-    const val FOLDER_PAGE_SCROLL_ANIMATION_MS = 520
+    const val FOLDER_PAGE_SCROLL_ANIMATION_MS = 320
 
     data class FolderPlacement(
         val page: Int,
@@ -76,6 +76,30 @@ object FolderDragSessionPolicy {
             x > right + threshold ||
             y < top - threshold ||
             y > bottom + threshold
+    }
+
+    fun shouldExitHoverOpenedFolder(
+        x: Float,
+        y: Float,
+        left: Int,
+        top: Int,
+        right: Int,
+        bottom: Int,
+        thresholdPx: Int,
+        hasEnteredOpenFolder: Boolean
+    ): Boolean {
+        if (!hasEnteredOpenFolder) {
+            return false
+        }
+        return shouldExitFolder(
+            x = x,
+            y = y,
+            left = left,
+            top = top,
+            right = right,
+            bottom = bottom,
+            thresholdPx = thresholdPx
+        )
     }
 
     fun collisionPreview(

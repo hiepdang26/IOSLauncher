@@ -138,6 +138,15 @@ class LauncherSearchEntryPolicyTest {
     }
 
     @Test
+    fun pageIndicator_staysPinnedWhileDockSlidesAtScreenEdge() {
+        assertEquals(
+            0f,
+            LauncherSearchEntryPolicy.indicatorTranslationYForDockSlide(dockTranslationY = 128f),
+            0.001f
+        )
+    }
+
+    @Test
     fun searchOverlay_hidesHomeIndicatorImmediately() {
         assertTrue(LauncherSearchEntryPolicy.shouldHideIndicatorWhileSearchIsActive())
     }

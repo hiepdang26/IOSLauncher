@@ -722,7 +722,13 @@ class LauncherActivity : AppCompatActivity(),
         compositeDisposableBag.add(
             BlissLauncher.getApplication(this).appProvider.getAppsRepository()
                 .getAppsRelay()
-                .distinctUntilChanged()
+                .distinctUntilChanged { previousItems, nextItems ->
+                    LauncherIconGridRefreshPolicy.shouldSuppressEquivalentIncomingItems(
+                        previousItemIds = previousItems.map { item -> item.id },
+                        nextItemIds = nextItems.map { item -> item.id },
+                        forceRender = forceRenderOnNextAppsUpdate
+                    )
+                }
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribeWith(object : DisposableObserver<List<LauncherItem>>() {
                     override fun onNext(launcherItems: List<LauncherItem>) {
@@ -7076,7 +7082,7 @@ class LauncherActivity : AppCompatActivity(),
                 val dockHeight = mDock.height + mIndicator.height
                 val dockTranslationY = (1 - progress) * dockHeight
                 mDock.translationY = dockTranslationY
-                mIndicator.translationY = dockTranslationY
+                mIndicator.translationY = LauncherSearchEntryPolicy.indicatorTranslationYForDockSlide(dockTranslationY)
 
                 if (scrollX >= 0 && scrollX < mDeviceProfile.availableWidthPx) {
                     val fraction = (mDeviceProfile.availableWidthPx - scrollX).toFloat() /
@@ -10865,7 +10871,7 @@ class LauncherActivity : AppCompatActivity(),
                     cY = mDock.y + dragEvent.y - shadow.yOffset
                     val activeSession = folderDragSession
                     if (activeSession != null && mFolderWindowContainer.visibility == VISIBLE) {
-                        if (isPointInsideOpenFolder(cX, cY)) {
+                        if (isPointInsideOpenFolderPanel(cX, cY)) {
                             previewFolderDrop(activeSession, mFolderAppsViewPager.currentItem, folderDropCellForCurrentPage(cX, cY))
                             commitFolderDropInside(activeSession)
                             moving.visibility = VISIBLE
@@ -10924,7 +10930,7 @@ class LauncherActivity : AppCompatActivity(),
                             folderInterest = false
                         }
                     } else {
-                        if (!isPointInsideOpenFolder(cX, cY)) {
+                        if (!isPointInsideOpenFolderPanel(cX, cY)) {
                             if (isMovingExternalToOpenFolder(moving)) {
                                 hideFolderWindowContainer()
                                 folderOpenedByDragHover = false
@@ -11083,7 +11089,7 @@ class LauncherActivity : AppCompatActivity(),
                     cY = mHorizontalPager.y + dragEvent.y - shadow.yOffset
                     val activeSession = folderDragSession
                     if (activeSession != null && mFolderWindowContainer.visibility == VISIBLE) {
-                        if (isPointInsideOpenFolder(cX, cY)) {
+                        if (isPointInsideOpenFolderPanel(cX, cY)) {
                             previewFolderDrop(activeSession, mFolderAppsViewPager.currentItem, folderDropCellForCurrentPage(cX, cY))
                             commitFolderDropInside(activeSession)
                             moving.visibility = VISIBLE
@@ -11132,7 +11138,7 @@ class LauncherActivity : AppCompatActivity(),
                             folderInterest = false
                         }
                     } else {
-                        if (!isPointInsideOpenFolder(cX, cY)) {
+                        if (!isPointInsideOpenFolderPanel(cX, cY)) {
                             if (isMovingExternalToOpenFolder(moving)) {
                                 hideFolderWindowContainer()
                                 folderOpenedByDragHover = false
@@ -11387,9 +11393,23 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
 
-        if (isPointInsideOpenFolder(x, y)) {
+        if (isPointInsideOpenFolderPanel(x, y)) {
             dragHasEnteredOpenFolder = true
-        } else if (dragHasEnteredOpenFolder) {
+            return
+        }
+
+        val panelBounds = folderPanelBoundsOnScreen()
+        if (FolderDragSessionPolicy.shouldExitHoverOpenedFolder(
+                x = x,
+                y = y,
+                left = panelBounds.left,
+                top = panelBounds.top,
+                right = panelBounds.right,
+                bottom = panelBounds.bottom,
+                thresholdPx = dp(48),
+                hasEnteredOpenFolder = dragHasEnteredOpenFolder
+            )
+        ) {
             hideFolderWindowContainer()
             folderOpenedByDragHover = false
             dragHasEnteredOpenFolder = false
@@ -11397,13 +11417,20 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun isPointInsideOpenFolder(x: Float, y: Float): Boolean {
-        val topLeftCorner = IntArray(2)
-        mFolderAppsViewPager.getLocationOnScreen(topLeftCorner)
-        val left = topLeftCorner[0]
-        val top = topLeftCorner[1]
-        val right = left + mFolderAppsViewPager.width
-        val bottom = top + mFolderAppsViewPager.height
-        return left < right && top < bottom && x >= left && x < right && y >= top && y < bottom
+        return isPointInsideBounds(folderBoundsOnScreen(), x, y)
+    }
+
+    private fun isPointInsideOpenFolderPanel(x: Float, y: Float): Boolean {
+        return isPointInsideBounds(folderPanelBoundsOnScreen(), x, y)
+    }
+
+    private fun isPointInsideBounds(bounds: Rect, x: Float, y: Float): Boolean {
+        return bounds.left < bounds.right &&
+            bounds.top < bounds.bottom &&
+            x >= bounds.left &&
+            x < bounds.right &&
+            y >= bounds.top &&
+            y < bounds.bottom
     }
 
     private fun isMovingExternalToOpenFolder(moving: BlissFrameLayout): Boolean {
@@ -11612,6 +11639,23 @@ class LauncherActivity : AppCompatActivity(),
             topLeft[0] + mFolderAppsViewPager.width,
             topLeft[1] + mFolderAppsViewPager.height
         )
+    }
+
+    private fun folderPanelBoundsOnScreen(): Rect {
+        val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
+        val topLeft = IntArray(2)
+        folderBackground.getLocationOnScreen(topLeft)
+        val bounds = Rect(
+            topLeft[0],
+            topLeft[1],
+            topLeft[0] + folderBackground.width,
+            topLeft[1] + folderBackground.height
+        )
+        return if (bounds.left < bounds.right && bounds.top < bounds.bottom) {
+            bounds
+        } else {
+            folderBoundsOnScreen()
+        }
     }
 
     private fun currentFolderGrid(): GridLayout? {
@@ -11843,18 +11887,26 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun handleFolderDragLocation(x: Float, y: Float) {
         val session = folderDragSession ?: return
-        if (session.exitedToHome && isPointInsideOpenFolder(x, y)) {
+        val panelBounds = folderPanelBoundsOnScreen()
+        val isInsidePanel = isPointInsideBounds(panelBounds, x, y)
+        if (session.exitedToHome && isInsidePanel) {
             reopenFolderForActiveDrag(session)
         }
-        val bounds = folderBoundsOnScreen()
-        val shouldExit = FolderDragSessionPolicy.shouldExitFolder(
+        if (isInsidePanel) {
+            dragHasEnteredOpenFolder = true
+        }
+        val canExitFolder = session.origin != FolderDragOrigin.FROM_HOME_TO_FOLDER ||
+            !folderOpenedByDragHover ||
+            dragHasEnteredOpenFolder
+        val shouldExit = FolderDragSessionPolicy.shouldExitHoverOpenedFolder(
             x = x,
             y = y,
-            left = bounds.left,
-            top = bounds.top,
-            right = bounds.right,
-            bottom = bounds.bottom,
-            thresholdPx = dp(48)
+            left = panelBounds.left,
+            top = panelBounds.top,
+            right = panelBounds.right,
+            bottom = panelBounds.bottom,
+            thresholdPx = dp(48),
+            hasEnteredOpenFolder = canExitFolder
         )
         if (shouldExit) {
             handleFolderDragExitToHome(session, x, y)
@@ -11866,6 +11918,7 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
 
+        val bounds = folderBoundsOnScreen()
         val currentPage = mFolderAppsViewPager.currentItem
         val pageCount = maxOf(1, mFolderAppsViewPager.adapter?.count ?: 1)
         val canCreateNextPage = mutableFolderItems(session.folder).size >=
@@ -12495,7 +12548,7 @@ class LauncherActivity : AppCompatActivity(),
         }
 
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        mIndicator.animate().cancel()
+        resetHomeIndicatorPosition()
         mIndicator.isClickable = false
         mIndicator.alpha = 0f
         mIndicator.visibility = GONE
@@ -12509,7 +12562,7 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        mIndicator.animate().cancel()
+        resetHomeIndicatorPosition()
         mIndicator.isClickable = false
         mIndicator.alpha = 0f
         mIndicator.visibility = GONE
@@ -12523,10 +12576,23 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        mIndicator.animate().cancel()
+        resetHomeIndicatorPosition()
         mIndicator.isClickable = false
         mIndicator.alpha = 0f
         mIndicator.visibility = GONE
+    }
+
+    private fun resetHomeIndicatorPosition() {
+        if (!::mIndicator.isInitialized) {
+            return
+        }
+
+        mIndicator.animate().cancel()
+        mIndicator.clearAnimation()
+        mIndicator.translationX = 0f
+        mIndicator.translationY = 0f
+        mIndicator.scaleX = 1f
+        mIndicator.scaleY = 1f
     }
 
     private fun showPageIndicator(page: Int) {
@@ -12654,7 +12720,7 @@ class LauncherActivity : AppCompatActivity(),
             mIndicator.visibility = GONE
             return
         }
-        mIndicator.animate().cancel()
+        resetHomeIndicatorPosition()
         mIndicator.isClickable = true
         mIndicator.alpha = 1f
         mIndicator.visibility = VISIBLE
@@ -12676,7 +12742,7 @@ class LauncherActivity : AppCompatActivity(),
         indicatorMode = IndicatorMode.SEARCH
         ensureSearchIndicatorFrame()
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        mIndicator.animate().cancel()
+        resetHomeIndicatorPosition()
         mIndicator.isClickable = true
         mIndicator.alpha = 1f
         mIndicator.visibility = VISIBLE
@@ -12776,6 +12842,7 @@ class LauncherActivity : AppCompatActivity(),
         }
         if (isAppLibraryPage(page)) {
             indicatorHandler.removeCallbacks(hideIndicatorRunnable)
+            resetHomeIndicatorPosition()
             mDock.visibility = GONE
             mIndicator.visibility = GONE
         } else {
@@ -12784,6 +12851,7 @@ class LauncherActivity : AppCompatActivity(),
 
         if (!isHomePage(page)) {
             indicatorHandler.removeCallbacks(hideIndicatorRunnable)
+            resetHomeIndicatorPosition()
             mIndicator.visibility = GONE
         } else if (isWobbling) {
             showDotsInIndicator(homePagePositionForPagerPage(page), false)

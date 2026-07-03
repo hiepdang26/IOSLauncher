@@ -217,6 +217,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var hiddenAppsSettingsChanged = false
     private var hasPositionedInitialHomePage = false
     private var lastWorkspacePagePosition = RecyclerView.NO_POSITION
+    private var suppressingEdgePageIndicator = false
     private var layoutDarkMode = false
     private var layoutIphone8Style = false
     private var layoutAutoArrange = false
@@ -5595,6 +5596,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                     updateWorkspaceChromeForPage(position)
                     showPageIndicator(position)
                 }
+
+                override fun onPageScrollStateChanged(state: Int) {
+                    if (state == ViewPager2.SCROLL_STATE_IDLE) {
+                        restorePageIndicatorAfterEdgeScroll()
+                    }
+                }
             })
         }
         binding.workspace.root.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
@@ -5910,11 +5917,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun showPageIndicator(position: Int) {
         if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
         if (!isHomePage(position)) {
-            indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-            binding.workspace.pageIndicator.visibility = View.GONE
+            hidePageIndicatorImmediately()
             return
         }
 
+        suppressingEdgePageIndicator = false
         if (homeIndicatorPageCount() <= 1) {
             showSearchControlInIndicator(animated = false)
             return
@@ -5964,11 +5971,20 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun updatePageIndicatorScroll(position: Int, positionOffset: Float) {
         if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
         if (!::workspacePageAdapter.isInitialized) return
-        if (!isHomePage(position) && !isHomePage(position + 1)) return
+
+        val currentPageIsHome = isHomePage(position)
+        val nextPageIsHome = isHomePage(position + 1)
+        if (!LauncherPageIndicatorWindowPolicy.shouldTrackHomeScroll(currentPageIsHome, nextPageIsHome)) {
+            if (currentPageIsHome || nextPageIsHome) {
+                hidePageIndicatorForEdgeScroll()
+            }
+            return
+        }
 
         val pageCount = homeIndicatorPageCount()
         if (pageCount <= 1) return
 
+        suppressingEdgePageIndicator = false
         val homePagePosition = (
             position - workspacePageAdapter.firstHomeAdapterPosition() + positionOffset
         ).coerceIn(0f, (pageCount - 1).toFloat())
@@ -5983,6 +5999,45 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
+    private fun hidePageIndicatorForEdgeScroll() {
+        suppressingEdgePageIndicator = true
+        hidePageIndicatorImmediately()
+        binding.workspace.searchPill.visibility = View.GONE
+    }
+
+    private fun hidePageIndicatorImmediately() {
+        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
+        resetPageIndicatorVisualState()
+        binding.workspace.pageIndicator.visibility = View.GONE
+    }
+
+    private fun resetPageIndicatorVisualState() {
+        binding.workspace.pageIndicator.apply {
+            animate().cancel()
+            clearAnimation()
+            alpha = 1f
+            scaleX = 1f
+            scaleY = 1f
+            translationX = 0f
+            translationY = 0f
+        }
+    }
+
+    private fun restorePageIndicatorAfterEdgeScroll() {
+        if (!suppressingEdgePageIndicator) return
+
+        suppressingEdgePageIndicator = false
+        val currentPage = binding.workspace.workspacePager.currentItem
+        updateWorkspaceChromeForPage(currentPage)
+        if (!isHomePage(currentPage)) return
+
+        if (editingHome) {
+            showDotsInIndicator(currentHomePageIndex(), animate = false)
+        } else {
+            showSearchControlInIndicator(animated = false)
+        }
+    }
+
     private fun showDotsIndicatorFrame() {
         indicatorMode = IndicatorMode.DOTS
         ensureDotsIndicatorFrame()
@@ -5991,13 +6046,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.searchPill.visibility = View.GONE
         if (homeIndicatorPageCount() <= 1) {
             binding.workspace.pageIndicator.removeAllViews()
-            binding.workspace.pageIndicator.visibility = View.GONE
+            hidePageIndicatorImmediately()
             return
         }
         binding.workspace.pageIndicator.apply {
-            animate().cancel()
+            resetPageIndicatorVisualState()
             isClickable = false
-            alpha = 1f
             visibility = View.VISIBLE
         }
     }
@@ -6014,9 +6068,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.searchPill.animate().cancel()
         binding.workspace.searchPill.visibility = View.GONE
         binding.workspace.pageIndicator.apply {
-            animate().cancel()
+            resetPageIndicatorVisualState()
             isClickable = true
-            alpha = 1f
             visibility = View.VISIBLE
             removeAllViews()
             addView(createIndicatorSearchText())
@@ -6098,8 +6151,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.workspace.bottomControlSlot.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
         binding.workspace.dockRecyclerView.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
         if (libraryPage || widgetPage) {
-            indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-            binding.workspace.pageIndicator.visibility = View.GONE
+            hidePageIndicatorImmediately()
             binding.workspace.searchPill.visibility = View.GONE
         } else if (editingHome) {
             binding.workspace.searchPill.visibility = View.GONE
@@ -6168,7 +6220,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             if (isHomePage(binding.workspace.workspacePager.currentItem)) {
                 showDotsInIndicator(currentHomePageIndex(), animate = false)
             } else {
-                binding.workspace.pageIndicator.visibility = View.GONE
+                hidePageIndicatorImmediately()
             }
         } else {
             hideEditWidgetPrompt()
@@ -6182,7 +6234,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                     binding.workspace.editTopBar.translationY = 0f
                 }
                 .start()
-            binding.workspace.pageIndicator.visibility = View.GONE
+            hidePageIndicatorImmediately()
             if (isHomePage(binding.workspace.workspacePager.currentItem)) {
                 showSearchControlInIndicator(animated = true)
             }

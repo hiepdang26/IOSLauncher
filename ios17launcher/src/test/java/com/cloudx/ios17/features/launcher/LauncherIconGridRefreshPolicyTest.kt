@@ -43,4 +43,37 @@ class LauncherIconGridRefreshPolicyTest {
 
         assertEquals(true, shouldRender)
     }
+
+    @Test
+    fun equivalentIncomingItems_withoutForce_areSuppressed() {
+        val shouldSuppress = LauncherIconGridRefreshPolicy.shouldSuppressEquivalentIncomingItems(
+            previousItemIds = listOf("app_a", "app_b"),
+            nextItemIds = listOf("app_a", "app_b"),
+            forceRender = false
+        )
+
+        assertEquals(true, shouldSuppress)
+    }
+
+    @Test
+    fun equivalentIncomingItems_withCustomIconForce_areNotSuppressed() {
+        val shouldSuppress = LauncherIconGridRefreshPolicy.shouldSuppressEquivalentIncomingItems(
+            previousItemIds = listOf("app_a", "app_b"),
+            nextItemIds = listOf("app_a", "app_b"),
+            forceRender = true
+        )
+
+        assertEquals(false, shouldSuppress)
+    }
+
+    @Test
+    fun changedIncomingItems_areNotSuppressed() {
+        val shouldSuppress = LauncherIconGridRefreshPolicy.shouldSuppressEquivalentIncomingItems(
+            previousItemIds = listOf("app_a", "app_b"),
+            nextItemIds = listOf("app_a", "app_c"),
+            forceRender = false
+        )
+
+        assertEquals(false, shouldSuppress)
+    }
 }

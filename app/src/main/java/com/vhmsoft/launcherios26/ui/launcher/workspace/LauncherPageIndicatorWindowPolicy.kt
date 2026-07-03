@@ -159,6 +159,11 @@ internal object LauncherPageIndicatorWindowPolicy {
         )
     }
 
+    fun shouldTrackHomeScroll(
+        currentPageIsHome: Boolean,
+        nextPageIsHome: Boolean
+    ): Boolean = currentPageIsHome && nextPageIsHome
+
     const val DEFAULT_MAX_VISIBLE_MARKERS = 4
     private const val FIRST_PAGE_ACTIVE_SLOT = 1
     private const val LAST_PAGE_ACTIVE_SLOT = 2

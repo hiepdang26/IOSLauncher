@@ -13,4 +13,12 @@ object LauncherIconGridRefreshPolicy {
     ): Boolean {
         return itemCount > 0 && (!allAppsDisplayed || forceRender)
     }
+
+    fun shouldSuppressEquivalentIncomingItems(
+        previousItemIds: List<String>,
+        nextItemIds: List<String>,
+        forceRender: Boolean
+    ): Boolean {
+        return !forceRender && previousItemIds == nextItemIds
+    }
 }

@@ -216,6 +216,38 @@ class LauncherPageIndicatorWindowPolicyTest {
         assertEquals(0f, frame.progress)
     }
 
+    @Test
+    fun shouldTrackHomeScroll_onlyTracksBetweenTwoHomePages() {
+        assertEquals(
+            true,
+            LauncherPageIndicatorWindowPolicy.shouldTrackHomeScroll(
+                currentPageIsHome = true,
+                nextPageIsHome = true
+            )
+        )
+        assertEquals(
+            false,
+            LauncherPageIndicatorWindowPolicy.shouldTrackHomeScroll(
+                currentPageIsHome = false,
+                nextPageIsHome = true
+            )
+        )
+        assertEquals(
+            false,
+            LauncherPageIndicatorWindowPolicy.shouldTrackHomeScroll(
+                currentPageIsHome = true,
+                nextPageIsHome = false
+            )
+        )
+        assertEquals(
+            false,
+            LauncherPageIndicatorWindowPolicy.shouldTrackHomeScroll(
+                currentPageIsHome = false,
+                nextPageIsHome = false
+            )
+        )
+    }
+
     private fun marker(
         pageIndex: Int,
         state: LauncherPageIndicatorWindowPolicy.MarkerState
