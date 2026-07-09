@@ -224,9 +224,9 @@ class BlurWallpaperProvider(val context: Context) {
 
         val blurConfigBackground = BlurConfig({ it.background }, 2, 8)
 
-        val blurConfigDock = BlurConfig({ it.dock }, 4, 8)
+        val blurConfigDock = BlurConfig({ it.dock }, 4, 12)
 
-        val blurConfigAppGroup = BlurConfig({ it.appGroup }, 6, 8)
+        val blurConfigAppGroup = BlurConfig({ it.appGroup }, 6, 12)
 
         val blurConfigWidget = BlurConfig({ it.widget }, 6, 10)
 

@@ -161,10 +161,22 @@ class BlissFrameLayout @JvmOverloads constructor(
 
     fun refreshFolderPreviewBackground() {
         val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
+        val liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(mContext)
+        val darkModeEnabled = LauncherHomeLayoutPreferences.isDarkModeEnabled(mContext)
+        val folderBlurEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(mContext)
         if (
+            LauncherFolderPreviewBackgroundPolicy.shouldUseRealtimeLiquidGlass(
+                liquidGlassEnabled = liquidGlassEnabled,
+                folderBlurEnabled = folderBlurEnabled,
+                darkModeEnabled = darkModeEnabled
+            )
+        ) {
+            icon.enableRealtimeLiquidGlassFolderPreview()
+        } else if (
             LauncherFolderPreviewBackgroundPolicy.shouldUseParentBlur(
-                liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(mContext),
-                darkModeEnabled = LauncherHomeLayoutPreferences.isDarkModeEnabled(mContext)
+                liquidGlassEnabled = liquidGlassEnabled,
+                folderBlurEnabled = folderBlurEnabled,
+                darkModeEnabled = darkModeEnabled
             )
         ) {
             icon.enableBlur()

@@ -12,6 +12,6 @@ class LauncherIndicatorSearchPillPolicyTest {
         assertEquals(36, spec.heightDp)
         assertEquals(18, spec.iconSizeDp)
         assertEquals(4, spec.iconTextGapDp)
-        assertEquals(15f, spec.textSizeSp)
+        assertEquals(13f, spec.textSizeSp)
     }
 }

@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
+import com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibrarySearchAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
@@ -121,7 +122,7 @@ class LauncherSearchController(
         dismissAppOptions()
         clearPageIndicatorCallbacks()
         binding.workspace.pageIndicator.visibility = View.GONE
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
         binding.workspace.searchEditText.setText("")
         updateSearchResults("")
         visualEffectsController.applySearchBlur()
@@ -379,20 +380,43 @@ class LauncherSearchController(
         val textColor = Color.WHITE
         val hintColor = 0xD8FFFFFF.toInt()
         val tint = ColorStateList.valueOf(textColor)
+        val source = binding.workspace.root as? ViewGroup
 
         binding.workspace.searchOverlay.setBackgroundColor(overlayColor)
-        binding.workspace.searchField.background = roundedBackground(
-            color = fieldStyle.color,
-            radiusDp = fieldStyle.radiusDp,
-            strokeColor = fieldStyle.strokeColor,
-            strokeWidthDp = fieldStyle.strokeWidthDp
+        binding.workspace.searchFieldGlassSurface.applyLiquidGlass(
+            enabled = liquidGlassEnabled,
+            source = source,
+            profile = AndroidLiquidGlassPolicy.profileFor(
+                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_FIELD,
+                radiusDp = fieldStyle.radiusDp
+            )
         )
-        binding.workspace.searchResultsRecyclerView.background = roundedBackground(
-            color = resultsStyle.color,
-            radiusDp = resultsStyle.radiusDp,
-            strokeColor = resultsStyle.strokeColor,
-            strokeWidthDp = resultsStyle.strokeWidthDp
+        binding.workspace.searchFieldGlassSurface.applyFallbackBackground(
+            roundedBackground(
+                color = fieldStyle.color,
+                radiusDp = fieldStyle.radiusDp,
+                strokeColor = fieldStyle.strokeColor,
+                strokeWidthDp = fieldStyle.strokeWidthDp
+            )
         )
+        binding.workspace.searchField.background = null
+        binding.workspace.searchResultsGlassSurface.applyLiquidGlass(
+            enabled = liquidGlassEnabled,
+            source = source,
+            profile = AndroidLiquidGlassPolicy.profileFor(
+                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+                radiusDp = resultsStyle.radiusDp
+            )
+        )
+        binding.workspace.searchResultsGlassSurface.applyFallbackBackground(
+            roundedBackground(
+                color = resultsStyle.color,
+                radiusDp = resultsStyle.radiusDp,
+                strokeColor = resultsStyle.strokeColor,
+                strokeWidthDp = resultsStyle.strokeWidthDp
+            )
+        )
+        binding.workspace.searchResultsRecyclerView.background = null
         binding.workspace.searchFieldIcon.imageTintList = tint
         binding.workspace.searchMicIcon.imageTintList = tint
         binding.workspace.searchEditText.setTextColor(textColor)
@@ -400,12 +424,23 @@ class LauncherSearchController(
         binding.workspace.cancelSearchButton.setTextColor(textColor)
         binding.workspace.searchSuggestionsLabel.setTextColor(0xD8FFFFFF.toInt())
 
-        binding.workspace.librarySearchField.background = roundedBackground(
-            color = libraryFieldStyle.color,
-            radiusDp = libraryFieldStyle.radiusDp,
-            strokeColor = libraryFieldStyle.strokeColor,
-            strokeWidthDp = libraryFieldStyle.strokeWidthDp
+        binding.workspace.librarySearchFieldGlassSurface.applyLiquidGlass(
+            enabled = liquidGlassEnabled,
+            source = source,
+            profile = AndroidLiquidGlassPolicy.profileFor(
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
+                radiusDp = libraryFieldStyle.radiusDp
+            )
         )
+        binding.workspace.librarySearchFieldGlassSurface.applyFallbackBackground(
+            roundedBackground(
+                color = libraryFieldStyle.color,
+                radiusDp = libraryFieldStyle.radiusDp,
+                strokeColor = libraryFieldStyle.strokeColor,
+                strokeWidthDp = libraryFieldStyle.strokeWidthDp
+            )
+        )
+        binding.workspace.librarySearchField.background = null
         binding.workspace.librarySearchFieldIcon.imageTintList = tint
         binding.workspace.librarySearchEditText.setTextColor(textColor)
         binding.workspace.librarySearchEditText.setHintTextColor(hintColor)
@@ -417,15 +452,16 @@ class LauncherSearchController(
             if (hasQuery) R.drawable.ic_clear_circle_18 else R.drawable.ic_mic_18
         )
 
-        val recyclerView = binding.workspace.searchResultsRecyclerView
-        val layoutParams = recyclerView.layoutParams as? LinearLayout.LayoutParams ?: return
+        val panel = binding.workspace.searchResultsGlassSurface
+        val layoutParams = panel.layoutParams as? LinearLayout.LayoutParams ?: return
         val targetHeight = if (hasQuery) 0 else dp(SEARCH_SUGGESTION_PANEL_HEIGHT_DP)
         val targetWeight = if (hasQuery) 1f else 0f
         if (layoutParams.height != targetHeight || layoutParams.weight != targetWeight) {
             layoutParams.height = targetHeight
             layoutParams.weight = targetWeight
-            recyclerView.layoutParams = layoutParams
+            panel.layoutParams = layoutParams
         }
+        val recyclerView = binding.workspace.searchResultsRecyclerView
         val bottomPadding = if (hasQuery) {
             dp(SEARCH_RESULT_EXPANDED_BOTTOM_PADDING_DP)
         } else {

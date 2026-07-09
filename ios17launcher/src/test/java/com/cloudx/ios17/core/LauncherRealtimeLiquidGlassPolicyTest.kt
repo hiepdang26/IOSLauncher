@@ -8,23 +8,27 @@ import org.junit.Test
 class LauncherRealtimeLiquidGlassPolicyTest {
 
     @Test
-    fun realtimeLiquidGlass_requiresPreferenceAndQweaMinSdk() {
+    fun realtimeLiquidGlass_requiresPreferenceAndQmDeveAndroid13MinSdk() {
+        val qmDeveMinSdk = LauncherRealtimeLiquidGlassPolicy.QMDEVE_MIN_SDK
+
+        assertEquals(33, qmDeveMinSdk)
+
         assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeLiquidGlass(
                 liquidGlassEnabled = false,
-                sdkInt = LauncherRealtimeLiquidGlassPolicy.QWEA_MIN_SDK
+                sdkInt = qmDeveMinSdk
             )
         )
         assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeLiquidGlass(
                 liquidGlassEnabled = true,
-                sdkInt = LauncherRealtimeLiquidGlassPolicy.QWEA_MIN_SDK - 1
+                sdkInt = qmDeveMinSdk - 1
             )
         )
         assertTrue(
             LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeLiquidGlass(
                 liquidGlassEnabled = true,
-                sdkInt = LauncherRealtimeLiquidGlassPolicy.QWEA_MIN_SDK
+                sdkInt = qmDeveMinSdk
             )
         )
     }
@@ -36,7 +40,125 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun realtimeProfileReconfigurationRunsOnlyWhenProfileChanges() {
+    fun customMaterialOverlayDrawsWheneverMaterialExists() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawMaterialOverlay(
+                realtimeLiquidGlassActive = true,
+                hasMaterialDrawable = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawMaterialOverlay(
+                realtimeLiquidGlassActive = false,
+                hasMaterialDrawable = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawMaterialOverlay(
+                realtimeLiquidGlassActive = false,
+                hasMaterialDrawable = false
+            )
+        )
+    }
+
+    @Test
+    fun realtimeGlassRefreshesWhenVisibleAgain() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
+                realtimeEnabled = true,
+                visible = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
+                realtimeEnabled = true,
+                visible = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
+                realtimeEnabled = false,
+                visible = true
+            )
+        )
+    }
+
+    @Test
+    fun chromeTransformSyncDoesNotRefreshRealtimeGlassEveryFrame() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                realtimeEnabled = true,
+                wasVisible = true,
+                nextVisible = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                realtimeEnabled = true,
+                wasVisible = false,
+                nextVisible = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                realtimeEnabled = false,
+                wasVisible = false,
+                nextVisible = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                realtimeEnabled = true,
+                wasVisible = true,
+                nextVisible = false
+            )
+        )
+    }
+
+    @Test
+    fun realtimeSourceCannotContainRealtimeTarget() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeSource(
+                sourceContainsTarget = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeSource(
+                sourceContainsTarget = true
+            )
+        )
+    }
+
+    @Test
+    fun customWallpaperMirrorsIntoRealtimeSource() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldMirrorCustomWallpaperToSource(
+                customWallpaperAvailable = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldMirrorCustomWallpaperToSource(
+                customWallpaperAvailable = false
+            )
+        )
+    }
+
+    @Test
+    fun defaultWallpaperFallbackSourceIsUsedOnlyWithoutCustomWallpaper() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseDefaultWallpaperSourceFallback(
+                customWallpaperAvailable = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseDefaultWallpaperSourceFallback(
+                customWallpaperAvailable = false
+            )
+        )
+    }
+
+    @Test
+    fun realtimeProfileRecreationRunsOnlyWhenProfileChanges() {
         val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
             radiusDp = 22,
@@ -49,19 +171,19 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         )
 
         assertTrue(
-            LauncherRealtimeLiquidGlassPolicy.shouldConfigureRealtimeProfile(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 currentProfile = null,
                 nextProfile = profile
             )
         )
         assertFalse(
-            LauncherRealtimeLiquidGlassPolicy.shouldConfigureRealtimeProfile(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 currentProfile = profile,
                 nextProfile = profile
             )
         )
         assertTrue(
-            LauncherRealtimeLiquidGlassPolicy.shouldConfigureRealtimeProfile(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 currentProfile = profile,
                 nextProfile = changedProfile
             )
@@ -69,7 +191,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun searchPillProfile_usesQweaLiquidGlassTuning() {
+    fun searchPillProfile_usesQmDeveLiquidGlassTuning() {
         val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
             radiusDp = 22,
@@ -77,34 +199,60 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         )
 
         assertEquals(22, profile.radiusDp)
-        assertEquals(0.06f, profile.blurAmount, 0.001f)
-        assertEquals(140f, profile.saturation, 0.01f)
-        assertEquals(1.35f, profile.aberrationIntensity, 0.01f)
-        assertEquals(54f, profile.displacementScale, 0.01f)
-        assertEquals(0.55f, profile.globalDownsampleFactor, 0.01f)
-        assertEquals(0.5f, profile.aberrationDownsample, 0.01f)
-        assertEquals(84f, profile.edgeHighlightOpacity, 0.01f)
-        assertTrue(profile.dynamicBackground)
+        assertEquals(10f, profile.blurRadiusDp, 0.001f)
+        assertEquals(16f, profile.refractionHeightDp, 0.01f)
+        assertEquals(48f, profile.refractionOffsetDp, 0.01f)
+        assertEquals(0.35f, profile.dispersion, 0.01f)
+        assertEquals(1f, profile.tintRed, 0.01f)
+        assertEquals(1f, profile.tintGreen, 0.01f)
+        assertEquals(1f, profile.tintBlue, 0.01f)
+        assertEquals(0.08f, profile.tintAlpha, 0.01f)
     }
 
     @Test
-    fun dockProfile_usesMoreDepthThanSearchPill() {
-        val search = LauncherRealtimeLiquidGlassPolicy.profileFor(
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
-            radiusDp = 22,
+    fun homeChromeProfilesUseSofterBlurThanAppLibraryFolderGlass() {
+        val appLibrary = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+            radiusDp = 20,
             darkMode = false
         )
-        val dock = LauncherRealtimeLiquidGlassPolicy.profileFor(
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
-            radiusDp = 38,
-            darkMode = false
+        val homeProfiles = listOf(
+            LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                radiusDp = 38,
+                darkMode = false
+            ),
+            LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
+                radiusDp = 17,
+                darkMode = false
+            ),
+            LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                radiusDp = 16,
+                darkMode = false
+            ),
+            LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
+                radiusDp = 42,
+                darkMode = false
+            )
         )
 
-        assertEquals(38, dock.radiusDp)
-        assertTrue(dock.blurAmount > search.blurAmount)
-        assertTrue(dock.aberrationIntensity > search.aberrationIntensity)
-        assertTrue(dock.displacementScale > search.displacementScale)
-        assertTrue(dock.edgeHighlightOpacity > search.edgeHighlightOpacity)
+        homeProfiles.forEach { profile ->
+            assertEquals(14f, profile.blurRadiusDp, 0.001f)
+            assertEquals(18f, profile.refractionHeightDp, 0.01f)
+            assertEquals(54f, profile.refractionOffsetDp, 0.01f)
+            assertEquals(appLibrary.dispersion, profile.dispersion, 0.01f)
+            assertEquals(appLibrary.tintRed, profile.tintRed, 0.01f)
+            assertEquals(appLibrary.tintGreen, profile.tintGreen, 0.01f)
+            assertEquals(appLibrary.tintBlue, profile.tintBlue, 0.01f)
+            assertEquals(0.03f, profile.tintAlpha, 0.01f)
+        }
+        assertEquals(38, homeProfiles[0].radiusDp)
+        assertEquals(17, homeProfiles[1].radiusDp)
+        assertEquals(16, homeProfiles[2].radiusDp)
+        assertEquals(42, homeProfiles[3].radiusDp)
     }
 
     @Test
@@ -121,13 +269,13 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         )
 
         assertEquals(light.radiusDp, dark.radiusDp)
-        assertEquals(light.blurAmount, dark.blurAmount, 0.001f)
-        assertEquals(light.saturation, dark.saturation, 0.01f)
-        assertEquals(light.aberrationIntensity, dark.aberrationIntensity, 0.01f)
-        assertEquals(light.displacementScale, dark.displacementScale, 0.01f)
-        assertEquals(light.globalDownsampleFactor, dark.globalDownsampleFactor, 0.01f)
-        assertEquals(light.aberrationDownsample, dark.aberrationDownsample, 0.01f)
-        assertEquals(light.edgeHighlightOpacity, dark.edgeHighlightOpacity, 0.01f)
-        assertEquals(light.dynamicBackground, dark.dynamicBackground)
+        assertEquals(light.blurRadiusDp, dark.blurRadiusDp, 0.001f)
+        assertEquals(light.refractionHeightDp, dark.refractionHeightDp, 0.01f)
+        assertEquals(light.refractionOffsetDp, dark.refractionOffsetDp, 0.01f)
+        assertEquals(light.dispersion, dark.dispersion, 0.01f)
+        assertEquals(light.tintRed, dark.tintRed, 0.01f)
+        assertEquals(light.tintGreen, dark.tintGreen, 0.01f)
+        assertEquals(light.tintBlue, dark.tintBlue, 0.01f)
+        assertEquals(light.tintAlpha, dark.tintAlpha, 0.01f)
     }
 }

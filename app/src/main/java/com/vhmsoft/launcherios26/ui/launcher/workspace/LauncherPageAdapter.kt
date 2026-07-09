@@ -1629,12 +1629,23 @@ class LauncherPageAdapter(
                 darkMode = darkMode
             )
             val textColor = Color.WHITE
-            binding.librarySearchPill.background = roundedBackground(
-                binding.root,
-                pillStyle.color,
-                pillStyle.radiusDp,
-                pillStyle.strokeColor
+            binding.librarySearchPillGlassSurface.applyLiquidGlass(
+                enabled = liquidGlassEnabled,
+                source = binding.root.rootView as? ViewGroup,
+                profile = AndroidLiquidGlassPolicy.profileFor(
+                    surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
+                    radiusDp = pillStyle.radiusDp
+                )
             )
+            binding.librarySearchPillGlassSurface.applyFallbackBackground(
+                roundedBackground(
+                    binding.root,
+                    pillStyle.color,
+                    pillStyle.radiusDp,
+                    pillStyle.strokeColor
+                )
+            )
+            binding.librarySearchPill.background = null
             binding.librarySearchPillIcon.imageTintList = ColorStateList.valueOf(textColor)
             binding.librarySearchPillText.setTextColor(textColor)
         }

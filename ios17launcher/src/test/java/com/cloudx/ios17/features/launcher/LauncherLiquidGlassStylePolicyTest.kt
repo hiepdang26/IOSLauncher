@@ -41,25 +41,46 @@ class LauncherLiquidGlassStylePolicyTest {
 
     @Test
     fun liquidGlassStylesUseSoftGlassTintAndSubtleStrokeWhenEnabled() {
-        val folderPreview = LauncherLiquidGlassStylePolicy.folderPreview(enabled = true)
+        val appLibrary = LauncherLiquidGlassStylePolicy.appLibraryFolder(enabled = true, empty = false)
         val searchPill = LauncherLiquidGlassStylePolicy.searchPill(enabled = true)
+        val pageIndicator = LauncherLiquidGlassStylePolicy.pageIndicator(enabled = true)
+
+        listOf(searchPill, pageIndicator).forEach { style ->
+            assertEquals(appLibrary.color, style.color)
+            assertEquals(appLibrary.strokeColor, style.strokeColor)
+            assertEquals(appLibrary.topHighlightColor, style.topHighlightColor)
+            assertEquals(appLibrary.bottomShadeColor, style.bottomShadeColor)
+            assertEquals(appLibrary.sideHighlightColor, style.sideHighlightColor)
+            assertEquals(appLibrary.edgeShadeColor, style.edgeShadeColor)
+        }
+        assertEquals(22, searchPill.radiusDp)
+        assertEquals(17, pageIndicator.radiusDp)
+    }
+
+    @Test
+    fun folderPreview_usesMintFolderGlassWhenBlurIsEnabled() {
+        val folderPreview = LauncherLiquidGlassStylePolicy.folderPreview(enabled = true)
+
+        assertEquals(0x5EEFFFF8, folderPreview.color)
+        assertNull(folderPreview.strokeColor)
+        assertEquals(0x50FFFFFF, folderPreview.topHighlightColor)
+        assertEquals(0x08FFFFFF, folderPreview.bottomShadeColor)
+        assertEquals(0x38FFFFFF, folderPreview.sideHighlightColor)
+        assertEquals(0x08CFFCEF, folderPreview.edgeShadeColor)
+        assertEquals(13, folderPreview.radiusDp)
+    }
+
+    @Test
+    fun folderPanel_usesMintFolderGlassWhenBlurIsEnabled() {
         val folderPanel = LauncherLiquidGlassStylePolicy.folderPanel(enabled = true)
 
-        assertEquals(0xB07088C0.toInt(), folderPreview.color)
-        assertEquals(0x55FFFFFF, folderPreview.strokeColor)
-        assertEquals(0x42FFFFFF, folderPreview.topHighlightColor)
-        assertNull(folderPreview.bottomShadeColor)
-        assertNull(folderPreview.edgeShadeColor)
-        assertEquals(0x70DDF7FF, searchPill.color)
-        assertEquals(0x78FFFFFF, searchPill.strokeColor)
-        assertEquals(0x55FFFFFF, searchPill.topHighlightColor)
-        assertEquals(0x12005098, searchPill.bottomShadeColor)
-        assertEquals(0x72FFFFFF, folderPanel.color)
-        assertEquals(0x58FFFFFF, folderPanel.strokeColor)
-        assertEquals(0x40FFFFFF, folderPanel.topHighlightColor)
-        assertEquals(0x10005098, folderPanel.bottomShadeColor)
-        assertEquals(0x1EE5FBFF, folderPanel.sideHighlightColor)
-        assertEquals(0x0E004A80, folderPanel.edgeShadeColor)
+        assertEquals(0x5EEFFFF8, folderPanel.color)
+        assertNull(folderPanel.strokeColor)
+        assertEquals(0x50FFFFFF, folderPanel.topHighlightColor)
+        assertEquals(0x08FFFFFF, folderPanel.bottomShadeColor)
+        assertEquals(0x38FFFFFF, folderPanel.sideHighlightColor)
+        assertEquals(0x08CFFCEF, folderPanel.edgeShadeColor)
+        assertEquals(42, folderPanel.radiusDp)
     }
 
     @Test
@@ -99,16 +120,16 @@ class LauncherLiquidGlassStylePolicyTest {
     }
 
     @Test
-    fun dockGradient_usesBrightBlueStopsWhenBlurIsEnabledInLightMode() {
+    fun dockGradient_usesMintFolderTintWhenBlurIsEnabledInLightMode() {
         val gradient = LauncherLiquidGlassStylePolicy.dockGradient(
             enabled = true,
             darkMode = false,
             liquidGlass = false
         )
 
-        assertEquals(0x70E7FBFF, gradient[0])
-        assertEquals(0x62BDEEFF, gradient[1])
-        assertEquals(0x703A86E8, gradient[2])
+        assertEquals(0x78FFFFFF, gradient[0])
+        assertEquals(0x6CEFFFF8, gradient[1])
+        assertEquals(0x5EE6FFF5, gradient[2])
     }
 
     @Test
@@ -118,25 +139,67 @@ class LauncherLiquidGlassStylePolicyTest {
             darkMode = false
         )
 
-        assertEquals(0x46E7FBFF, gradient[0])
-        assertEquals(0x3CBDEEFF, gradient[1])
-        assertEquals(0x463A86E8, gradient[2])
+        assertEquals(0x526C90B8, gradient[0])
+        assertEquals(0x486184A8, gradient[1])
+        assertEquals(0x54486AB0, gradient[2])
     }
 
     @Test
-    fun dockMaterial_usesLayeredLiquidGlassProfile() {
+    fun dockMaterial_usesOriginalLiquidGlassProfileWhenLiquidGlassIsEnabled() {
         val dock = LauncherLiquidGlassStylePolicy.dockMaterial(
             enabled = true,
             liquidGlass = true
         )
 
         assertEquals(0x327EDBFF, dock.color)
-        assertEquals(0x72CFFBFF, dock.strokeColor)
+        assertNull(dock.strokeColor)
         assertEquals(0x55E8FFFF, dock.topHighlightColor)
         assertEquals(0x66124FCE, dock.bottomShadeColor)
         assertEquals(0x70E8FFFF, dock.sideHighlightColor)
         assertEquals(0x38105BB6, dock.edgeShadeColor)
         assertEquals(38, dock.radiusDp)
+    }
+
+    @Test
+    fun liquidGlassSurfacesKeepTheirOriginalPaletteWithoutWhiteBorder() {
+        val folderPreview = LauncherLiquidGlassStylePolicy.folderPreview(
+            enabled = true,
+            liquidGlass = true
+        )
+        val folderPanel = LauncherLiquidGlassStylePolicy.folderPanel(
+            enabled = true,
+            liquidGlass = true
+        )
+        val searchPill = LauncherLiquidGlassStylePolicy.searchPill(
+            enabled = true,
+            liquidGlass = true
+        )
+        val searchResults = LauncherLiquidGlassStylePolicy.searchResultsPanel(
+            enabled = true,
+            liquidGlass = true
+        )
+        val appLibrary = LauncherLiquidGlassStylePolicy.appLibraryFolder(
+            enabled = true,
+            empty = false,
+            liquidGlass = true
+        )
+        val pageIndicator = LauncherLiquidGlassStylePolicy.pageIndicator(
+            enabled = true,
+            liquidGlass = true
+        )
+
+        assertEquals(0xB07088C0.toInt(), folderPreview.color)
+        assertNull(folderPreview.strokeColor)
+        assertEquals(0x72FFFFFF, folderPanel.color)
+        assertNull(folderPanel.strokeColor)
+        assertEquals(0x70DDF7FF, searchPill.color)
+        assertNull(searchPill.strokeColor)
+        assertEquals(0x24FFFFFF, searchResults.color)
+        assertNull(searchResults.strokeColor)
+        assertEquals(0x26FFFFFF, appLibrary.color)
+        assertNull(appLibrary.strokeColor)
+        assertEquals(0x70485F63, pageIndicator.color)
+        assertNull(pageIndicator.strokeColor)
     }
 
     @Test
@@ -146,29 +209,45 @@ class LauncherLiquidGlassStylePolicyTest {
             darkMode = false
         )
 
-        assertEquals(0x40A9E8FF, dock.color)
-        assertEquals(0x40FFFFFF, dock.strokeColor)
-        assertEquals(0x30FFFFFF, dock.topHighlightColor)
-        assertEquals(0x1A0064C8, dock.bottomShadeColor)
-        assertEquals(0x28D8F9FF, dock.sideHighlightColor)
-        assertEquals(0x10004A99, dock.edgeShadeColor)
+        assertEquals(0x566C90B8, dock.color)
+        assertEquals(0x24FFFFFF, dock.strokeColor)
+        assertEquals(0x1CFFFFFF, dock.topHighlightColor)
+        assertEquals(0x24013D78, dock.bottomShadeColor)
+        assertEquals(0x1675C6E8, dock.sideHighlightColor)
+        assertEquals(0x1A0A2A62, dock.edgeShadeColor)
         assertEquals(38, dock.radiusDp)
     }
 
     @Test
-    fun enabledLiquidGlassUsesSamplePaletteInDarkAndLightModes() {
+    fun darkModeTakesPrecedenceOverEnabledLightBlurStyles() {
         assertEquals(
-            LauncherLiquidGlassStylePolicy.folderPanel(enabled = true, darkMode = false),
+            LauncherLiquidGlassStylePolicy.folderPanel(enabled = false, darkMode = true),
             LauncherLiquidGlassStylePolicy.folderPanel(enabled = true, darkMode = true)
         )
         assertEquals(
-            LauncherLiquidGlassStylePolicy.folderPreview(enabled = true, darkMode = false),
+            LauncherLiquidGlassStylePolicy.folderPreview(enabled = false, darkMode = true),
             LauncherLiquidGlassStylePolicy.folderPreview(enabled = true, darkMode = true)
         )
         assertEquals(
-            LauncherLiquidGlassStylePolicy.searchPill(enabled = true, darkMode = false),
+            LauncherLiquidGlassStylePolicy.searchPill(enabled = false, darkMode = true),
             LauncherLiquidGlassStylePolicy.searchPill(enabled = true, darkMode = true)
         )
+        assertEquals(
+            LauncherLiquidGlassStylePolicy.dockMaterial(
+                enabled = false,
+                darkMode = true,
+                liquidGlass = false
+            ),
+            LauncherLiquidGlassStylePolicy.dockMaterial(
+                enabled = true,
+                darkMode = true,
+                liquidGlass = false
+            )
+        )
+    }
+
+    @Test
+    fun liquidGlassDockMaterialStaysSeparateFromDarkModePalette() {
         assertEquals(
             LauncherLiquidGlassStylePolicy.dockMaterial(
                 enabled = true,
@@ -194,25 +273,43 @@ class LauncherLiquidGlassStylePolicyTest {
             empty = true
         )
 
-        assertEquals(0x26FFFFFF, nonEmpty.color)
-        assertEquals(0x78FFFFFF, nonEmpty.strokeColor)
-        assertEquals(0x16FFFFFF, empty.color)
-        assertEquals(0x78FFFFFF, empty.strokeColor)
-        assertEquals(0x4AFFFFFF, nonEmpty.topHighlightColor)
-        assertEquals(0x18001F35, nonEmpty.bottomShadeColor)
+        assertEquals(0x1EFFFFFF, nonEmpty.color)
+        assertNull(nonEmpty.strokeColor)
+        assertEquals(0x12FFFFFF, empty.color)
+        assertNull(empty.strokeColor)
+        assertEquals(0x34FFFFFF, nonEmpty.topHighlightColor)
+        assertEquals(0x0E001F35, nonEmpty.bottomShadeColor)
+    }
+
+    @Test
+    fun enabledLiquidGlassStylesDoNotDrawWhiteBorder() {
+        val styles = listOf(
+            LauncherLiquidGlassStylePolicy.folderPreview(enabled = true),
+            LauncherLiquidGlassStylePolicy.folderPanel(enabled = true),
+            LauncherLiquidGlassStylePolicy.searchPill(enabled = true),
+            LauncherLiquidGlassStylePolicy.searchResultsPanel(enabled = true),
+            LauncherLiquidGlassStylePolicy.appLibraryFolder(enabled = true, empty = false),
+            LauncherLiquidGlassStylePolicy.appLibraryFolder(enabled = true, empty = true),
+            LauncherLiquidGlassStylePolicy.pageIndicator(enabled = true)
+        )
+
+        styles.forEach { style ->
+            assertNull(style.strokeColor)
+        }
     }
 
     @Test
     fun searchResultsPanel_usesLiquidGlassOnlyWhenEnabled() {
+        val appLibrary = LauncherLiquidGlassStylePolicy.appLibraryFolder(enabled = true, empty = false)
         val disabled = LauncherLiquidGlassStylePolicy.searchResultsPanel(enabled = false)
         val enabled = LauncherLiquidGlassStylePolicy.searchResultsPanel(enabled = true)
 
         assertEquals(0xB8EEF8FF.toInt(), disabled.color)
         assertNull(disabled.strokeColor)
-        assertEquals(0x24FFFFFF, enabled.color)
-        assertEquals(0x78FFFFFF, enabled.strokeColor)
-        assertEquals(0x44FFFFFF, enabled.topHighlightColor)
-        assertEquals(0x1600384A, enabled.bottomShadeColor)
+        assertEquals(appLibrary.color, enabled.color)
+        assertEquals(appLibrary.strokeColor, enabled.strokeColor)
+        assertEquals(appLibrary.topHighlightColor, enabled.topHighlightColor)
+        assertEquals(appLibrary.bottomShadeColor, enabled.bottomShadeColor)
         assertEquals(16, enabled.radiusDp)
     }
 
@@ -275,5 +372,44 @@ class LauncherLiquidGlassStylePolicyTest {
         assertEquals(0x56000B16, dock.bottomShadeColor)
         assertEquals(0x1800B8D9, dock.sideHighlightColor)
         assertEquals(0x3600030A, dock.edgeShadeColor)
+    }
+
+    @Test
+    fun enabledLightDockMaterialIsClearerThanPreviousOpaqueBlueTint() {
+        val dock = LauncherLiquidGlassStylePolicy.dockMaterial(
+            enabled = true,
+            darkMode = false,
+            liquidGlass = false
+        )
+
+        assertEquals(0x68EFFFF8, dock.color)
+        assertEquals(0x3AFFFFFF, dock.strokeColor)
+        assertEquals(0x50FFFFFF, dock.topHighlightColor)
+        assertEquals(0x08FFFFFF, dock.bottomShadeColor)
+        assertEquals(0x38FFFFFF, dock.sideHighlightColor)
+        assertEquals(0x08CFFCEF, dock.edgeShadeColor)
+    }
+
+    @Test
+    fun dockMaterial_changesClearlyWhenDockBlurIsDisabledInLightMode() {
+        val enabled = LauncherLiquidGlassStylePolicy.dockMaterial(
+            enabled = true,
+            darkMode = false,
+            liquidGlass = true
+        )
+        val disabled = LauncherLiquidGlassStylePolicy.dockMaterial(
+            enabled = false,
+            darkMode = false,
+            liquidGlass = true
+        )
+
+        assertNotEquals(enabled.color, disabled.color)
+        assertEquals(0x327EDBFF, enabled.color)
+        assertEquals(0x566C90B8, disabled.color)
+    }
+
+    @Test
+    fun folderPreview_usesSmallerCornerRadiusSoTileCornersDoNotExposeDarkEdges() {
+        assertEquals(13, LauncherLiquidGlassStylePolicy.folderPreview(enabled = true).radiusDp)
     }
 }

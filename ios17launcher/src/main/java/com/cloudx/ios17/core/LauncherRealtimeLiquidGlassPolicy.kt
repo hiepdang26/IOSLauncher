@@ -3,11 +3,13 @@ package com.cloudx.ios17.core
 import android.os.Build
 
 object LauncherRealtimeLiquidGlassPolicy {
-    const val QWEA_MIN_SDK = 24
+    const val QMDEVE_MIN_SDK = 33
 
     enum class Surface {
         DOCK,
+        FOLDER_PREVIEW,
         FOLDER_PANEL,
+        PAGE_INDICATOR,
         SEARCH_PILL,
         SEARCH_RESULTS,
         APP_LIBRARY_FOLDER
@@ -15,25 +17,55 @@ object LauncherRealtimeLiquidGlassPolicy {
 
     data class Profile(
         val radiusDp: Int,
-        val blurAmount: Float,
-        val saturation: Float,
-        val aberrationIntensity: Float,
-        val displacementScale: Float,
-        val globalDownsampleFactor: Float,
-        val aberrationDownsample: Float,
-        val edgeHighlightOpacity: Float,
-        val dynamicBackground: Boolean
+        val blurRadiusDp: Float,
+        val refractionHeightDp: Float,
+        val refractionOffsetDp: Float,
+        val dispersion: Float,
+        val tintRed: Float = 1f,
+        val tintGreen: Float = 1f,
+        val tintBlue: Float = 1f,
+        val tintAlpha: Float = 0.08f
     )
 
     fun shouldUseRealtimeLiquidGlass(
         liquidGlassEnabled: Boolean,
         sdkInt: Int = Build.VERSION.SDK_INT
-    ): Boolean = liquidGlassEnabled && sdkInt >= QWEA_MIN_SDK
+    ): Boolean = liquidGlassEnabled && sdkInt >= QMDEVE_MIN_SDK
 
     fun shouldDrawFallbackBlur(realtimeLiquidGlassActive: Boolean): Boolean =
         !realtimeLiquidGlassActive
 
+    fun shouldDrawMaterialOverlay(
+        realtimeLiquidGlassActive: Boolean,
+        hasMaterialDrawable: Boolean
+    ): Boolean = hasMaterialDrawable
+
+    fun shouldRefreshRealtimeOnVisibilityChanged(
+        realtimeEnabled: Boolean,
+        visible: Boolean
+    ): Boolean = realtimeEnabled && visible
+
+    fun shouldRefreshRealtimeOnChromeSync(
+        realtimeEnabled: Boolean,
+        wasVisible: Boolean,
+        nextVisible: Boolean
+    ): Boolean = realtimeEnabled && !wasVisible && nextVisible
+
+    fun shouldBindRealtimeSource(sourceContainsTarget: Boolean): Boolean =
+        !sourceContainsTarget
+
+    fun shouldMirrorCustomWallpaperToSource(customWallpaperAvailable: Boolean): Boolean =
+        customWallpaperAvailable
+
+    fun shouldUseDefaultWallpaperSourceFallback(customWallpaperAvailable: Boolean): Boolean =
+        !customWallpaperAvailable
+
     fun shouldConfigureRealtimeProfile(
+        currentProfile: Profile?,
+        nextProfile: Profile
+    ): Boolean = currentProfile != nextProfile
+
+    fun shouldRecreateRealtimeView(
         currentProfile: Profile?,
         nextProfile: Profile
     ): Boolean = currentProfile != nextProfile
@@ -46,63 +78,50 @@ object LauncherRealtimeLiquidGlassPolicy {
         return when (surface) {
             Surface.SEARCH_PILL -> Profile(
                 radiusDp = radiusDp,
-                blurAmount = 0.06f,
-                saturation = 140f,
-                aberrationIntensity = 1.35f,
-                displacementScale = 54f,
-                globalDownsampleFactor = 0.55f,
-                aberrationDownsample = 0.5f,
-                edgeHighlightOpacity = 84f,
-                dynamicBackground = true
+                blurRadiusDp = 10f,
+                refractionHeightDp = 16f,
+                refractionOffsetDp = 48f,
+                dispersion = 0.35f
             )
+
+            Surface.PAGE_INDICATOR -> homeChromeProfile(radiusDp)
 
             Surface.SEARCH_RESULTS -> Profile(
                 radiusDp = radiusDp,
-                blurAmount = 0.07f,
-                saturation = 136f,
-                aberrationIntensity = 1.55f,
-                displacementScale = 62f,
-                globalDownsampleFactor = 0.5f,
-                aberrationDownsample = 0.5f,
-                edgeHighlightOpacity = 78f,
-                dynamicBackground = true
+                blurRadiusDp = 12f,
+                refractionHeightDp = 18f,
+                refractionOffsetDp = 56f,
+                dispersion = 0.4f,
+                tintAlpha = 0.06f
             )
 
-            Surface.APP_LIBRARY_FOLDER -> Profile(
-                radiusDp = radiusDp,
-                blurAmount = 0.07f,
-                saturation = 136f,
-                aberrationIntensity = 1.55f,
-                displacementScale = 62f,
-                globalDownsampleFactor = 0.48f,
-                aberrationDownsample = 0.5f,
-                edgeHighlightOpacity = 76f,
-                dynamicBackground = false
-            )
+            Surface.APP_LIBRARY_FOLDER -> appLibraryFolderProfile(radiusDp)
 
-            Surface.FOLDER_PANEL -> Profile(
-                radiusDp = radiusDp,
-                blurAmount = 0.075f,
-                saturation = 138f,
-                aberrationIntensity = 1.75f,
-                displacementScale = 70f,
-                globalDownsampleFactor = 0.52f,
-                aberrationDownsample = 0.5f,
-                edgeHighlightOpacity = 82f,
-                dynamicBackground = true
-            )
+            Surface.FOLDER_PREVIEW -> homeChromeProfile(radiusDp)
 
-            Surface.DOCK -> Profile(
-                radiusDp = radiusDp,
-                blurAmount = 0.0825f,
-                saturation = 145f,
-                aberrationIntensity = 2f,
-                displacementScale = 78f,
-                globalDownsampleFactor = 0.5f,
-                aberrationDownsample = 0.5f,
-                edgeHighlightOpacity = 88f,
-                dynamicBackground = true
-            )
+            Surface.FOLDER_PANEL -> homeChromeProfile(radiusDp)
+
+            Surface.DOCK -> homeChromeProfile(radiusDp)
         }
     }
+
+    private fun appLibraryFolderProfile(radiusDp: Int): Profile =
+        Profile(
+            radiusDp = radiusDp,
+            blurRadiusDp = 10f,
+            refractionHeightDp = 16f,
+            refractionOffsetDp = 50f,
+            dispersion = 0.35f,
+            tintAlpha = 0.04f
+        )
+
+    private fun homeChromeProfile(radiusDp: Int): Profile =
+        Profile(
+            radiusDp = radiusDp,
+            blurRadiusDp = 14f,
+            refractionHeightDp = 18f,
+            refractionOffsetDp = 54f,
+            dispersion = 0.35f,
+            tintAlpha = 0.03f
+        )
 }

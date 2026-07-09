@@ -44,6 +44,12 @@ object LauncherSearchEntryPolicy {
 
     fun shouldHideIndicatorWhileSearchIsActive(): Boolean = true
 
+    fun shouldRebuildDotsIndicatorFrame(
+        indicatorModeIsDots: Boolean,
+        wheelAttached: Boolean,
+        indicatorVisible: Boolean
+    ): Boolean = !indicatorModeIsDots || !wheelAttached || !indicatorVisible
+
     fun searchOpenAnimationDurationMs(currentBlurAlpha: Float): Long {
         val remainingAlphaDuration = (currentBlurAlpha.coerceIn(0f, 1f) * SEARCH_OPEN_ANIMATION_MS).toLong()
         return if (remainingAlphaDuration > 0L) {

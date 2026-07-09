@@ -12,7 +12,7 @@ object FolderOpenLayoutPolicy {
     private const val TITLE_BOTTOM_GAP_DP = 40
     private const val CORNER_RADIUS_DP = 42
     private const val TITLE_TEXT_SIZE_SP = 40f
-    const val BACKGROUND_CONTENT_ALPHA = 0.16f
+    const val BACKGROUND_CONTENT_ALPHA = 0f
 
     data class Metrics(
         val panelWidth: Int,

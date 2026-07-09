@@ -42,27 +42,27 @@ class LauncherHomeIconSizePolicyTest {
     }
 
     @Test
-    fun iconSizeRange_usesSmallerRequestedSizes() {
-        assertEquals(45, LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP)
-        assertEquals(56, LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP)
-        assertEquals(68, LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP)
+    fun iconSizeRange_usesRequestedSizesShiftedUpByOneDp() {
+        assertEquals(46, LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP)
+        assertEquals(57, LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP)
+        assertEquals(69, LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP)
     }
 
     @Test
     fun appLabelTextSize_scalesWithIconSize() {
-        assertEquals(11f, LauncherHomeIconSizePolicy.appLabelTextSizeSp(45), 0.001f)
-        assertEquals(13f, LauncherHomeIconSizePolicy.appLabelTextSizeSp(56), 0.001f)
-        assertEquals(15f, LauncherHomeIconSizePolicy.appLabelTextSizeSp(68), 0.001f)
+        assertEquals(11f, LauncherHomeIconSizePolicy.appLabelTextSizeSp(46), 0.001f)
+        assertEquals(13f, LauncherHomeIconSizePolicy.appLabelTextSizeSp(57), 0.001f)
+        assertEquals(15f, LauncherHomeIconSizePolicy.appLabelTextSizeSp(69), 0.001f)
     }
 
     @Test
     fun migrateStoredIconSize_matchesActiveIos17LauncherHome() {
-        assertEquals(56, LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(55, migrationApplied = false))
-        assertEquals(56, LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(65, migrationApplied = false))
+        assertEquals(57, LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(55, migrationApplied = false))
+        assertEquals(57, LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(65, migrationApplied = false))
         assertEquals(55, LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(55, migrationApplied = true))
         assertEquals(65, LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(65, migrationApplied = true))
         assertEquals(
-            56,
+            57,
             LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(
                 iconSizeDp = 52,
                 migrationApplied = true,

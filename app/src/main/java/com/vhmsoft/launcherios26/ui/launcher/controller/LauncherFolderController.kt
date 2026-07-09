@@ -24,7 +24,7 @@ class LauncherFolderController(
         dismissAppOptions()
         clearPageIndicatorCallbacks()
         binding.workspace.pageIndicator.visibility = View.GONE
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
         openFolderId = folder.id
         binding.workspace.folderTitle.text = folderTitle(folder)
         folderContentAdapter.setEditing(isEditingHome())

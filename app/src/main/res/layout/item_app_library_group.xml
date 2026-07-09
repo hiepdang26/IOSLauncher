@@ -7,7 +7,7 @@
         android:paddingStart="6dp"
         android:paddingEnd="6dp">
 
-        <FrameLayout
+        <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
             android:id="@+id/folderCard"
             android:layout_width="match_parent"
             android:layout_height="166dp"
@@ -129,7 +129,7 @@
                     </LinearLayout>
                 </FrameLayout>
             </GridLayout>
-        </FrameLayout>
+        </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
 
         <TextView
             android:id="@+id/categoryLabel"

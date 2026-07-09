@@ -108,6 +108,8 @@ import com.vhmsoft.launcherios26.ui.launcher.icon.IconCropView
 import com.vhmsoft.launcherios26.ui.launcher.icon.IosLauncherIconTheme
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupBuilder
 import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupUiModel
+import com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+import com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassPolicy
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockAdapter
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockDragCallback
 import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockHomeEdgeDragPolicy
@@ -5650,7 +5652,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             }
         }
         searchController.install()
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
         binding.workspace.pageIndicator.setOnClickListener {
             if (indicatorMode == IndicatorMode.SEARCH) {
                 showSearchOverlay()
@@ -5969,7 +5971,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         showDotsInIndicator(workspacePageAdapter.homePagePositionForAdapterPosition(position), animate = true)
 
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
         if (!editingHome) {
             indicatorHandler.postDelayed(hideIndicatorRunnable, PAGE_INDICATOR_VISIBLE_MS)
         }
@@ -6042,7 +6044,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun hidePageIndicatorForEdgeScroll() {
         suppressingEdgePageIndicator = true
         hidePageIndicatorImmediately()
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
     }
 
     private fun hidePageIndicatorImmediately() {
@@ -6082,8 +6084,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         indicatorMode = IndicatorMode.DOTS
         ensureDotsIndicatorFrame()
         ensureIndicatorWheelView()
-        binding.workspace.searchPill.animate().cancel()
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.animate().cancel()
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
         if (homeIndicatorPageCount() <= 1) {
             binding.workspace.pageIndicator.removeAllViews()
             hidePageIndicatorImmediately()
@@ -6105,8 +6107,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         indicatorMode = IndicatorMode.SEARCH
         ensureSearchIndicatorFrame()
         indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        binding.workspace.searchPill.animate().cancel()
-        binding.workspace.searchPill.visibility = View.GONE
+        binding.workspace.searchPillGlassSurface.animate().cancel()
+        binding.workspace.searchPillGlassSurface.visibility = View.GONE
         binding.workspace.pageIndicator.apply {
             resetPageIndicatorVisualState()
             isClickable = true
@@ -6189,12 +6191,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val libraryPage = isLibraryPage(position)
         val widgetPage = isWidgetPage(position)
         binding.workspace.bottomControlSlot.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
-        binding.workspace.dockRecyclerView.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
+        binding.workspace.dockGlassSurface.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
         if (libraryPage || widgetPage) {
             hidePageIndicatorImmediately()
-            binding.workspace.searchPill.visibility = View.GONE
+            binding.workspace.searchPillGlassSurface.visibility = View.GONE
         } else if (editingHome) {
-            binding.workspace.searchPill.visibility = View.GONE
+            binding.workspace.searchPillGlassSurface.visibility = View.GONE
             showDotsInIndicator(workspacePageAdapter.homePagePositionForAdapterPosition(position), animate = false)
             binding.workspace.pageIndicator.visibility = View.VISIBLE
         } else if (indicatorMode == IndicatorMode.SEARCH) {
@@ -6256,7 +6258,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                     .setDuration(160L)
                     .start()
             }
-            binding.workspace.searchPill.visibility = View.GONE
+            binding.workspace.searchPillGlassSurface.visibility = View.GONE
             if (isHomePage(binding.workspace.workspacePager.currentItem)) {
                 showDotsInIndicator(currentHomePageIndex(), animate = false)
             } else {
@@ -7506,7 +7508,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun updateDockSize(spec: LauncherResponsiveWorkspaceSpec? = null) {
         if (!::binding.isInitialized) return
-        binding.workspace.dockRecyclerView.layoutParams = binding.workspace.dockRecyclerView.layoutParams.apply {
+        binding.workspace.dockGlassSurface.layoutParams = binding.workspace.dockGlassSurface.layoutParams.apply {
             height = dp(
                 spec?.dockHeightDp ?: (effectiveHomeIconSizeDp + if (layoutIphone8Style) {
                     DOCK_IPHONE8_VERTICAL_EXTRA_DP
@@ -7519,6 +7521,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 marginEnd = 0
                 bottomMargin = 0
             }
+        }
+        binding.workspace.dockRecyclerView.layoutParams = binding.workspace.dockRecyclerView.layoutParams.apply {
+            height = ViewGroup.LayoutParams.MATCH_PARENT
         }
         val horizontalPaddingDp = spec?.dockHorizontalPaddingDp ?: 14
         val verticalPaddingDp = spec?.dockVerticalPaddingDp ?: 10
@@ -7533,7 +7538,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun applyWorkspaceAppearance() {
         val blurSettings = currentBlurSettings()
         val dockStyle = LauncherLiquidGlassStylePolicy.dock(
-            enabled = blurSettings.dockBlurActive,
+            enabled = blurSettings.dockBlurActive || layoutLiquidGlass,
             darkMode = layoutDarkMode
         )
         val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
@@ -7550,18 +7555,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         val searchTextColor = Color.WHITE
 
-        binding.workspace.dockRecyclerView.background = roundedBackground(
-            dockStyle.color,
-            dockStyle.radiusDp,
-            dockStyle.strokeColor,
-            dockStyle.strokeWidthDp
+        applyWorkspaceLiquidGlassSurface(
+            surface = binding.workspace.dockGlassSurface,
+            style = dockStyle,
+            glassSurface = AndroidLiquidGlassPolicy.Surface.DOCK
         )
-        binding.workspace.searchPill.background = roundedBackground(
-            pillStyle.color,
-            pillStyle.radiusDp,
-            pillStyle.strokeColor,
-            pillStyle.strokeWidthDp
+        binding.workspace.dockRecyclerView.background = null
+        applyWorkspaceLiquidGlassSurface(
+            surface = binding.workspace.searchPillGlassSurface,
+            style = pillStyle,
+            glassSurface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL
         )
+        binding.workspace.searchPill.background = null
         binding.workspace.searchPillText.setTextColor(searchTextColor)
         binding.workspace.searchPillIcon.imageTintList = ColorStateList.valueOf(searchTextColor)
         binding.workspace.pageIndicator.background = roundedBackground(
@@ -7570,11 +7575,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             indicatorStyle.strokeColor,
             indicatorStyle.strokeWidthDp
         )
-        binding.workspace.folderContentPanel.background = roundedBackground(
-            color = folderStyle.color,
-            radiusDp = folderStyle.radiusDp,
-            strokeColor = folderStyle.strokeColor,
-            strokeWidthDp = folderStyle.strokeWidthDp
+        applyWorkspaceLiquidGlassSurface(
+            surface = binding.workspace.folderContentPanel,
+            style = folderStyle,
+            glassSurface = AndroidLiquidGlassPolicy.Surface.FOLDER_PANEL
         )
         binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
         binding.workspace.widgetSheet.setBackgroundColor(
@@ -7604,6 +7608,29 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (::workspacePageAdapter.isInitialized) {
             updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
         }
+    }
+
+    private fun applyWorkspaceLiquidGlassSurface(
+        surface: AndroidLiquidGlassLayout,
+        style: LauncherLiquidGlassStylePolicy.BackgroundStyle,
+        glassSurface: AndroidLiquidGlassPolicy.Surface
+    ) {
+        surface.applyLiquidGlass(
+            enabled = layoutLiquidGlass,
+            source = binding.workspace.root,
+            profile = AndroidLiquidGlassPolicy.profileFor(
+                surface = glassSurface,
+                radiusDp = style.radiusDp
+            )
+        )
+        surface.applyFallbackBackground(
+            roundedBackground(
+                color = style.color,
+                radiusDp = style.radiusDp,
+                strokeColor = style.strokeColor,
+                strokeWidthDp = style.strokeWidthDp
+            )
+        )
     }
 
     private fun invalidateLauncherArtwork() {

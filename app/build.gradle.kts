@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.androidx.viewpager2)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.material)
+    implementation("com.qmdeve.liquidglass:core:1.0.3")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     testImplementation(libs.junit)
     testImplementation("org.json:json:20260522")

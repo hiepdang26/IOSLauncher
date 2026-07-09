@@ -15,6 +15,6 @@ object LauncherIndicatorSearchPillPolicy {
             heightDp = 36,
             iconSizeDp = 18,
             iconTextGapDp = 4,
-            textSizeSp = 15f
+            textSizeSp = 13f
         )
 }

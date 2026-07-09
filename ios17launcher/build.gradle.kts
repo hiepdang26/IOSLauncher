@@ -18,12 +18,6 @@ android {
         buildConfigField("String", "SENTRY_DSN", "\"\"")
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/liquidglass/CMakeLists.txt")
-        }
-    }
-
     buildFeatures {
         buildConfig = true
         viewBinding = true
@@ -63,6 +57,7 @@ dependencies {
     implementation("org.greenrobot:eventbus:3.3.1")
     implementation("me.relex:circleindicator:2.1.6")
     implementation("io.github.hokofly:hoko-blur:1.4.0")
+    implementation("com.qmdeve.liquidglass:core:1.0.3")
     implementation("com.jakewharton.timber:timber:5.0.1")
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("foundation.e:elib:0.0.1-alpha11")

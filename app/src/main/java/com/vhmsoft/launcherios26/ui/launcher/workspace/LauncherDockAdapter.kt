@@ -329,11 +329,7 @@ class LauncherDockAdapter(
             binding.appIcon.contentDescription = item.label
             when (item) {
                 is LauncherHomeItemUiModel.App -> {
-                    binding.iconPlate.background = if (isPendingDropTarget(item)) {
-                        folderPreviewBackground()
-                    } else {
-                        null
-                    }
+                    applyFolderPlateAppearance(showBackground = isPendingDropTarget(item))
                     binding.appIcon.setImageDrawable(item.iconItem.displayIcon)
                     binding.appIcon.visibility = View.VISIBLE
                     binding.folderPreview.visibility = View.GONE
@@ -341,7 +337,7 @@ class LauncherDockAdapter(
                 }
 
                 is LauncherHomeItemUiModel.Folder -> {
-                    binding.iconPlate.background = folderPreviewBackground()
+                    applyFolderPlateAppearance(showBackground = true)
                     binding.appIcon.visibility = View.GONE
                     binding.appIcon.setImageDrawable(null)
                     binding.folderPreview.visibility = View.VISIBLE
@@ -456,6 +452,25 @@ class LauncherDockAdapter(
             return (draggedItem as? LauncherHomeItemUiModel.App)?.iconItem
         }
 
+        private fun applyFolderPlateAppearance(showBackground: Boolean) {
+            val style = folderPreviewStyle()
+            binding.iconPlate.applyLiquidGlass(
+                enabled = liquidGlassEnabled && showBackground,
+                source = binding.root.rootView as? ViewGroup,
+                profile = AndroidLiquidGlassPolicy.profileFor(
+                    surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                    radiusDp = style.radiusDp
+                )
+            )
+            binding.iconPlate.applyFallbackBackground(
+                if (showBackground) {
+                    folderPreviewBackground(style)
+                } else {
+                    null
+                }
+            )
+        }
+
         private fun bindFolderPreviewIcons(apps: List<LauncherIconUiModel>) {
             folderPreviewIcons().forEachIndexed { index, imageView ->
                 val app = apps.getOrNull(index)
@@ -471,11 +486,16 @@ class LauncherDockAdapter(
             }
         }
 
-        private fun folderPreviewBackground(): GradientDrawable {
-            val style = LauncherLiquidGlassStylePolicy.folderPreview(
+        private fun folderPreviewStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle {
+            return LauncherLiquidGlassStylePolicy.folderPreview(
                 enabled = liquidGlassEnabled,
                 darkMode = darkMode
             )
+        }
+
+        private fun folderPreviewBackground(
+            style: LauncherLiquidGlassStylePolicy.BackgroundStyle = folderPreviewStyle()
+        ): GradientDrawable {
             return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(style.radiusDp).toFloat()

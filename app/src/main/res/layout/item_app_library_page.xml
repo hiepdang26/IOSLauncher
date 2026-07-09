@@ -8,35 +8,43 @@
         android:paddingEnd="8dp"
         android:paddingBottom="8dp">
 
-        <LinearLayout
-            android:id="@+id/librarySearchPill"
+        <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+            android:id="@+id/librarySearchPillGlassSurface"
             android:layout_width="match_parent"
             android:layout_height="44dp"
             android:layout_marginStart="6dp"
             android:layout_marginTop="6dp"
             android:layout_marginEnd="6dp"
             android:layout_marginBottom="14dp"
-            android:background="@drawable/bg_app_library_search"
-            android:gravity="center"
-            android:orientation="horizontal">
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
-            <ImageView
-                android:id="@+id/librarySearchPillIcon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_search_18" />
+            <LinearLayout
+                android:id="@+id/librarySearchPill"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_app_library_search"
+                android:gravity="center"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/librarySearchPillText"
-                style="@style/IOSLauncherTextAppLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="7dp"
-                android:text="@string/settings_app_library"
-                android:textColor="@color/ios_workspace_text"
-                android:textSize="17sp" />
-        </LinearLayout>
+                <ImageView
+                    android:id="@+id/librarySearchPillIcon"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_search_18" />
+
+                <TextView
+                    android:id="@+id/librarySearchPillText"
+                    style="@style/IOSLauncherTextAppLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp"
+                    android:text="@string/settings_app_library"
+                    android:textColor="@color/ios_workspace_text"
+                    android:textSize="17sp" />
+            </LinearLayout>
+        </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/libraryRecyclerView"

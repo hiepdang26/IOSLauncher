@@ -1,11 +1,6 @@
 package com.cloudx.ios17.core.customviews
 
-import android.app.WallpaperManager
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.util.AttributeSet
@@ -13,12 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.cloudx.ios17.core.LauncherRealtimeLiquidGlassPolicy
-import com.cloudx.ios17.core.Utilities
-import com.cloudx.ios17.core.blur.BlurWallpaperProvider
-import com.example.liquidglass.BlurMethod
-import com.example.liquidglass.LiquidGlassView
-import kotlin.math.max
-import kotlin.math.roundToInt
+import com.qmdeve.liquidglass.widget.LiquidGlassView
 
 class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     context: Context,
@@ -32,13 +22,6 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     private var configuredProfile: LauncherRealtimeLiquidGlassPolicy.Profile? = null
     private var materialOverlay: View? = null
     private var materialDrawable: Drawable? = null
-    private val viewWindowLocation = IntArray(2)
-    private val wallpaperPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val wallpaperProvider by lazy { BlurWallpaperProvider.getInstance(context) }
-
-    companion object {
-        private var cachedSystemWallpaper: Bitmap? = null
-    }
 
     fun applyRealtimeLiquidGlass(
         enabled: Boolean,
@@ -61,7 +44,11 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
 
     private fun updateMaterialOverlay() {
         val drawable = materialDrawable
-        if (drawable == null) {
+        val shouldDrawOverlay = LauncherRealtimeLiquidGlassPolicy.shouldDrawMaterialOverlay(
+            realtimeLiquidGlassActive = isRealtimeLiquidGlassActive(),
+            hasMaterialDrawable = drawable != null
+        )
+        if (!shouldDrawOverlay || drawable == null) {
             materialOverlay?.let { overlay ->
                 if (overlay.parent === this) {
                     removeView(overlay)
@@ -81,7 +68,7 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     }
 
     fun isRealtimeLiquidGlassActive(): Boolean =
-        glassView?.parent === this && realtimeEnabled
+        glassView?.parent === this && realtimeEnabled && glassView?.visibility == VISIBLE
 
     override fun shouldDrawBlurBackground(): Boolean =
         LauncherRealtimeLiquidGlassPolicy.shouldDrawFallbackBlur(
@@ -94,32 +81,76 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
-        removeGlass()
+        glassView?.visibility = GONE
         super.onDetachedFromWindow()
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (
+            changedView === this &&
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
+                realtimeEnabled = realtimeEnabled,
+                visible = visibility == VISIBLE
+            )
+        ) {
+            updateGlass()
+        }
+    }
+
+    fun refreshRealtimeLiquidGlass() {
+        updateGlass()
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val glass = glassView?.takeIf { it.parent === this }
+        val overlay = materialOverlay?.takeIf { it.parent === this }
+        val glassVisibility = glass?.visibility
+        val overlayVisibility = overlay?.visibility
+
+        glass?.visibility = GONE
+        overlay?.visibility = GONE
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        glassVisibility?.let { glass?.visibility = it }
+        overlayVisibility?.let { overlay?.visibility = it }
+
+        measureDecorationToBounds(glass)
+        measureDecorationToBounds(overlay)
     }
 
     private fun updateGlass() {
         val profile = glassProfile
         val source = glassSource
-        if (!realtimeEnabled || profile == null || source == null) {
-            removeGlass()
+        if (
+            !realtimeEnabled ||
+            profile == null ||
+            source == null ||
+            !LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeSource(
+                sourceContainsTarget = sourceContainsTarget(source)
+            )
+        ) {
+            hideGlass()
             return
         }
 
         val glass = if (
-            glassView == null ||
-            LauncherRealtimeLiquidGlassPolicy.shouldConfigureRealtimeProfile(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 currentProfile = configuredProfile,
                 nextProfile = profile
             )
         ) {
-            replaceGlass(profile)
+            glassView?.takeIf { it.parent === this }?.let { removeView(it) }
+            createGlass().also { newGlass ->
+                configureGlass(newGlass, profile)
+                glassView = newGlass
+                configuredProfile = profile
+            }
         } else {
-            glassView ?: replaceGlass(profile)
+            glassView ?: createGlass().also { newGlass ->
+                configureGlass(newGlass, profile)
+                glassView = newGlass
+                configuredProfile = profile
+            }
         }
 
         if (glass.parent !== this) {
@@ -131,7 +162,7 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             )
-        } else if (indexOfChild(glass) != 0) {
+        } else if (indexOfChild(glass) != 0 && configuredProfile == null) {
             removeView(glass)
             addView(
                 glass,
@@ -143,161 +174,51 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
             )
         }
 
-        glass.setCustomBackdropCapture { captureBackdrop() }
+        glass.visibility = VISIBLE
+        glass.bind(source)
         glass.invalidate()
         updateMaterialOverlay()
     }
 
-    private fun replaceGlass(profile: LauncherRealtimeLiquidGlassPolicy.Profile): LiquidGlassView {
-        removeGlass()
-        return createGlass(profile).also { created ->
-            glassView = created
-            configuredProfile = profile
-            addView(
-                created,
-                0,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-        }
-    }
-
-    private fun createGlass(profile: LauncherRealtimeLiquidGlassPolicy.Profile): LiquidGlassView {
+    private fun createGlass(): LiquidGlassView {
         return LiquidGlassView(context).apply {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             isEnabled = false
             isClickable = false
             isFocusable = false
-            enableBackdropBlur = true
-            enableChromaticAberration = false
-            enableChromaticDispersion = false
-            enableShadow = false
-            enableEdgeHighlight = true
-            enableOptimizedCapture = false
-            enableDynamicBackground = profile.dynamicBackground
-            blurMethod = BlurMethod.BOX_BLUR
-            highQualityBlur = false
-            downsampleScale = 2
-            globalDownsampleFactor = profile.globalDownsampleFactor
-            aberrationDownsample = profile.aberrationDownsample
-            blurAmount = profile.blurAmount
-            saturation = profile.saturation
-            aberrationIntensity = profile.aberrationIntensity
-            displacementScale = profile.displacementScale
-            elasticity = 0f
-            cornerRadius = dp(profile.radiusDp).toFloat()
-            overLight = true
-            edgeHighlightBorderWidth = resources.displayMetrics.density
-            edgeHighlightOpacity = profile.edgeHighlightOpacity
+            setDraggableEnabled(false)
+            setElasticEnabled(false)
+            setTouchEffectEnabled(false)
         }
     }
 
-    private fun captureBackdrop(): Bitmap? {
-        val captureWidth = width
-        val captureHeight = height
-        if (
-            captureWidth <= 0 ||
-            captureHeight <= 0
-        ) {
-            return null
-        }
-
-        return try {
-            val bitmap = Bitmap.createBitmap(
-                captureWidth,
-                captureHeight,
-                Bitmap.Config.ARGB_8888
-            )
-            val canvas = Canvas(bitmap)
-            getLocationInWindow(viewWindowLocation)
-            drawWallpaperBase(canvas)
-            bitmap
-        } catch (_: OutOfMemoryError) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-    }
-
-    private fun drawWallpaperBase(canvas: Canvas) {
-        val wallpaper = wallpaperProvider.wallpapers?.background
-            ?: systemWallpaperBitmap()
-            ?: wallpaperProvider.placeholder
-            ?: return
-        if (wallpaper.isRecycled || wallpaper.width <= 0 || wallpaper.height <= 0) return
-
-        val displayWidth = resources.displayMetrics.widthPixels.toFloat().coerceAtLeast(width.toFloat())
-        val displayHeight = resources.displayMetrics.heightPixels.toFloat().coerceAtLeast(height.toFloat())
-        val scale = max(
-            displayWidth / wallpaper.width.toFloat(),
-            displayHeight / wallpaper.height.toFloat()
-        )
-        val saveCount = canvas.save()
-        canvas.translate(
-            -viewWindowLocation[0].toFloat(),
-            -viewWindowLocation[1].toFloat()
-        )
-        canvas.scale(scale, scale)
-        canvas.drawBitmap(wallpaper, 0f, 0f, wallpaperPaint)
-        canvas.restoreToCount(saveCount)
-    }
-
-    private fun systemWallpaperBitmap(): Bitmap? {
-        cachedSystemWallpaper?.takeIf { !it.isRecycled }?.let { return it }
-
-        val raw = try {
-            val drawable = WallpaperManager.getInstance(context).drawable
-            when (drawable) {
-                is BitmapDrawable -> drawable.bitmap?.copy(Bitmap.Config.ARGB_8888, false)
-                else -> Utilities.drawableToBitmap(drawable, true)
-            }
-        } catch (_: Exception) {
-            null
-        } ?: return null
-
-        val displayWidth = resources.displayMetrics.widthPixels.coerceAtLeast(1)
-        val displayHeight = resources.displayMetrics.heightPixels.coerceAtLeast(1)
-        val scale = max(
-            displayWidth.toFloat() / raw.width.toFloat(),
-            displayHeight.toFloat() / raw.height.toFloat()
-        )
-        val scaledWidth = (raw.width * scale).roundToInt().coerceAtLeast(displayWidth)
-        val scaledHeight = (raw.height * scale).roundToInt().coerceAtLeast(displayHeight)
-        val scaled = if (scaledWidth != raw.width || scaledHeight != raw.height) {
-            Bitmap.createScaledBitmap(raw, scaledWidth, scaledHeight, true)
-        } else {
-            raw
-        }
-        val left = ((scaled.width - displayWidth) / 2).coerceAtLeast(0)
-        val top = ((scaled.height - displayHeight) / 2).coerceAtLeast(0)
-        val cropped = Bitmap.createBitmap(
-            scaled,
-            left,
-            top,
-            displayWidth.coerceAtMost(scaled.width - left),
-            displayHeight.coerceAtMost(scaled.height - top)
-        )
-        if (scaled !== raw) {
-            raw.recycle()
-            scaled.recycle()
-        } else if (cropped !== raw) {
-            raw.recycle()
-        }
-        cachedSystemWallpaper = cropped
-        return cropped
-    }
-
-    private fun removeGlass() {
-        glassView?.let { glass ->
-            if (glass.parent === this) {
-                removeView(glass)
-            }
-        }
-        glassView = null
-        configuredProfile = null
+    private fun hideGlass() {
+        glassView?.takeIf { it.parent === this }?.visibility = GONE
         updateMaterialOverlay()
+    }
+
+    private fun sourceContainsTarget(source: ViewGroup): Boolean {
+        var current: View? = this
+        while (current != null) {
+            if (current === source) return true
+            current = current.parent as? View
+        }
+        return false
+    }
+
+    private fun configureGlass(
+        glass: LiquidGlassView,
+        profile: LauncherRealtimeLiquidGlassPolicy.Profile
+    ) {
+        glass.setCornerRadius(dp(profile.radiusDp.toFloat()))
+        glass.setBlurRadius(dp(profile.blurRadiusDp))
+        glass.setRefractionHeight(dp(profile.refractionHeightDp))
+        glass.setRefractionOffset(dp(profile.refractionOffsetDp))
+        glass.setDispersion(profile.dispersion)
+        glass.setTintColorRed(profile.tintRed)
+        glass.setTintColorGreen(profile.tintGreen)
+        glass.setTintColorBlue(profile.tintBlue)
+        glass.setTintAlpha(profile.tintAlpha)
     }
 
     private fun ensureMaterialOverlayOrder() {
@@ -327,6 +248,16 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
         }
     }
 
+    private fun measureDecorationToBounds(view: View?) {
+        if (view?.parent !== this || view.visibility == GONE) return
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(measuredWidth, View.MeasureSpec.EXACTLY)
+        val heightSpec = View.MeasureSpec.makeMeasureSpec(measuredHeight, View.MeasureSpec.EXACTLY)
+        view.measure(widthSpec, heightSpec)
+    }
+
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    private fun dp(value: Float): Float =
+        value * resources.displayMetrics.density
 }

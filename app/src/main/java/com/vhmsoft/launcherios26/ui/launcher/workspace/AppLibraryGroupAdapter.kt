@@ -64,8 +64,17 @@ class AppLibraryGroupAdapter(
         )
 
         fun bind(item: AppLibraryGroupUiModel) {
+            val style = folderStyle(item.apps.isEmpty())
             binding.categoryLabel.text = item.title
-            binding.folderCard.background = folderBackground(item.apps.isEmpty())
+            binding.folderCard.applyLiquidGlass(
+                enabled = liquidGlassEnabled,
+                source = binding.root.rootView as? ViewGroup,
+                profile = AndroidLiquidGlassPolicy.profileFor(
+                    surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                    radiusDp = style.radiusDp
+                )
+            )
+            binding.folderCard.applyFallbackBackground(folderBackground(style))
             previewViews.forEachIndexed { index, imageView ->
                 val previewApp = item.apps.getOrNull(index)
                 imageView.visibility = if (previewApp == null) View.INVISIBLE else View.VISIBLE
@@ -94,13 +103,16 @@ class AppLibraryGroupAdapter(
             }
         }
 
-        private fun folderBackground(empty: Boolean): GradientDrawable {
-            val density = binding.root.resources.displayMetrics.density
-            val style = LauncherLiquidGlassStylePolicy.appLibraryFolder(
+        private fun folderStyle(empty: Boolean): LauncherLiquidGlassStylePolicy.BackgroundStyle {
+            return LauncherLiquidGlassStylePolicy.appLibraryFolder(
                 enabled = liquidGlassEnabled,
                 darkMode = darkMode,
                 empty = empty
             )
+        }
+
+        private fun folderBackground(style: LauncherLiquidGlassStylePolicy.BackgroundStyle): GradientDrawable {
+            val density = binding.root.resources.displayMetrics.density
             return GradientDrawable().apply {
                 cornerRadius = style.radiusDp * density
                 setColor(style.color)

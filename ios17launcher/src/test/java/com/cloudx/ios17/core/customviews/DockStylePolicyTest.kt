@@ -112,7 +112,7 @@ class DockStylePolicyTest {
     }
 
     @Test
-    fun realtimeLiquidGlassDockRequiresLiquidGlassStyleButNotDockBlurEnabled() {
+    fun realtimeLiquidGlassDockRequiresLiquidGlassStyleAndDockBlurEnabled() {
         assertTrue(
             DockStylePolicy.usesExternalRealtimeLiquidGlass(
                 style = DockStylePolicy.Style.LIQUID_GLASS,
@@ -120,7 +120,7 @@ class DockStylePolicyTest {
                 dockBlurEnabled = true
             )
         )
-        assertTrue(
+        assertFalse(
             DockStylePolicy.usesExternalRealtimeLiquidGlass(
                 style = DockStylePolicy.Style.LIQUID_GLASS,
                 realtimeLiquidGlassAvailable = true,

@@ -150,4 +150,40 @@ class LauncherSearchEntryPolicyTest {
     fun searchOverlay_hidesHomeIndicatorImmediately() {
         assertTrue(LauncherSearchEntryPolicy.shouldHideIndicatorWhileSearchIsActive())
     }
+
+    @Test
+    fun dotsIndicatorFrame_rebuildsOnlyWhenFrameIsNotAlreadyReady() {
+        assertEquals(
+            false,
+            LauncherSearchEntryPolicy.shouldRebuildDotsIndicatorFrame(
+                indicatorModeIsDots = true,
+                wheelAttached = true,
+                indicatorVisible = true
+            )
+        )
+        assertEquals(
+            true,
+            LauncherSearchEntryPolicy.shouldRebuildDotsIndicatorFrame(
+                indicatorModeIsDots = false,
+                wheelAttached = true,
+                indicatorVisible = true
+            )
+        )
+        assertEquals(
+            true,
+            LauncherSearchEntryPolicy.shouldRebuildDotsIndicatorFrame(
+                indicatorModeIsDots = true,
+                wheelAttached = false,
+                indicatorVisible = true
+            )
+        )
+        assertEquals(
+            true,
+            LauncherSearchEntryPolicy.shouldRebuildDotsIndicatorFrame(
+                indicatorModeIsDots = true,
+                wheelAttached = true,
+                indicatorVisible = false
+            )
+        )
+    }
 }

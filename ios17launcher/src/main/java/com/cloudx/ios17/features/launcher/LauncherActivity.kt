@@ -453,6 +453,7 @@ class LauncherActivity : AppCompatActivity(),
 
     private var activeFolder: FolderItem? = null
     private var activeFolderView: BlissFrameLayout? = null
+    private var folderOpenGeneration = 0
 
     private enum class FolderDragOrigin {
         FROM_HOME_TO_FOLDER,
@@ -1008,42 +1009,18 @@ class LauncherActivity : AppCompatActivity(),
             applyDockRealtimeLiquidGlass()
         }
         if (::mIndicator.isInitialized) {
-            mIndicator.background = roundedRectangle(indicatorBackgroundStyle())
+            applyIndicatorRealtimeLiquidGlass()
         }
         if (::mLauncherView.isInitialized) {
-            if (::mFolderWindowContainer.isInitialized) {
-                mFolderWindowContainer.background = ColorDrawable(
-                    LauncherLiquidGlassStylePolicy.folderBackdropOverlay(
-                        darkMode = styleDarkModeForLiquidGlass()
-                    )
-                )
-            }
-            val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
-                enabled = liquidGlassEnabled,
-                darkMode = styleDarkModeForLiquidGlass()
-            )
-            val folderGlass = mLauncherView.findViewById<LauncherRealtimeLiquidGlassLayout>(R.id.folder_bg_blur)
-            val folderRealtimeGlass = applyRealtimeLiquidGlass(
-                container = folderGlass,
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
-                style = folderStyle
-            )
-            folderGlass?.setLiquidMaterial(
-                if (folderRealtimeGlass) roundedRectangle(folderStyle) else null
-            )
-            val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
-            folderBackground?.background = if (folderRealtimeGlass) {
-                ColorDrawable(Color.TRANSPARENT)
-            } else {
-                roundedRectangle(folderStyle)
-            }
+            applyFolderLiquidGlassAppearance(bindRealtime = isFolderWindowActive())
         }
         if (::swipeSearchContainer.isInitialized) {
             val searchInput = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
             val searchInputPanel = searchInput?.parent as? View
             val searchPillStyle = LauncherLiquidGlassStylePolicy.searchPill(
                 enabled = liquidGlassEnabled,
-                darkMode = styleDarkModeForLiquidGlass()
+                darkMode = darkModeEnabled,
+                liquidGlass = liquidGlassEnabled
             )
             val searchGlassContainer = searchInputPanel?.parent as? LauncherRealtimeLiquidGlassLayout
             val searchRealtimeGlass = applyRealtimeLiquidGlass(
@@ -1063,7 +1040,8 @@ class LauncherActivity : AppCompatActivity(),
             val suggestionsPanel = suggestions?.parent as? View
             val suggestionsStyle = LauncherLiquidGlassStylePolicy.searchResultsPanel(
                 enabled = liquidGlassEnabled,
-                darkMode = styleDarkModeForLiquidGlass()
+                darkMode = darkModeEnabled,
+                liquidGlass = liquidGlassEnabled
             )
             val suggestionsGlassContainer = suggestionsPanel?.parent as? LauncherRealtimeLiquidGlassLayout
             val suggestionsRealtimeGlass = applyRealtimeLiquidGlass(
@@ -1085,25 +1063,67 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun applyFolderLiquidGlassAppearance(bindRealtime: Boolean) {
+        if (!::mLauncherView.isInitialized) return
+        if (::mFolderWindowContainer.isInitialized) {
+            mFolderWindowContainer.background = ColorDrawable(
+                LauncherLiquidGlassStylePolicy.folderBackdropOverlay(
+                    darkMode = darkModeEnabled
+                )
+            )
+        }
+
+        val folderBlurEnabled = lightModeFolderBlurEnabled()
+        val useLiquidGlassFolderStyle = shouldUseRealtimeLiquidGlass() && folderBlurEnabled
+        val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
+            enabled = folderBlurEnabled,
+            darkMode = darkModeEnabled,
+            liquidGlass = useLiquidGlassFolderStyle
+        )
+        val folderGlass = mLauncherView.findViewById<LauncherRealtimeLiquidGlassLayout>(R.id.folder_bg_blur)
+        val useRealtimeMaterial = useLiquidGlassFolderStyle && folderGlass != null
+        val folderRealtimeGlass = if (bindRealtime) {
+            applyRealtimeLiquidGlass(
+                container = folderGlass,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
+                style = folderStyle,
+                realtimeEnabled = useLiquidGlassFolderStyle
+            )
+        } else {
+            folderGlass?.blurCornerRadius = dp(folderStyle.radiusDp).toFloat()
+            useRealtimeMaterial
+        }
+
+        folderGlass?.setLiquidMaterial(
+            if (folderRealtimeGlass) roundedRectangle(folderStyle) else null
+        )
+        val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
+        folderBackground?.background = if (folderRealtimeGlass) {
+            ColorDrawable(Color.TRANSPARENT)
+        } else {
+            roundedRectangle(folderStyle)
+        }
+    }
+
     private fun darkBlurAlphaFor(blurAlpha: Float): Float =
         if (darkModeEnabled) blurAlpha.coerceIn(0f, 1f) else 0f
 
     private fun applyRealtimeLiquidGlass(
         container: LauncherRealtimeLiquidGlassLayout?,
         surface: LauncherRealtimeLiquidGlassPolicy.Surface,
-        style: LauncherLiquidGlassStylePolicy.BackgroundStyle
+        style: LauncherLiquidGlassStylePolicy.BackgroundStyle,
+        realtimeEnabled: Boolean = shouldUseRealtimeLiquidGlass()
     ): Boolean {
-        val useRealtimeGlass = shouldUseRealtimeLiquidGlass()
         container?.applyRealtimeLiquidGlass(
-            enabled = useRealtimeGlass,
+            enabled = realtimeEnabled,
             source = realtimeLiquidGlassSource(),
             profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
                 surface = surface,
                 radiusDp = style.radiusDp,
-                darkMode = styleDarkModeForLiquidGlass()
+                darkMode = darkModeEnabled
             )
         )
-        return useRealtimeGlass && container != null
+        return realtimeEnabled && container != null
     }
 
     private fun applyDockRealtimeLiquidGlass() {
@@ -1112,7 +1132,7 @@ class LauncherActivity : AppCompatActivity(),
             R.id.dock_liquid_glass_background
         )
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = LauncherHomeLayoutPreferences.isDockBlurEnabled(this)
+        val dockBlurEnabled = lightModeDockBlurEnabled()
         val useRealtimeDock = DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1120,13 +1140,15 @@ class LauncherActivity : AppCompatActivity(),
         )
         val dockMaterialStyle = LauncherLiquidGlassStylePolicy.dockMaterial(
             enabled = dockBlurEnabled,
-            darkMode = styleDarkModeForLiquidGlass(),
+            darkMode = darkModeEnabled,
             liquidGlass = liquidGlassEnabled
         )
 
         syncDockRealtimeGlassLayout(dockGlass)
         dockGlass.blurCornerRadius = dp(dockMaterialStyle.radiusDp).toFloat()
-        dockGlass.visibility = if (useRealtimeDock) VISIBLE else GONE
+        dockGlass.visibility = if (useRealtimeDock && shouldShowDockForPage(currentPageNumber)) VISIBLE else GONE
+        dockGlass.translationY = mDock.translationY
+        dockGlass.alpha = mDock.alpha
         dockGlass.setLiquidMaterial(
             if (useRealtimeDock) roundedRectangle(dockMaterialStyle) else null
         )
@@ -1136,7 +1158,7 @@ class LauncherActivity : AppCompatActivity(),
             profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
                 radiusDp = dockMaterialStyle.radiusDp,
-                darkMode = styleDarkModeForLiquidGlass()
+                darkMode = darkModeEnabled
             )
         )
         mDock.setExternalRealtimeLiquidGlassEnabled(useRealtimeDock)
@@ -1169,8 +1191,153 @@ class LauncherActivity : AppCompatActivity(),
     private fun shouldUseRealtimeLiquidGlass(): Boolean =
         LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeLiquidGlass(liquidGlassEnabled)
 
+    private fun shouldUseRealtimeDockGlass(): Boolean {
+        if (!::mLauncherView.isInitialized || !::mDock.isInitialized) return false
+        val dockStyle = currentDockStyle()
+        val dockBlurEnabled = lightModeDockBlurEnabled()
+        return DockStylePolicy.usesExternalRealtimeLiquidGlass(
+            style = dockStyle,
+            realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
+            dockBlurEnabled = dockBlurEnabled
+        )
+    }
+
+    private fun dockGlassBackground(): LauncherRealtimeLiquidGlassLayout? =
+        if (::mLauncherView.isInitialized) {
+            mLauncherView.findViewById(R.id.dock_liquid_glass_background)
+        } else {
+            null
+        }
+
+    private fun shouldShowDockForPage(page: Int): Boolean =
+        LauncherWorkspaceChromePolicy.shouldShowDockForPage(
+            page = page,
+            firstHomePage = 1,
+            lastHomePage = pages.size
+        )
+
+    private fun setDockChromeVisibility(visible: Boolean) {
+        if (!::mDock.isInitialized) return
+        val wasVisible = mDock.visibility == VISIBLE
+        mDock.visibility = if (visible) VISIBLE else GONE
+        dockGlassBackground()?.let { dockGlass ->
+            dockGlass.visibility = if (visible && shouldUseRealtimeDockGlass()) VISIBLE else GONE
+            if (
+                LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                    realtimeEnabled = shouldUseRealtimeDockGlass(),
+                    wasVisible = wasVisible,
+                    nextVisible = visible
+                )
+            ) {
+                dockGlass.refreshRealtimeLiquidGlass()
+            }
+        }
+    }
+
+    private fun syncDockChromeTransform() {
+        if (!::mDock.isInitialized) return
+        dockGlassBackground()?.let { dockGlass ->
+            dockGlass.translationY = mDock.translationY
+            dockGlass.alpha = mDock.alpha
+        }
+    }
+
+    private fun indicatorGlassBackground(): LauncherRealtimeLiquidGlassLayout? =
+        if (::mLauncherView.isInitialized) {
+            mLauncherView.findViewById(R.id.page_indicator_liquid_glass_background)
+        } else {
+            null
+        }
+
+    private fun applyIndicatorRealtimeLiquidGlass() {
+        if (!::mIndicator.isInitialized) return
+        val indicatorStyle = indicatorBackgroundStyle()
+        val indicatorGlass = indicatorGlassBackground()
+        val useRealtimeIndicator = shouldUseRealtimeIndicatorGlass()
+
+        indicatorGlass?.let { glass ->
+            syncIndicatorRealtimeGlassLayout(glass)
+            glass.blurCornerRadius = dp(indicatorStyle.radiusDp).toFloat()
+            glass.setLiquidMaterial(
+                if (useRealtimeIndicator) roundedRectangle(indicatorStyle) else null
+            )
+            glass.applyRealtimeLiquidGlass(
+                enabled = useRealtimeIndicator,
+                source = realtimeLiquidGlassSource(),
+                profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+                    surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
+                    radiusDp = indicatorStyle.radiusDp,
+                    darkMode = darkModeEnabled
+                )
+            )
+        }
+
+        mIndicator.background = if (useRealtimeIndicator) {
+            ColorDrawable(Color.TRANSPARENT)
+        } else {
+            roundedRectangle(indicatorStyle)
+        }
+        syncIndicatorChromeTransform(refreshRealtime = false)
+    }
+
+    private fun syncIndicatorRealtimeGlassLayout(indicatorGlass: LauncherRealtimeLiquidGlassLayout) {
+        val indicatorLayoutParams = mIndicator.layoutParams
+            as? InsettableRelativeLayout.LayoutParams ?: return
+        val glassLayoutParams = indicatorGlass.layoutParams
+            as? InsettableRelativeLayout.LayoutParams ?: return
+
+        glassLayoutParams.width = indicatorLayoutParams.width
+        glassLayoutParams.height = indicatorLayoutParams.height
+        glassLayoutParams.leftMargin = indicatorLayoutParams.leftMargin
+        glassLayoutParams.rightMargin = indicatorLayoutParams.rightMargin
+        glassLayoutParams.topMargin = indicatorLayoutParams.topMargin
+        glassLayoutParams.bottomMargin = indicatorLayoutParams.bottomMargin
+        indicatorGlass.layoutParams = glassLayoutParams
+    }
+
+    private fun setIndicatorChromeVisibility(visible: Boolean) {
+        if (!::mIndicator.isInitialized) return
+        val wasVisible = mIndicator.visibility == VISIBLE
+        mIndicator.visibility = if (visible) VISIBLE else GONE
+        syncIndicatorChromeTransform(refreshRealtime = visible && !wasVisible)
+    }
+
+    private fun syncIndicatorChromeTransform(refreshRealtime: Boolean = false) {
+        if (!::mIndicator.isInitialized) return
+        indicatorGlassBackground()?.let { indicatorGlass ->
+            indicatorGlass.visibility =
+                if (mIndicator.visibility == VISIBLE && shouldUseRealtimeIndicatorGlass()) VISIBLE else GONE
+            indicatorGlass.alpha = mIndicator.alpha
+            indicatorGlass.translationX = mIndicator.translationX
+            indicatorGlass.translationY = mIndicator.translationY
+            indicatorGlass.scaleX = mIndicator.scaleX
+            indicatorGlass.scaleY = mIndicator.scaleY
+            if (
+                LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                    realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                    wasVisible = false,
+                    nextVisible = refreshRealtime && indicatorGlass.visibility == VISIBLE
+                )
+            ) {
+                indicatorGlass.refreshRealtimeLiquidGlass()
+            }
+        }
+    }
+
+    private fun lightModeDockBlurEnabled(): Boolean =
+        LauncherHomeLayoutPreferences.isDockBlurEnabled(this) && !darkModeEnabled
+
+    private fun lightModeFolderBlurEnabled(): Boolean =
+        LauncherHomeLayoutPreferences.isFolderBlurEnabled(this) && !darkModeEnabled
+
+    private fun lightModeSearchBlurEnabled(): Boolean =
+        LauncherHomeLayoutPreferences.isSearchBlurEnabled(this) && !darkModeEnabled
+
+    private fun shouldUseRealtimeIndicatorGlass(): Boolean =
+        shouldUseRealtimeLiquidGlass() && lightModeSearchBlurEnabled()
+
     private fun styleDarkModeForLiquidGlass(): Boolean =
-        darkModeEnabled && !liquidGlassEnabled
+        darkModeEnabled
 
     private fun realtimeLiquidGlassSource(): ViewGroup? {
         if (!::mLauncherView.isInitialized) return null
@@ -1184,21 +1351,24 @@ class LauncherActivity : AppCompatActivity(),
     private fun searchOverlayBlurAlpha(): Float =
         LauncherBlurEffectPolicy.overlayAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
-            targetEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this)
+            targetEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
+            darkModeEnabled = darkModeEnabled
         )
 
     private fun folderOverlayBlurAlpha(): Float =
         LauncherBlurEffectPolicy.folderOverlayAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
             folderEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this),
-            liquidGlassEnabled = liquidGlassEnabled
+            liquidGlassEnabled = liquidGlassEnabled,
+            darkModeEnabled = darkModeEnabled
         )
 
     private fun folderBackgroundContentAlpha(): Float =
         LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
             folderEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this),
-            liquidGlassEnabled = liquidGlassEnabled
+            liquidGlassEnabled = liquidGlassEnabled,
+            darkModeEnabled = darkModeEnabled
         )
 
     private fun searchBackgroundContentAlpha(): Float =
@@ -1210,7 +1380,8 @@ class LauncherActivity : AppCompatActivity(),
     private fun searchTouchBlockerAlpha(): Float =
         LauncherBlurEffectPolicy.searchTouchBlockerAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
-            searchEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this)
+            searchEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
+            darkModeEnabled = darkModeEnabled
         )
 
     private fun setBlurLayersAlpha(alpha: Float) {
@@ -7682,18 +7853,53 @@ class LauncherActivity : AppCompatActivity(),
     private fun applyCustomWallpaper(rawUri: String?) {
         if (!::workspace.isInitialized || !::blurLayer.isInitialized) return
 
-        val drawable = customWallpaperDrawable(rawUri)
-        if (drawable != null) {
-            workspace.background = drawable
+        val wallpaper = customWallpaperBitmap(rawUri)
+        if (wallpaper != null) {
+            workspace.background = customWallpaperDrawable(wallpaper)
+            realtimeLiquidGlassSource()?.background =
+                if (
+                    LauncherRealtimeLiquidGlassPolicy.shouldMirrorCustomWallpaperToSource(
+                        customWallpaperAvailable = true
+                    )
+                ) {
+                    customWallpaperDrawable(wallpaper)
+                } else {
+                    null
+                }
             blurLayer.visibility = VISIBLE
             setBlurLayersAlpha(0f)
         } else {
-            workspace.background = null
+            if (
+                LauncherRealtimeLiquidGlassPolicy.shouldUseDefaultWallpaperSourceFallback(
+                    customWallpaperAvailable = false
+                )
+            ) {
+                workspace.background = defaultWallpaperDrawable()
+                realtimeLiquidGlassSource()?.background = defaultWallpaperDrawable()
+            } else {
+                workspace.background = null
+                realtimeLiquidGlassSource()?.background = null
+            }
             blurLayer.visibility = VISIBLE
         }
     }
 
-    private fun customWallpaperDrawable(rawUri: String?): Drawable? {
+    private fun customWallpaperDrawable(bitmap: Bitmap): Drawable =
+        BitmapDrawable(resources, bitmap).apply {
+            gravity = Gravity.FILL
+        }
+
+    private fun defaultWallpaperDrawable(): Drawable? =
+        ContextCompat.getDrawable(this, R.drawable.ios26_sky_home_screen_light)
+            ?.constantState
+            ?.newDrawable(resources)
+            ?.apply {
+                if (this is BitmapDrawable) {
+                    gravity = Gravity.FILL
+                }
+            }
+
+    private fun customWallpaperBitmap(rawUri: String?): Bitmap? {
         if (rawUri.isNullOrBlank()) return null
         val uri = runCatching { Uri.parse(rawUri) }.getOrNull() ?: return null
         val source = runCatching {
@@ -7701,9 +7907,7 @@ class LauncherActivity : AppCompatActivity(),
         }.getOrNull() ?: return null
         val targetWidth = resources.displayMetrics.widthPixels.coerceAtLeast(1)
         val targetHeight = resources.displayMetrics.heightPixels.coerceAtLeast(1)
-        return BitmapDrawable(resources, centerCropBitmap(source, targetWidth, targetHeight)).apply {
-            gravity = Gravity.FILL
-        }
+        return centerCropBitmap(source, targetWidth, targetHeight)
     }
 
     private fun centerCropBitmap(source: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
@@ -8361,6 +8565,8 @@ class LauncherActivity : AppCompatActivity(),
                 val dockTranslationY = (1 - progress) * dockHeight
                 mDock.translationY = dockTranslationY
                 mIndicator.translationY = LauncherSearchEntryPolicy.indicatorTranslationYForDockSlide(dockTranslationY)
+                syncDockChromeTransform()
+                syncIndicatorChromeTransform()
 
                 if (scrollX >= 0 && scrollX < mDeviceProfile.availableWidthPx) {
                     val fraction = (mDeviceProfile.availableWidthPx - scrollX).toFloat() /
@@ -8756,7 +8962,8 @@ class LauncherActivity : AppCompatActivity(),
     private fun createAppLibrarySearchPill(): View {
         val searchStyle = LauncherLiquidGlassStylePolicy.searchPill(
             enabled = liquidGlassEnabled,
-            darkMode = styleDarkModeForLiquidGlass()
+            darkMode = styleDarkModeForLiquidGlass(),
+            liquidGlass = liquidGlassEnabled
         )
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -8874,7 +9081,8 @@ class LauncherActivity : AppCompatActivity(),
             val folderStyle = LauncherLiquidGlassStylePolicy.appLibraryFolder(
                 enabled = liquidGlassEnabled,
                 empty = group.apps.isEmpty(),
-                darkMode = styleDarkModeForLiquidGlass()
+                darkMode = styleDarkModeForLiquidGlass(),
+                liquidGlass = liquidGlassEnabled
             )
             val cardContent = FrameLayout(context).apply {
                 background = roundedRectangle(folderStyle)
@@ -9337,7 +9545,8 @@ class LauncherActivity : AppCompatActivity(),
 
         val fieldStyle = LauncherLiquidGlassStylePolicy.searchField(
             enabled = liquidGlassEnabled,
-            darkMode = styleDarkModeForLiquidGlass()
+            darkMode = styleDarkModeForLiquidGlass(),
+            liquidGlass = liquidGlassEnabled
         )
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -14137,7 +14346,7 @@ class LauncherActivity : AppCompatActivity(),
         resetHomeIndicatorPosition()
         mIndicator.isClickable = false
         mIndicator.alpha = 0f
-        mIndicator.visibility = GONE
+        setIndicatorChromeVisibility(false)
     }
 
     private fun isSwipeSearchActive(): Boolean =
@@ -14151,7 +14360,7 @@ class LauncherActivity : AppCompatActivity(),
         resetHomeIndicatorPosition()
         mIndicator.isClickable = false
         mIndicator.alpha = 0f
-        mIndicator.visibility = GONE
+        setIndicatorChromeVisibility(false)
     }
 
     private fun isFolderWindowActive(): Boolean =
@@ -14165,7 +14374,7 @@ class LauncherActivity : AppCompatActivity(),
         resetHomeIndicatorPosition()
         mIndicator.isClickable = false
         mIndicator.alpha = 0f
-        mIndicator.visibility = GONE
+        setIndicatorChromeVisibility(false)
     }
 
     private fun resetHomeIndicatorPosition() {
@@ -14179,6 +14388,7 @@ class LauncherActivity : AppCompatActivity(),
         mIndicator.translationY = 0f
         mIndicator.scaleX = 1f
         mIndicator.scaleY = 1f
+        syncIndicatorChromeTransform()
     }
 
     private fun showPageIndicator(page: Int) {
@@ -14298,18 +14508,29 @@ class LauncherActivity : AppCompatActivity(),
             hideHomeIndicatorForFolder()
             return
         }
-        indicatorMode = IndicatorMode.DOTS
-        ensureDotsIndicatorFrame()
-        ensureIndicatorWheelView()
         if (homeIndicatorPageCount() <= 1) {
             mIndicator.removeAllViews()
-            mIndicator.visibility = GONE
+            setIndicatorChromeVisibility(false)
             return
         }
-        resetHomeIndicatorPosition()
-        mIndicator.isClickable = true
-        mIndicator.alpha = 1f
-        mIndicator.visibility = VISIBLE
+        val shouldRebuildFrame = LauncherSearchEntryPolicy.shouldRebuildDotsIndicatorFrame(
+            indicatorModeIsDots = indicatorMode == IndicatorMode.DOTS,
+            wheelAttached = indicatorWheelView?.parent === mIndicator,
+            indicatorVisible = mIndicator.visibility == VISIBLE
+        )
+        if (shouldRebuildFrame) {
+            indicatorMode = IndicatorMode.DOTS
+            ensureDotsIndicatorFrame()
+            ensureIndicatorWheelView()
+            resetHomeIndicatorPosition()
+            mIndicator.isClickable = true
+            mIndicator.alpha = 1f
+            setIndicatorChromeVisibility(true)
+        } else {
+            mIndicator.isClickable = true
+            mIndicator.alpha = 1f
+            syncIndicatorChromeTransform(refreshRealtime = false)
+        }
     }
 
     private fun showSearchControlInIndicator(animated: Boolean) {
@@ -14331,7 +14552,7 @@ class LauncherActivity : AppCompatActivity(),
         resetHomeIndicatorPosition()
         mIndicator.isClickable = true
         mIndicator.alpha = 1f
-        mIndicator.visibility = VISIBLE
+        setIndicatorChromeVisibility(true)
         mIndicator.removeAllViews()
         mIndicator.addView(createIndicatorSearchControl())
         if (animated) {
@@ -14389,18 +14610,18 @@ class LauncherActivity : AppCompatActivity(),
     private fun indicatorBackgroundStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle =
         if (indicatorMode == IndicatorMode.SEARCH) {
             LauncherLiquidGlassStylePolicy.searchPill(
-                enabled = liquidGlassEnabled,
-                darkMode = styleDarkModeForLiquidGlass()
+                enabled = lightModeSearchBlurEnabled(),
+                darkMode = darkModeEnabled
             )
         } else {
             LauncherLiquidGlassStylePolicy.pageIndicator(
-                enabled = liquidGlassEnabled,
-                darkMode = styleDarkModeForLiquidGlass()
+                enabled = lightModeSearchBlurEnabled(),
+                darkMode = darkModeEnabled
             )
         }
 
     private fun applyIndicatorBackgroundForCurrentMode() {
-        mIndicator.background = roundedRectangle(indicatorBackgroundStyle())
+        applyIndicatorRealtimeLiquidGlass()
     }
 
     private fun updateIndicatorFrame(widthDp: Int, heightDp: Int) {
@@ -14408,6 +14629,8 @@ class LauncherActivity : AppCompatActivity(),
         layoutParams.width = dp(widthDp)
         layoutParams.height = dp(heightDp)
         mIndicator.layoutParams = layoutParams
+        indicatorGlassBackground()?.let(::syncIndicatorRealtimeGlassLayout)
+        syncIndicatorChromeTransform()
     }
 
     private fun openSearchFromIndicator() {
@@ -14470,19 +14693,19 @@ class LauncherActivity : AppCompatActivity(),
         if (isAppLibraryPage(page)) {
             indicatorHandler.removeCallbacks(hideIndicatorRunnable)
             resetHomeIndicatorPosition()
-            mDock.visibility = GONE
-            mIndicator.visibility = GONE
+            setDockChromeVisibility(false)
+            setIndicatorChromeVisibility(false)
         } else {
-            mDock.visibility = VISIBLE
+            setDockChromeVisibility(shouldShowDockForPage(page))
         }
 
         if (!isHomePage(page)) {
             indicatorHandler.removeCallbacks(hideIndicatorRunnable)
             resetHomeIndicatorPosition()
-            mIndicator.visibility = GONE
+            setIndicatorChromeVisibility(false)
         } else if (isWobbling) {
             showDotsInIndicator(homePagePositionForPagerPage(page), false)
-            mIndicator.visibility = VISIBLE
+            setIndicatorChromeVisibility(true)
         } else if (indicatorMode == IndicatorMode.SEARCH) {
             showSearchControlInIndicator(false)
         }
@@ -14526,11 +14749,23 @@ class LauncherActivity : AppCompatActivity(),
         forceHideSwipeSearchForFolder()
         hideHomeIndicatorForFolder()
 
+        val openGeneration = ++folderOpenGeneration
+        val deferContentBinding = FolderOpenPerformancePolicy.shouldDeferContentBinding(
+            openedByDragHover = folderOpenedByDragHover
+        )
+        val deferRealtimeGlassBinding = FolderOpenPerformancePolicy.shouldDeferRealtimeGlassBinding(
+            openedByDragHover = folderOpenedByDragHover,
+            liquidGlassEnabled = liquidGlassEnabled
+        )
+
         activeFolder = app
         activeFolderView = v
         val folderMetrics = folderOpenMetrics()
         applyFolderOpenMetrics(folderMetrics)
-        applyLiquidGlassAppearance()
+        applyFolderLiquidGlassAppearance(bindRealtime = !deferRealtimeGlassBinding)
+        bindFolderTitleInput(app)
+        mFolderTitleInput.isCursorVisible = false
+        prepareFolderContentForOpen(deferContentBinding)
 
         startBounds = Rect()
         finalBounds = Rect()
@@ -14570,8 +14805,9 @@ class LauncherActivity : AppCompatActivity(),
             .with(ObjectAnimator.ofFloat(mHorizontalPager, View.ALPHA, backgroundContentAlpha))
             .with(ObjectAnimator.ofFloat(mIndicator, View.ALPHA, 0f))
             .with(ObjectAnimator.ofFloat(mDock, View.ALPHA, backgroundContentAlpha))
-        set.duration = 300
+        set.duration = FolderOpenPerformancePolicy.OPEN_ANIMATION_DURATION_MS
         set.interpolator = DecelerateInterpolator()
+        var openAnimationCanceled = false
         set.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationStart(animation: Animator) {
                 super.onAnimationStart(animation)
@@ -14583,20 +14819,30 @@ class LauncherActivity : AppCompatActivity(),
             }
 
             override fun onAnimationEnd(animation: Animator) {
+                if (openAnimationCanceled) {
+                    return
+                }
                 currentAnimator = null
                 setBlurLayersAlpha(targetBlurAlpha)
                 mHorizontalPager.alpha = backgroundContentAlpha
                 hideHomeIndicatorForFolder()
                 mDock.alpha = backgroundContentAlpha
+                if (deferContentBinding) {
+                    bindFolderContent(app, fadeIn = true)
+                }
+                if (deferRealtimeGlassBinding) {
+                    scheduleDeferredFolderRealtimeGlass(app, openGeneration)
+                }
             }
 
             override fun onAnimationCancel(animation: Animator) {
+                openAnimationCanceled = true
                 currentAnimator = null
                 mFolderWindowContainer.visibility = GONE
                 setBlurLayersAlpha(0f)
                 mHorizontalPager.alpha = 1f
                 mIndicator.alpha = 1f
-                mIndicator.visibility = VISIBLE
+                setIndicatorChromeVisibility(true)
                 mDock.alpha = 1f
             }
         })
@@ -14604,11 +14850,64 @@ class LauncherActivity : AppCompatActivity(),
         currentAnimator = set
         startScaleFinal = startScale
 
-        bindFolderTitleInput(app)
-        mFolderTitleInput.isCursorVisible = false
+        if (!deferContentBinding) {
+            bindFolderContent(app, fadeIn = false)
+        }
+    }
 
-        mFolderAppsViewPager.adapter = FolderAppsPagerAdapter(this, app.items!!)
-        (mLauncherView.findViewById<View>(R.id.indicator) as CircleIndicator).setViewPager(mFolderAppsViewPager)
+    private fun prepareFolderContentForOpen(deferContentBinding: Boolean) {
+        val folderIndicator = mLauncherView.findViewById<View>(R.id.indicator)
+        mFolderAppsViewPager.animate().cancel()
+        folderIndicator?.animate()?.cancel()
+        if (deferContentBinding) {
+            mFolderAppsViewPager.adapter = null
+            mFolderAppsViewPager.alpha = 0f
+            folderIndicator?.alpha = 0f
+        } else {
+            mFolderAppsViewPager.alpha = 1f
+            folderIndicator?.alpha = 1f
+        }
+    }
+
+    private fun bindFolderContent(app: FolderItem, fadeIn: Boolean) {
+        if (activeFolder !== app || mFolderWindowContainer.visibility != VISIBLE) {
+            return
+        }
+        val folderIndicator = mLauncherView.findViewById<View>(R.id.indicator) as CircleIndicator
+        mFolderAppsViewPager.animate().cancel()
+        folderIndicator.animate().cancel()
+        mFolderAppsViewPager.adapter = FolderAppsPagerAdapter(this, app.items.orEmpty())
+        folderIndicator.setViewPager(mFolderAppsViewPager)
+        if (!fadeIn) {
+            mFolderAppsViewPager.alpha = 1f
+            folderIndicator.alpha = 1f
+            return
+        }
+        mFolderAppsViewPager.alpha = 0f
+        folderIndicator.alpha = 0f
+        mFolderAppsViewPager.animate()
+            .alpha(1f)
+            .setDuration(FolderOpenPerformancePolicy.CONTENT_FADE_IN_DURATION_MS)
+            .start()
+        folderIndicator.animate()
+            .alpha(1f)
+            .setDuration(FolderOpenPerformancePolicy.CONTENT_FADE_IN_DURATION_MS)
+            .start()
+    }
+
+    private fun scheduleDeferredFolderRealtimeGlass(app: FolderItem, openGeneration: Int) {
+        mFolderWindowContainer.postDelayed(
+            {
+                if (
+                    folderOpenGeneration == openGeneration &&
+                    activeFolder === app &&
+                    mFolderWindowContainer.visibility == VISIBLE
+                ) {
+                    applyFolderLiquidGlassAppearance(bindRealtime = true)
+                }
+            },
+            FolderOpenPerformancePolicy.REALTIME_GLASS_BIND_DELAY_MS
+        )
     }
 
     private fun folderOpenMetrics(): FolderOpenLayoutPolicy.Metrics =
@@ -14682,6 +14981,7 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun hideFolderWindowContainer(saveLayout: Boolean = true) {
+        folderOpenGeneration++
         if (saveLayout) {
             updateFolderTitle()
             DatabaseManager.getManager(this@LauncherActivity).saveLayouts(pages, mDock)
@@ -14705,8 +15005,8 @@ class LauncherActivity : AppCompatActivity(),
         set.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationStart(animation: Animator) {
                 mHorizontalPager.visibility = VISIBLE
-                mDock.visibility = VISIBLE
-                mIndicator.visibility = VISIBLE
+                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber))
+                setIndicatorChromeVisibility(true)
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -14716,6 +15016,8 @@ class LauncherActivity : AppCompatActivity(),
                 mHorizontalPager.alpha = 1f
                 mIndicator.alpha = 1f
                 mDock.alpha = 1f
+                syncDockChromeTransform()
+                syncIndicatorChromeTransform()
             }
 
             override fun onAnimationCancel(animation: Animator) {
@@ -14725,6 +15027,8 @@ class LauncherActivity : AppCompatActivity(),
                 mHorizontalPager.alpha = 1f
                 mIndicator.alpha = 1f
                 mDock.alpha = 1f
+                syncDockChromeTransform()
+                syncIndicatorChromeTransform()
             }
         })
         set.start()
@@ -14750,10 +15054,11 @@ class LauncherActivity : AppCompatActivity(),
         if (shouldMoveToDefaultScreen) {
             mHorizontalPager.visibility = VISIBLE
             mHorizontalPager.alpha = 1f
-            mDock.visibility = VISIBLE
             mDock.alpha = 1f
-            mIndicator.visibility = VISIBLE
+            setDockChromeVisibility(true)
+            syncDockChromeTransform()
             mIndicator.alpha = 1f
+            setIndicatorChromeVisibility(true)
             mHorizontalPager.snapToPage(1)
         }
     }
@@ -14872,8 +15177,9 @@ class LauncherActivity : AppCompatActivity(),
                 searchBackgroundBlocker.alpha = 0f
                 setBlurLayersAlpha(0f)
                 mHorizontalPager.visibility = VISIBLE
-                mDock.visibility = VISIBLE
-                mIndicator.visibility = VISIBLE
+                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber))
+                setIndicatorChromeVisibility(true)
+                syncDockChromeTransform()
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -14884,10 +15190,11 @@ class LauncherActivity : AppCompatActivity(),
                 searchBackgroundBlocker.visibility = VISIBLE
                 searchBackgroundBlocker.alpha = blockerAlpha
                 mHorizontalPager.visibility = if (backgroundContentAlpha > 0f) VISIBLE else GONE
-                mDock.visibility = GONE
-                mIndicator.visibility = GONE
+                setIndicatorChromeVisibility(false)
                 mHorizontalPager.alpha = backgroundContentAlpha
                 mDock.alpha = backgroundContentAlpha
+                setDockChromeVisibility(false)
+                syncDockChromeTransform()
 
                 val searchEditText = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
                 val clearSuggestions = swipeSearchContainer.findViewById<ImageView>(R.id.clearSuggestionImageView)
@@ -15006,8 +15313,9 @@ class LauncherActivity : AppCompatActivity(),
                 super.onAnimationStart(animation)
                 searchBackgroundBlocker.visibility = VISIBLE
                 mHorizontalPager.visibility = VISIBLE
-                mDock.visibility = VISIBLE
-                mIndicator.visibility = VISIBLE
+                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber))
+                setIndicatorChromeVisibility(true)
+                syncDockChromeTransform()
             }
 
             override fun onAnimationCancel(animation: Animator) {
@@ -15018,10 +15326,11 @@ class LauncherActivity : AppCompatActivity(),
                 searchBackgroundBlocker.alpha = blockerAlpha
                 setBlurLayersAlpha(targetBlurAlpha)
                 mHorizontalPager.visibility = if (backgroundContentAlpha > 0f) VISIBLE else GONE
-                mDock.visibility = GONE
-                mIndicator.visibility = GONE
+                setIndicatorChromeVisibility(false)
                 mHorizontalPager.alpha = backgroundContentAlpha
                 mDock.alpha = backgroundContentAlpha
+                setDockChromeVisibility(false)
+                syncDockChromeTransform()
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -15036,6 +15345,8 @@ class LauncherActivity : AppCompatActivity(),
                 }
                 swipeSearchContainer.findViewById<BlissInput>(R.id.search_input).setText("")
                 swipeSearchContainer.findViewById<View>(R.id.search_input).clearFocus()
+                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber))
+                syncDockChromeTransform()
             }
         })
         set.start()
@@ -15075,6 +15386,7 @@ class LauncherActivity : AppCompatActivity(),
                 hideHomeIndicatorForSearch()
             } else {
                 mIndicator.alpha = deltaAlpha
+                syncIndicatorChromeTransform()
             }
             mDock.alpha = backgroundAlpha
             searchBackgroundBlocker.alpha = progress * searchTouchBlockerAlpha()

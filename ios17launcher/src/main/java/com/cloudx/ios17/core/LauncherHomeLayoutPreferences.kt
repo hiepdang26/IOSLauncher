@@ -38,9 +38,9 @@ object LauncherHomeLayoutPreferences {
     const val HOME_GRID_ROWS_6 = 6
     const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
 
-    const val MIN_HOME_ICON_SIZE_DP = 45
-    const val DEFAULT_HOME_ICON_SIZE_DP = 56
-    const val MAX_HOME_ICON_SIZE_DP = 68
+    const val MIN_HOME_ICON_SIZE_DP = 46
+    const val DEFAULT_HOME_ICON_SIZE_DP = 57
+    const val MAX_HOME_ICON_SIZE_DP = 69
     const val ICON_SIZE_SLIDER_MAX = 20
     const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = ICON_SIZE_SLIDER_MAX / 2
     const val DEFAULT_AUTO_REARRANGE_APPS = false

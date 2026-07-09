@@ -9,76 +9,85 @@ class LauncherBlurEffectPolicyTest {
         assertEquals(1f, LauncherBlurEffectPolicy.overlayAlpha(true, true))
         assertEquals(0f, LauncherBlurEffectPolicy.overlayAlpha(false, true))
         assertEquals(0f, LauncherBlurEffectPolicy.overlayAlpha(true, false))
+        assertEquals(0f, LauncherBlurEffectPolicy.overlayAlpha(true, true, darkModeEnabled = true))
     }
 
     @Test
-    fun folderOverlayAlpha_isOpaqueWheneverFolderIsOpen() {
+    fun folderOverlayAlpha_usesFolderBlurOnlyInLightMode() {
         assertEquals(
-            1f,
+            0f,
             LauncherBlurEffectPolicy.folderOverlayAlpha(
                 masterEnabled = false,
                 folderEnabled = false,
-                liquidGlassEnabled = false
+                liquidGlassEnabled = false,
+                darkModeEnabled = false
+            )
+        )
+        assertEquals(
+            0f,
+            LauncherBlurEffectPolicy.folderOverlayAlpha(
+                masterEnabled = true,
+                folderEnabled = false,
+                liquidGlassEnabled = false,
+                darkModeEnabled = false
             )
         )
         assertEquals(
             1f,
             LauncherBlurEffectPolicy.folderOverlayAlpha(
                 masterEnabled = true,
-                folderEnabled = false,
-                liquidGlassEnabled = false
-            )
-        )
-        assertEquals(
-            1f,
-            LauncherBlurEffectPolicy.folderOverlayAlpha(
-                masterEnabled = false,
                 folderEnabled = true,
-                liquidGlassEnabled = false
+                liquidGlassEnabled = false,
+                darkModeEnabled = false
             )
         )
         assertEquals(
-            1f,
+            0f,
             LauncherBlurEffectPolicy.folderOverlayAlpha(
-                masterEnabled = false,
-                folderEnabled = false,
-                liquidGlassEnabled = true
+                masterEnabled = true,
+                folderEnabled = true,
+                liquidGlassEnabled = true,
+                darkModeEnabled = true
             )
         )
     }
 
     @Test
-    fun folderBackgroundContentAlpha_keepsLightFolderBackdropReadable() {
+    fun folderBackgroundContentAlpha_dimsOnlyWhenLightFolderBlurIsActive() {
         assertEquals(
-            0.16f,
+            1f,
             LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
                 masterEnabled = false,
                 folderEnabled = false,
-                liquidGlassEnabled = false
+                liquidGlassEnabled = false,
+                darkModeEnabled = false
             )
         )
         assertEquals(
-            0.16f,
+            1f,
             LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
                 masterEnabled = true,
                 folderEnabled = false,
-                liquidGlassEnabled = false
+                liquidGlassEnabled = false,
+                darkModeEnabled = false
             )
         )
         assertEquals(
-            0.16f,
+            0f,
             LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
-                masterEnabled = false,
+                masterEnabled = true,
                 folderEnabled = true,
-                liquidGlassEnabled = false
+                liquidGlassEnabled = false,
+                darkModeEnabled = false
             )
         )
         assertEquals(
-            0.16f,
+            1f,
             LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
-                masterEnabled = false,
-                folderEnabled = false,
-                liquidGlassEnabled = true
+                masterEnabled = true,
+                folderEnabled = true,
+                liquidGlassEnabled = true,
+                darkModeEnabled = true
             )
         )
     }
@@ -98,5 +107,6 @@ class LauncherBlurEffectPolicyTest {
         )
         assertEquals(0f, LauncherBlurEffectPolicy.searchTouchBlockerAlpha(false, true))
         assertEquals(0f, LauncherBlurEffectPolicy.searchTouchBlockerAlpha(true, false))
+        assertEquals(0f, LauncherBlurEffectPolicy.searchTouchBlockerAlpha(true, true, darkModeEnabled = true))
     }
 }

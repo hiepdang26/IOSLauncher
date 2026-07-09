@@ -37,35 +37,43 @@
                 android:clipChildren="false"
                 android:clipToPadding="false">
 
-                <LinearLayout
-                    android:id="@+id/searchPill"
+                <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+                    android:id="@+id/searchPillGlassSurface"
                     android:layout_width="104dp"
                     android:layout_height="34dp"
                     android:layout_gravity="center"
-                    android:background="@drawable/bg_ios_search_pill"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:orientation="horizontal"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp">
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
 
-                    <ImageView
-                        android:id="@+id/searchPillIcon"
-                        android:layout_width="15dp"
-                        android:layout_height="15dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_search_18" />
+                    <LinearLayout
+                        android:id="@+id/searchPill"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_ios_search_pill"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp">
 
-                    <TextView
-                        android:id="@+id/searchPillText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="@string/launcher_search_hint"
-                        android:textColor="@color/ios_workspace_text"
-                        android:textSize="12sp" />
-                </LinearLayout>
+                        <ImageView
+                            android:id="@+id/searchPillIcon"
+                            android:layout_width="15dp"
+                            android:layout_height="15dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_search_18" />
+
+                        <TextView
+                            android:id="@+id/searchPillText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="@string/launcher_search_hint"
+                            android:textColor="@color/ios_workspace_text"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
 
                 <LinearLayout
                     android:id="@+id/pageIndicator"
@@ -80,18 +88,26 @@
                     android:visibility="gone" />
             </FrameLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/dockRecyclerView"
+            <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+                android:id="@+id/dockGlassSurface"
                 android:layout_width="match_parent"
                 android:layout_height="92dp"
-                android:background="@drawable/bg_ios_dock"
                 android:clipChildren="false"
-                android:clipToPadding="false"
-                android:overScrollMode="never"
-                android:paddingStart="14dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="10dp" />
+                android:clipToPadding="false">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/dockRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_ios_dock"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never"
+                    android:paddingStart="14dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="10dp" />
+            </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
         </LinearLayout>
 
         <FrameLayout
@@ -246,7 +262,7 @@
                 android:shadowDy="1"
                 android:shadowRadius="4" />
 
-            <FrameLayout
+            <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
                 android:id="@+id/folderContentPanel"
                 android:layout_width="322dp"
                 android:layout_height="382dp"
@@ -272,7 +288,7 @@
                     android:paddingTop="4dp"
                     android:paddingEnd="6dp"
                     android:paddingBottom="4dp" />
-            </FrameLayout>
+            </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
         </FrameLayout>
 
         <View
@@ -319,48 +335,54 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <LinearLayout
-                        android:id="@+id/searchField"
+                    <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+                        android:id="@+id/searchFieldGlassSurface"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_ios_search_field"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="14dp">
+                        android:layout_weight="1">
 
-                        <ImageView
-                            android:id="@+id/searchFieldIcon"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_search_18" />
-
-                        <EditText
-                            android:id="@+id/searchEditText"
-                            android:layout_width="0dp"
+                        <LinearLayout
+                            android:id="@+id/searchField"
+                            android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:layout_marginStart="4dp"
-                            android:layout_weight="1"
-                            android:background="@android:color/transparent"
-                            android:hint="@string/launcher_search_hint"
-                            android:includeFontPadding="false"
-                            android:imeOptions="actionSearch"
-                            android:inputType="text"
-                            android:singleLine="true"
-                            android:textColor="@color/ios_workspace_text"
-                            android:textColorHint="#B8FFFFFF"
-                            android:textCursorDrawable="@null"
-                            android:textSize="23sp" />
+                            android:background="@drawable/bg_ios_search_field"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="14dp">
 
-                        <ImageView
-                            android:id="@+id/searchMicIcon"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_mic_18" />
-                    </LinearLayout>
+                            <ImageView
+                                android:id="@+id/searchFieldIcon"
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_search_18" />
+
+                            <EditText
+                                android:id="@+id/searchEditText"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_marginStart="4dp"
+                                android:layout_weight="1"
+                                android:background="@android:color/transparent"
+                                android:hint="@string/launcher_search_hint"
+                                android:includeFontPadding="false"
+                                android:imeOptions="actionSearch"
+                                android:inputType="text"
+                                android:singleLine="true"
+                                android:textColor="@color/ios_workspace_text"
+                                android:textColorHint="#B8FFFFFF"
+                                android:textCursorDrawable="@null"
+                                android:textSize="23sp" />
+
+                            <ImageView
+                                android:id="@+id/searchMicIcon"
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_mic_18" />
+                        </LinearLayout>
+                    </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
 
                     <TextView
                         android:id="@+id/cancelSearchButton"
@@ -387,18 +409,26 @@
                     android:textSize="20sp"
                     android:textStyle="bold" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/searchResultsRecyclerView"
+                <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+                    android:id="@+id/searchResultsGlassSurface"
                     android:layout_width="match_parent"
                     android:layout_height="260dp"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_ios_search_results"
-                    android:clipToPadding="false"
-                    android:overScrollMode="never"
-                    android:paddingStart="16dp"
-                    android:paddingTop="20dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="20dp" />
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/searchResultsRecyclerView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_ios_search_results"
+                        android:clipToPadding="false"
+                        android:overScrollMode="never"
+                        android:paddingStart="16dp"
+                        android:paddingTop="20dp"
+                        android:paddingEnd="16dp"
+                        android:paddingBottom="20dp" />
+                </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
             </LinearLayout>
         </FrameLayout>
 
@@ -427,40 +457,46 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <LinearLayout
-                        android:id="@+id/librarySearchField"
+                    <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
+                        android:id="@+id/librarySearchFieldGlassSurface"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_app_library_search"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp">
+                        android:layout_weight="1">
 
-                        <ImageView
-                            android:id="@+id/librarySearchFieldIcon"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_search_18" />
-
-                        <EditText
-                            android:id="@+id/librarySearchEditText"
-                            android:layout_width="0dp"
+                        <LinearLayout
+                            android:id="@+id/librarySearchField"
+                            android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:layout_marginStart="6dp"
-                            android:layout_weight="1"
-                            android:background="@android:color/transparent"
-                            android:hint="@string/settings_app_library"
-                            android:imeOptions="actionSearch"
-                            android:inputType="text"
-                            android:singleLine="true"
-                            android:textColor="@color/ios_workspace_text"
-                            android:textColorHint="#B8FFFFFF"
-                            android:textCursorDrawable="@null"
-                            android:textSize="16sp" />
-                    </LinearLayout>
+                            android:background="@drawable/bg_app_library_search"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp">
+
+                            <ImageView
+                                android:id="@+id/librarySearchFieldIcon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_search_18" />
+
+                            <EditText
+                                android:id="@+id/librarySearchEditText"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_marginStart="6dp"
+                                android:layout_weight="1"
+                                android:background="@android:color/transparent"
+                                android:hint="@string/settings_app_library"
+                                android:imeOptions="actionSearch"
+                                android:inputType="text"
+                                android:singleLine="true"
+                                android:textColor="@color/ios_workspace_text"
+                                android:textColorHint="#B8FFFFFF"
+                                android:textCursorDrawable="@null"
+                                android:textSize="16sp" />
+                        </LinearLayout>
+                    </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
 
                     <TextView
                         android:id="@+id/cancelLibrarySearchButton"

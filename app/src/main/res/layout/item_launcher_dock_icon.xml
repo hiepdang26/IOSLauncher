@@ -9,7 +9,7 @@
         android:focusable="false"
         android:padding="8dp">
 
-        <FrameLayout
+        <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
             android:id="@+id/iconPlate"
             android:layout_width="56dp"
             android:layout_height="56dp"
@@ -150,5 +150,5 @@
                     android:contentDescription="@null"
                     android:src="@drawable/ic_minus_18" />
             </FrameLayout>
-        </FrameLayout>
+        </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
     </FrameLayout>

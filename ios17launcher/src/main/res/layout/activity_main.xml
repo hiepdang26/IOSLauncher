@@ -26,12 +26,24 @@
             android:alpha="0"
             android:background="#5C000000" />
 
-        <com.cloudx.ios17.core.customviews.HorizontalPager
-            android:id="@+id/pages_container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
     </com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassSourceLayout>
+
+    <com.cloudx.ios17.core.customviews.HorizontalPager
+        android:id="@+id/pages_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
+
+    <com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassLayout
+        android:id="@+id/page_indicator_liquid_glass_background"
+        android:layout_width="104dp"
+        android:layout_height="34dp"
+        android:layout_above="@+id/dock"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="12dp"
+        android:visibility="gone"
+        app:blurCornerRadius="17dp" />
 
     <com.cloudx.ios17.core.customviews.PageIndicatorLinearLayout
         android:id="@+id/page_indicator"

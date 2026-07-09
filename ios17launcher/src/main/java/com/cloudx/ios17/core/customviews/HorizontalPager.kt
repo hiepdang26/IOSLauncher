@@ -117,8 +117,13 @@ class HorizontalPager @JvmOverloads constructor(
 
     override fun dispatchDraw(canvas: Canvas) {
         val drawingTime = drawingTime
-        val count = childCount
-        for (i in 0 until count) {
+        val drawnPages = HorizontalPagerSwipeAnimationPolicy.drawnPageRange(
+            scrollX = scrollX,
+            viewportWidth = width,
+            pageWidth = pageWidth,
+            childCount = childCount
+        )
+        for (i in drawnPages) {
             drawChild(canvas, getChildAt(i), drawingTime)
         }
 
@@ -344,9 +349,15 @@ class HorizontalPager @JvmOverloads constructor(
                         velocityTracker.computeCurrentVelocity(1000, mMaximumVelocity.toFloat())
                         val velocityX = velocityTracker.xVelocity.toInt()
 
-                        if (velocityX > SNAP_VELOCITY && currentPage > 0) {
+                        if (
+                            velocityX > HorizontalPagerSwipeAnimationPolicy.SNAP_VELOCITY_PX_PER_SECOND &&
+                            currentPage > 0
+                        ) {
                             snapToPage(currentPage - 1)
-                        } else if (velocityX < -SNAP_VELOCITY && currentPage < childCount - 1) {
+                        } else if (
+                            velocityX < -HorizontalPagerSwipeAnimationPolicy.SNAP_VELOCITY_PX_PER_SECOND &&
+                            currentPage < childCount - 1
+                        ) {
                             snapToPage(currentPage + 1)
                         } else {
                             snapToDestination()
@@ -370,17 +381,21 @@ class HorizontalPager @JvmOverloads constructor(
 
     private fun snapToDestination() {
         val startX = getScrollXForPage(currentPage)
-        var whichPage = currentPage
-        if (scrollX < startX - width / 8) {
-            whichPage = max(0, whichPage - 1)
-        } else if (scrollX > startX + width / 8) {
-            whichPage = min(childCount - 1, whichPage + 1)
-        }
+        val whichPage = HorizontalPagerSwipeAnimationPolicy.destinationPage(
+            scrollX = scrollX,
+            currentPageStartX = startX,
+            currentPage = currentPage,
+            childCount = childCount,
+            width = width
+        )
         snapToPage(whichPage)
     }
 
     @JvmOverloads
-    fun snapToPage(whichPage: Int, duration: Int = 400) {
+    fun snapToPage(
+        whichPage: Int,
+        duration: Int = HorizontalPagerSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS
+    ) {
         enableChildrenCache()
 
         val changingPages = whichPage != currentPage
@@ -508,8 +523,6 @@ class HorizontalPager @JvmOverloads constructor(
         private const val INVALID_SCREEN = -1
 
         const val SPEC_UNDEFINED = -1
-
-        private const val SNAP_VELOCITY = 1000
 
         private const val TOUCH_STATE_REST = 0
         private const val TOUCH_STATE_HORIZONTAL_SCROLLING = 1
