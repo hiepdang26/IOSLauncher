@@ -52,6 +52,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -146,8 +147,10 @@ import com.vhmsoft.launcherios26.weather.DailyWeather
 import com.vhmsoft.launcherios26.weather.OpenMeteoWeatherApi
 import com.vhmsoft.launcherios26.weather.WeatherForecast
 import com.vhmsoft.launcherios26.weather.WeatherLocationProvider
+import com.vhmsoft.launcherios26.weather.WeatherSettingsPolicy
 import com.vhmsoft.launcherios26.weather.WeatherWidgetUiState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -215,6 +218,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var renameAppPickerOverlay: View? = null
     private var renameAppPickerLoadToken: Any? = null
     private var hiddenAppsSettingsPanel: View? = null
+    private var hiddenAppsSettingsLoadJob: Job? = null
     private var hiddenAppsSettingsChanged = false
     private var hasPositionedInitialHomePage = false
     private var lastWorkspacePagePosition = RecyclerView.NO_POSITION
@@ -352,8 +356,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         layoutIphone8Style = layoutPreferences.getBoolean(KEY_LAYOUT_IPHONE8_STYLE, false)
         layoutAutoArrange = layoutPreferences.getBoolean(KEY_LAYOUT_AUTO_ARRANGE, false)
         layoutLiquidGlass = layoutPreferences.getBoolean(KEY_LAYOUT_LIQUID_GLASS, false)
-        homeIconSizeDp = layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
-            .coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+        homeIconSizeDp = readMigratedHomeIconSize()
         homeGridRows = layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
             .takeIf { rows -> rows == HOME_GRID_ROWS_5 || rows == HOME_GRID_ROWS_6 }
             ?: DEFAULT_HOME_GRID_ROWS
@@ -859,12 +862,15 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.autoArrangeRow.setOnClickListener {
             binding.autoArrangeSwitch.isChecked = !binding.autoArrangeSwitch.isChecked
         }
-        binding.iconSizeSeekBar.max = MAX_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
-        binding.iconSizeSeekBar.progress = homeIconSizeDp - MIN_HOME_ICON_SIZE_DP
+        binding.iconSizeSeekBar.max = LauncherHomeIconSizePolicy.ICON_SIZE_SLIDER_MAX
+        binding.iconSizeSeekBar.progress = LauncherHomeIconSizePolicy.iconSizeToSliderProgress(homeIconSizeDp)
         binding.iconSizeSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    applyHomeIconSize(MIN_HOME_ICON_SIZE_DP + progress, persist = true)
+                    applyHomeIconSize(
+                        LauncherHomeIconSizePolicy.sliderProgressToIconSize(progress),
+                        persist = true
+                    )
                 }
             }
 
@@ -3140,6 +3146,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 .apply()
         }
         visualEffectsController.setBlurSettings(settings)
+        applyWorkspaceAppearance()
         applyBlurSettingsUi()
     }
 
@@ -4441,43 +4448,92 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun showHiddenAppsSettingsPage() {
         if (!::launcherRepository.isInitialized) return
+        hiddenAppsSettingsLoadJob?.cancel()
         hideHiddenAppsSettingsPage(reloadIfChanged = false)
 
-        lifecycleScope.launch {
+        val backgroundColor = if (layoutDarkMode) Color.BLACK else 0xFFF2F2F7.toInt()
+        val toolbarColor = if (layoutDarkMode) 0xFF1C1C1E.toInt() else Color.WHITE
+        val rowColor = if (layoutDarkMode) 0xFF1C1C1E.toInt() else backgroundColor
+        val primaryTextColor = if (layoutDarkMode) Color.WHITE else Color.BLACK
+        val secondaryTextColor = if (layoutDarkMode) 0xFFEAEAEE.toInt() else 0xFF5E6675.toInt()
+        val sectionTextColor = 0xFF8E8E93.toInt()
+        val dividerColor = if (layoutDarkMode) 0xFF38383A.toInt() else 0xFFE5E5EA.toInt()
+
+        val content = LinearLayout(this@IOSLauncherActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(backgroundColor)
+            if (LauncherHiddenAppsSettingsPolicy.showsPageBeforeLoadingApps) {
+                addView(createHiddenAppsLoadingRow(secondaryTextColor))
+            }
+        }
+
+        val panel = LinearLayout(this@IOSLauncherActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            fitsSystemWindows = true
+            setBackgroundColor(backgroundColor)
+            elevation = dp(48).toFloat()
+            isClickable = true
+            isFocusable = true
+        }
+
+        panel.addView(
+            createSettingsPageToolbar(
+                title = getString(R.string.settings_hidden_apps),
+                toolbarColor = toolbarColor,
+                titleColor = primaryTextColor,
+                onBack = { hideHiddenAppsSettingsPage() }
+            )
+        )
+        panel.addView(
+            View(this@IOSLauncherActivity).apply { setBackgroundColor(dividerColor) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+        )
+        panel.addView(
+            ScrollView(this@IOSLauncherActivity).apply {
+                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                setBackgroundColor(backgroundColor)
+                addView(
+                    content,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+
+        hiddenAppsSettingsPanel = panel
+        binding.root.addView(
+            panel,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        hiddenAppsSettingsLoadJob = lifecycleScope.launch {
             val apps = runCatching {
-                launcherRepository.getAllInstalledApps()
-                    .filterNot { app -> app.packageName == packageName }
+                withContext(Dispatchers.IO) {
+                    launcherRepository.getAllInstalledApps()
+                        .filterNot { app -> app.packageName == packageName }
+                }
             }.getOrElse { error ->
-                showError(error.message ?: getString(R.string.settings_no_apps_found))
+                if (hiddenAppsSettingsPanel === panel) {
+                    content.removeAllViews()
+                    showError(error.message ?: getString(R.string.settings_no_apps_found))
+                }
                 return@launch
             }
+
+            if (hiddenAppsSettingsPanel !== panel) return@launch
             if (apps.isEmpty()) {
+                content.removeAllViews()
                 showError(getString(R.string.settings_no_apps_found))
                 return@launch
             }
 
-            val iconsByKey = mutableMapOf<String, Drawable>()
-            apps.forEach { app ->
-                runCatching { launcherRepository.getAppIcon(app) }
-                    .getOrNull()
-                    ?.let { icon -> iconsByKey[app.iconKey] = icon }
-            }
-
-            val backgroundColor = if (layoutDarkMode) Color.BLACK else 0xFFF2F2F7.toInt()
-            val toolbarColor = if (layoutDarkMode) 0xFF1C1C1E.toInt() else Color.WHITE
-            val rowColor = if (layoutDarkMode) 0xFF1C1C1E.toInt() else backgroundColor
-            val primaryTextColor = if (layoutDarkMode) Color.WHITE else Color.BLACK
-            val secondaryTextColor = if (layoutDarkMode) 0xFFEAEAEE.toInt() else 0xFF5E6675.toInt()
-            val sectionTextColor = 0xFF8E8E93.toInt()
-            val dividerColor = if (layoutDarkMode) 0xFF38383A.toInt() else 0xFFE5E5EA.toInt()
-
-            val content = LinearLayout(this@IOSLauncherActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                setBackgroundColor(backgroundColor)
-                layoutTransition = LayoutTransition().apply {
-                    enableTransitionType(LayoutTransition.CHANGING)
-                }
-            }
+            var iconsByKey: Map<String, Drawable> = emptyMap()
 
             fun renderSections() {
                 renderHiddenAppsSettingsSections(
@@ -4497,51 +4553,19 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 )
             }
 
-            val panel = LinearLayout(this@IOSLauncherActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                fitsSystemWindows = true
-                setBackgroundColor(backgroundColor)
-                elevation = dp(48).toFloat()
-                isClickable = true
-                isFocusable = true
+            renderSections()
+
+            iconsByKey = withContext(Dispatchers.IO) {
+                apps.mapNotNull { app ->
+                    runCatching { launcherRepository.getAppIcon(app) }
+                        .getOrNull()
+                        ?.let { icon -> app.iconKey to icon }
+                }.toMap()
             }
 
-            panel.addView(
-                createSettingsPageToolbar(
-                    title = getString(R.string.settings_hidden_apps),
-                    toolbarColor = toolbarColor,
-                    titleColor = primaryTextColor,
-                    onBack = { hideHiddenAppsSettingsPage() }
-                )
-            )
-            panel.addView(
-                View(this@IOSLauncherActivity).apply { setBackgroundColor(dividerColor) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
-            )
-            panel.addView(
-                ScrollView(this@IOSLauncherActivity).apply {
-                    overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-                    setBackgroundColor(backgroundColor)
-                    addView(
-                        content,
-                        ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                    )
-                },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
-            )
-
-            hiddenAppsSettingsPanel = panel
-            binding.root.addView(
-                panel,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-            renderSections()
+            if (hiddenAppsSettingsPanel === panel) {
+                renderSections()
+            }
         }
     }
 
@@ -4596,13 +4620,24 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         content.addView(visibleContainer)
     }
 
+    private fun createHiddenAppsLoadingRow(textColor: Int): View {
+        return TextView(this).apply {
+            text = getString(R.string.settings_hidden_apps_loading)
+            setTextColor(textColor)
+            textSize = 17f
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(96)
+            )
+        }
+    }
+
     private fun createHiddenAppsRowsContainer(rowColor: Int): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(rowColor)
-            layoutTransition = LayoutTransition().apply {
-                enableTransitionType(LayoutTransition.CHANGING)
-            }
         }
     }
 
@@ -4706,6 +4741,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun hideHiddenAppsSettingsPage(reloadIfChanged: Boolean = true) {
+        hiddenAppsSettingsLoadJob?.cancel()
+        hiddenAppsSettingsLoadJob = null
         val panel = hiddenAppsSettingsPanel ?: return
         hiddenAppsSettingsPanel = null
         (panel.parent as? ViewGroup)?.removeView(panel)
@@ -6404,7 +6441,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 val locationName = withContext(Dispatchers.IO) {
                     WeatherLocationProvider.locationName(this@IOSLauncherActivity, coordinates)
                 }
-                val forecast = OpenMeteoWeatherApi.fetchForecast(coordinates, locationName)
+                val forecast = OpenMeteoWeatherApi.fetchForecast(
+                    coordinates = coordinates,
+                    locationName = locationName,
+                    temperatureUnit = selectedWeatherTemperatureUnit()
+                )
                 latestWeatherForecast = forecast
                 latestWeatherRefreshUptime = SystemClock.elapsedRealtime()
                 workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.Forecast(forecast))
@@ -6428,12 +6469,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun isWeatherForecastStale(): Boolean {
         return latestWeatherRefreshUptime == 0L ||
-            SystemClock.elapsedRealtime() - latestWeatherRefreshUptime >= WEATHER_AUTO_REFRESH_MS
+            SystemClock.elapsedRealtime() - latestWeatherRefreshUptime >= weatherAutoRefreshMs()
     }
 
     private fun scheduleNextWeatherRefresh() {
         weatherRefreshHandler.removeCallbacks(weatherRefreshRunnable)
-        weatherRefreshHandler.postDelayed(weatherRefreshRunnable, WEATHER_AUTO_REFRESH_MS)
+        weatherRefreshHandler.postDelayed(weatherRefreshRunnable, weatherAutoRefreshMs())
+    }
+
+    private fun weatherAutoRefreshMs(): Long {
+        return selectedWeatherRefreshInterval().millis
     }
 
     private fun hasWeatherLocationPermission(): Boolean {
@@ -6483,15 +6528,17 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         panel.addView(
             createWeatherSettingsOptionRow(
                 title = getString(R.string.weather_settings_unit),
-                subtitle = getString(R.string.weather_settings_unit_celsius),
-                rowColor = rowColor
+                subtitle = weatherTemperatureUnitLabel(selectedWeatherTemperatureUnit()),
+                rowColor = rowColor,
+                onClick = { showWeatherUnitDialog() }
             )
         )
         panel.addView(
             createWeatherSettingsOptionRow(
                 title = getString(R.string.weather_settings_auto_refresh),
-                subtitle = getString(R.string.weather_settings_auto_refresh_hourly),
-                rowColor = if (layoutDarkMode) 0xFF2C2C2E.toInt() else 0xFFD3D3D5.toInt()
+                subtitle = weatherRefreshIntervalLabel(selectedWeatherRefreshInterval()),
+                rowColor = rowColor,
+                onClick = { showWeatherRefreshIntervalDialog() }
             )
         )
 
@@ -6516,26 +6563,31 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun createWeatherSettingsOptionRow(
         title: String,
         subtitle: String,
-        rowColor: Int
+        rowColor: Int,
+        onClick: () -> Unit
     ): View {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(rowColor)
-            setPadding(dp(34), 0, dp(18), 0)
+            setPadding(dp(20), 0, dp(18), 0)
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener { onClick() }
             addView(
                 FrameLayout(context).apply {
-                    background = roundedBackground(getColor(R.color.icon_weather), 8)
+                    background = roundedBackground(getColor(R.color.icon_weather), 7)
                     addView(
                         ImageView(context).apply {
                             setImageResource(R.drawable.ic_weather_24)
                             imageTintList = ColorStateList.valueOf(Color.WHITE)
                         },
-                        FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER)
+                        FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
                     )
                 },
-                LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-                    marginEnd = dp(56)
+                LinearLayout.LayoutParams(dp(34), dp(34)).apply {
+                    marginEnd = dp(24)
                 }
             )
             addView(
@@ -6546,7 +6598,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                         TextView(context).apply {
                             text = title
                             setTextColor(if (layoutDarkMode) Color.WHITE else 0xFF1C1C1E.toInt())
-                            textSize = 20f
+                            textSize = 18f
                             includeFontPadding = false
                         }
                     )
@@ -6554,7 +6606,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                         TextView(context).apply {
                             text = subtitle
                             setTextColor(if (layoutDarkMode) 0xFFAEAEB2.toInt() else 0xFF6D6D72.toInt())
-                            textSize = 17f
+                            textSize = 15f
                             includeFontPadding = false
                         }
                     )
@@ -6564,7 +6616,205 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }.also { row ->
             row.layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(96)
+                dp(80)
+            )
+        }
+    }
+
+    private fun selectedWeatherTemperatureUnit(): WeatherSettingsPolicy.TemperatureUnit {
+        return WeatherSettingsPolicy.temperatureUnit(
+            layoutPreferences.getBoolean(KEY_WEATHER_USE_METRIC, true)
+        )
+    }
+
+    private fun selectedWeatherRefreshInterval(): WeatherSettingsPolicy.RefreshInterval {
+        return WeatherSettingsPolicy.refreshInterval(
+            layoutPreferences.getString(
+                KEY_WEATHER_REFRESH_INTERVAL,
+                WeatherSettingsPolicy.RefreshInterval.HOURLY.preferenceValue
+            )
+        )
+    }
+
+    private fun weatherTemperatureUnitLabel(unit: WeatherSettingsPolicy.TemperatureUnit): String {
+        return when (unit) {
+            WeatherSettingsPolicy.TemperatureUnit.CELSIUS ->
+                getString(R.string.weather_settings_unit_celsius)
+            WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT ->
+                getString(R.string.weather_settings_unit_fahrenheit)
+        }
+    }
+
+    private fun weatherRefreshIntervalLabel(interval: WeatherSettingsPolicy.RefreshInterval): String {
+        return when (interval) {
+            WeatherSettingsPolicy.RefreshInterval.HOURLY ->
+                getString(R.string.weather_settings_auto_refresh_hourly)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_3_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_3_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_6_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_6_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_9_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_9_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_12_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_12_hours)
+        }
+    }
+
+    private fun showWeatherUnitDialog() {
+        val options = listOf(
+            WeatherSettingsPolicy.TemperatureUnit.CELSIUS,
+            WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT
+        )
+        showWeatherChoiceDialog(
+            title = getString(R.string.weather_settings_unit),
+            options = options,
+            selected = selectedWeatherTemperatureUnit(),
+            labelFor = { weatherTemperatureUnitLabel(it) },
+            onSelected = { selectedUnit ->
+                layoutPreferences.edit()
+                    .putBoolean(KEY_WEATHER_USE_METRIC, selectedUnit.useMetric)
+                    .apply()
+                latestWeatherForecast = null
+                latestWeatherRefreshUptime = 0L
+                showWeatherSettingsPage()
+                refreshWeatherForecast(force = true)
+            }
+        )
+    }
+
+    private fun showWeatherRefreshIntervalDialog() {
+        val options = listOf(
+            WeatherSettingsPolicy.RefreshInterval.HOURLY,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_3_HOURS,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_6_HOURS,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_9_HOURS,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_12_HOURS
+        )
+        showWeatherChoiceDialog(
+            title = getString(R.string.weather_settings_auto_refresh),
+            options = options,
+            selected = selectedWeatherRefreshInterval(),
+            labelFor = { weatherRefreshIntervalLabel(it) },
+            onSelected = { selectedInterval ->
+                layoutPreferences.edit()
+                    .putString(KEY_WEATHER_REFRESH_INTERVAL, selectedInterval.preferenceValue)
+                    .apply()
+                showWeatherSettingsPage()
+                scheduleNextWeatherRefresh()
+                refreshWeatherForecast(force = true)
+            }
+        )
+    }
+
+    private fun <T> showWeatherChoiceDialog(
+        title: String,
+        options: List<T>,
+        selected: T,
+        labelFor: (T) -> String,
+        onSelected: (T) -> Unit
+    ) {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = roundedBackground(Color.WHITE, 22)
+            setPadding(dp(28), dp(26), dp(28), dp(18))
+        }
+        card.addView(
+            TextView(this).apply {
+                text = title
+                setTextColor(Color.BLACK)
+                textSize = 24f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(18)
+            }
+        )
+
+        options.forEach { option ->
+            card.addView(
+                createWeatherChoiceRow(
+                    label = labelFor(option),
+                    checked = option == selected
+                ) {
+                    dialog.dismiss()
+                    onSelected(option)
+                }
+            )
+        }
+
+        card.addView(
+            TextView(this).apply {
+                text = getString(R.string.dialog_cancel)
+                setTextColor(0xFF009688.toInt())
+                textSize = 16f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                foreground = obtainStyledForeground()
+                setOnClickListener { dialog.dismiss() }
+            },
+            LinearLayout.LayoutParams(dp(88), dp(52)).apply {
+                gravity = Gravity.END
+                topMargin = dp(16)
+            }
+        )
+
+        dialog.setContentView(card)
+        dialog.show()
+        dialog.window?.let { window ->
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            window.setDimAmount(0.62f)
+            window.setLayout(
+                (resources.displayMetrics.widthPixels * 0.86f).toInt(),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+    }
+
+    private fun createWeatherChoiceRow(
+        label: String,
+        checked: Boolean,
+        onClick: () -> Unit
+    ): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener { onClick() }
+            addView(
+                RadioButton(context).apply {
+                    isChecked = checked
+                    isClickable = false
+                    isFocusable = false
+                },
+                LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+                    marginEnd = dp(26)
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = label
+                    setTextColor(0xFF2C2C2E.toInt())
+                    textSize = 21f
+                    includeFontPadding = false
+                    gravity = Gravity.CENTER_VERTICAL
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            )
+        }.also { row ->
+            row.layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(64)
             )
         }
     }
@@ -7114,10 +7364,32 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         if (persist) {
             layoutPreferences.edit()
                 .putInt(KEY_HOME_ICON_SIZE_DP, boundedSize)
+                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
                 .apply()
         }
         applyHomeLayoutSettingsUi()
         applyResponsiveWorkspaceLayout()
+    }
+
+    private fun readMigratedHomeIconSize(): Int {
+        val rawIconSizeDp = layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
+        val migrationApplied = layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, false)
+        val default56MigrationApplied =
+            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
+        val migratedIconSizeDp = LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(
+            iconSizeDp = rawIconSizeDp,
+            migrationApplied = migrationApplied,
+            default56MigrationApplied = default56MigrationApplied
+        )
+        if (!migrationApplied || !default56MigrationApplied) {
+            layoutPreferences.edit()
+                .putInt(KEY_HOME_ICON_SIZE_DP, migratedIconSizeDp)
+                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .apply()
+        }
+        return migratedIconSizeDp
     }
 
     private fun applyHomeGridRows(rows: Int, persist: Boolean) {
@@ -7158,8 +7430,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             width = previewSize
             height = previewSize
         }
-        if (binding.iconSizeSeekBar.progress != homeIconSizeDp - MIN_HOME_ICON_SIZE_DP) {
-            binding.iconSizeSeekBar.progress = homeIconSizeDp - MIN_HOME_ICON_SIZE_DP
+        val iconSizeProgress = LauncherHomeIconSizePolicy.iconSizeToSliderProgress(homeIconSizeDp)
+        if (binding.iconSizeSeekBar.progress != iconSizeProgress) {
+            binding.iconSizeSeekBar.progress = iconSizeProgress
         }
 
         val selectedColor = getColor(R.color.layout_switch_green)
@@ -7258,8 +7531,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun applyWorkspaceAppearance() {
+        val blurSettings = currentBlurSettings()
         val dockStyle = LauncherLiquidGlassStylePolicy.dock(
-            enabled = layoutLiquidGlass,
+            enabled = blurSettings.dockBlurActive,
             darkMode = layoutDarkMode
         )
         val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
@@ -7652,9 +7926,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val HOME_GRID_ROWS_5 = 5
         const val HOME_GRID_ROWS_6 = 6
         const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
-        const val MIN_HOME_ICON_SIZE_DP = 52
-        const val DEFAULT_HOME_ICON_SIZE_DP = 64
-        const val MAX_HOME_ICON_SIZE_DP = 78
+        const val MIN_HOME_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP
+        const val DEFAULT_HOME_ICON_SIZE_DP = LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP
+        const val MAX_HOME_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP
+        const val KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED =
+            LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED
+        const val KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED =
+            LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED
         const val HOME_HORIZONTAL_PADDING_DP = 18
         const val HOME_BOTTOM_PADDING_DP = 16
         const val DOCK_VERTICAL_EXTRA_DP = 28
@@ -7665,7 +7943,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val DRAWER_OPEN_ANIMATION_MS = 220L
         const val DRAWER_CLOSE_ANIMATION_MS = 180L
         const val DRAWER_DIM_ANIMATION_MS = 160L
-        const val WEATHER_AUTO_REFRESH_MS = 60 * 60 * 1000L
         const val APP_OPEN_PREVIEW_ANIMATION_MS = 95L
         const val PRESET_WALLPAPER_COUNT = 11
         const val WALLPAPER_PRESET_DIRECTORY = "wallpapers"
@@ -7687,6 +7964,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val KEY_HOME_GRID_ROWS = "home_grid_rows"
         const val KEY_HOME_LAYOUT_ITEMS = "home_layout_items"
         const val KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN = "default_launcher_welcome_shown"
+        const val KEY_WEATHER_USE_METRIC = "weather_use_metric"
+        const val KEY_WEATHER_REFRESH_INTERVAL = "weather_refresh_interval"
         const val DEFAULT_ANIMATION_UNLOCK_ENABLED = true
         const val DEFAULT_ANIMATION_OPEN_CLOSE_ENABLED = false
         const val DEFAULT_ANIMATION_PARALLAX_ZOOM_ENABLED = false

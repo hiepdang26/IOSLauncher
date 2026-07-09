@@ -1,5 +1,6 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
+import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
 import kotlin.math.roundToInt
 
 data class LauncherResponsiveWorkspaceSpec(
@@ -123,6 +124,6 @@ object LauncherResponsiveWorkspaceLayout {
     private const val DOCK_IPHONE8_VERTICAL_PADDING_DP = 18
     private const val COMPACT_DOCK_IPHONE8_VERTICAL_PADDING_DP = 12
     private const val COMPACT_ICON_SIZE_DP = 56
-    private const val MIN_COMPACT_ICON_SIZE_DP = 44
+    private const val MIN_COMPACT_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP
     private const val MIN_LABEL_AND_GAP_DP = 31
 }

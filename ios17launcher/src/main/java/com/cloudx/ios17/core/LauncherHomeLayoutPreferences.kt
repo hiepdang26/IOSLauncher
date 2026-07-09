@@ -18,6 +18,9 @@ data class LauncherHomeLayoutSettings(
 object LauncherHomeLayoutPreferences {
     const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
     const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
+    const val KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED = "home_icon_size_compact_migration_applied"
+    const val KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED =
+        "home_icon_size_default_56_migration_applied"
     const val KEY_HOME_GRID_ROWS = "home_grid_rows"
     const val KEY_AUTO_REARRANGE_APPS = "auto_rearrange"
     const val KEY_LAYOUT_AUTO_REARRANGE_APPS = "layout_auto_arrange"
@@ -25,7 +28,9 @@ object LauncherHomeLayoutPreferences {
     const val KEY_LAYOUT_DARK_MODE = "layout_dark_mode"
     const val KEY_CUSTOM_WALLPAPER_URI = "custom_wallpaper_uri"
     const val KEY_BLUR_EFFECT_ENABLED = "blur_effect_enabled"
+    const val KEY_BLUR_DOCK_ENABLED = "blur_dock_enabled"
     const val KEY_BLUR_FOLDER_ENABLED = "blur_folder_enabled"
+    const val KEY_BLUR_WIDGET_ENABLED = "blur_widget_enabled"
     const val KEY_BLUR_SEARCH_ENABLED = "blur_search_enabled"
 
     const val HOME_PAGE_COLUMNS = 4
@@ -33,11 +38,11 @@ object LauncherHomeLayoutPreferences {
     const val HOME_GRID_ROWS_6 = 6
     const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
 
-    const val MIN_HOME_ICON_SIZE_DP = 52
-    const val DEFAULT_HOME_ICON_SIZE_DP = 65
-    const val MAX_HOME_ICON_SIZE_DP = 78
-    const val ICON_SIZE_SLIDER_MAX = MAX_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
-    const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
+    const val MIN_HOME_ICON_SIZE_DP = 45
+    const val DEFAULT_HOME_ICON_SIZE_DP = 56
+    const val MAX_HOME_ICON_SIZE_DP = 68
+    const val ICON_SIZE_SLIDER_MAX = 20
+    const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = ICON_SIZE_SLIDER_MAX / 2
     const val DEFAULT_AUTO_REARRANGE_APPS = false
     const val DEFAULT_DARK_MODE = false
     const val DEFAULT_BLUR_EFFECT_ENABLED = true
@@ -51,12 +56,31 @@ object LauncherHomeLayoutPreferences {
     const val DOCK_EXTRA_HEIGHT_DP = 44
     const val DOCK_BOTTOM_MARGIN_DP = 8
 
+    private const val LEGACY_DEFAULT_HOME_ICON_SIZE_DP = 55
+    private const val LEGACY_LARGE_DEFAULT_HOME_ICON_SIZE_DP = 65
+    private const val PREVIOUS_COMPACT_DEFAULT_HOME_ICON_SIZE_DP = 52
     private const val MIN_HORIZONTAL_GAP_DP = 8
 
     fun read(context: Context): LauncherHomeLayoutSettings {
         val prefs = context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        val rawIconSizeDp = prefs.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
+        val migrationApplied = prefs.getBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, false)
+        val default56MigrationApplied =
+            prefs.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
+        val iconSizeDp = migrateStoredIconSizeDp(
+            iconSizeDp = rawIconSizeDp,
+            migrationApplied = migrationApplied,
+            default56MigrationApplied = default56MigrationApplied
+        )
+        if (!migrationApplied || !default56MigrationApplied) {
+            prefs.edit()
+                .putInt(KEY_HOME_ICON_SIZE_DP, iconSizeDp)
+                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .apply()
+        }
         return resolve(
-            iconSizeDp = prefs.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP),
+            iconSizeDp = iconSizeDp,
             rows = prefs.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS),
             autoArrangeApps = readAutoRearrangeApps(prefs),
             darkMode = prefs.getBoolean(KEY_LAYOUT_DARK_MODE, DEFAULT_DARK_MODE)
@@ -79,12 +103,68 @@ object LauncherHomeLayoutPreferences {
     }
 
     fun sliderProgressToIconSize(progress: Int): Int {
-        return (MIN_HOME_ICON_SIZE_DP + progress).coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+        val safeProgress = progress.coerceIn(0, ICON_SIZE_SLIDER_MAX)
+        return if (safeProgress <= DEFAULT_ICON_SIZE_SLIDER_PROGRESS) {
+            val lowerRange = DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
+            MIN_HOME_ICON_SIZE_DP +
+                (safeProgress * lowerRange.toFloat() / DEFAULT_ICON_SIZE_SLIDER_PROGRESS).roundToInt()
+        } else {
+            val upperProgress = safeProgress - DEFAULT_ICON_SIZE_SLIDER_PROGRESS
+            val upperRange = MAX_HOME_ICON_SIZE_DP - DEFAULT_HOME_ICON_SIZE_DP
+            DEFAULT_HOME_ICON_SIZE_DP +
+                (upperProgress * upperRange.toFloat() / DEFAULT_ICON_SIZE_SLIDER_PROGRESS).roundToInt()
+        }.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
     }
 
     fun iconSizeToSliderProgress(iconSizeDp: Int): Int {
-        return (iconSizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP) - MIN_HOME_ICON_SIZE_DP)
-            .coerceIn(0, ICON_SIZE_SLIDER_MAX)
+        val safeSize = iconSizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+        return if (safeSize <= DEFAULT_HOME_ICON_SIZE_DP) {
+            val lowerRange = DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP
+            ((safeSize - MIN_HOME_ICON_SIZE_DP) *
+                DEFAULT_ICON_SIZE_SLIDER_PROGRESS.toFloat() / lowerRange).roundToInt()
+        } else {
+            val upperRange = MAX_HOME_ICON_SIZE_DP - DEFAULT_HOME_ICON_SIZE_DP
+            DEFAULT_ICON_SIZE_SLIDER_PROGRESS +
+                ((safeSize - DEFAULT_HOME_ICON_SIZE_DP) *
+                    DEFAULT_ICON_SIZE_SLIDER_PROGRESS.toFloat() / upperRange).roundToInt()
+        }.coerceIn(0, ICON_SIZE_SLIDER_MAX)
+    }
+
+    fun appLabelTextSizeSp(iconSizeDp: Int): Float {
+        val safeSize = iconSizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+        return if (safeSize <= DEFAULT_HOME_ICON_SIZE_DP) {
+            val progress = (safeSize - MIN_HOME_ICON_SIZE_DP).toFloat() /
+                (DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP)
+            11f + progress * 2f
+        } else {
+            val progress = (safeSize - DEFAULT_HOME_ICON_SIZE_DP).toFloat() /
+                (MAX_HOME_ICON_SIZE_DP - DEFAULT_HOME_ICON_SIZE_DP)
+            13f + progress * 2f
+        }
+    }
+
+    fun migrateStoredIconSizeDp(
+        iconSizeDp: Int,
+        migrationApplied: Boolean,
+        default56MigrationApplied: Boolean = false
+    ): Int {
+        val compactMigratedSize = if (!migrationApplied) {
+            when (iconSizeDp) {
+                LEGACY_DEFAULT_HOME_ICON_SIZE_DP,
+                LEGACY_LARGE_DEFAULT_HOME_ICON_SIZE_DP -> DEFAULT_HOME_ICON_SIZE_DP
+                else -> iconSizeDp
+            }
+        } else {
+            iconSizeDp
+        }
+        val migratedSize = if (!default56MigrationApplied &&
+            compactMigratedSize == PREVIOUS_COMPACT_DEFAULT_HOME_ICON_SIZE_DP
+        ) {
+            DEFAULT_HOME_ICON_SIZE_DP
+        } else {
+            compactMigratedSize
+        }
+        return migratedSize.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
     }
 
     fun isAutoRearrangeAppsEnabled(context: Context): Boolean {
@@ -106,9 +186,19 @@ object LauncherHomeLayoutPreferences {
             .getBoolean(KEY_BLUR_EFFECT_ENABLED, DEFAULT_BLUR_EFFECT_ENABLED)
     }
 
+    fun isDockBlurEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_BLUR_DOCK_ENABLED, DEFAULT_BLUR_TARGET_ENABLED)
+    }
+
     fun isFolderBlurEnabled(context: Context): Boolean {
         return context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
             .getBoolean(KEY_BLUR_FOLDER_ENABLED, DEFAULT_BLUR_TARGET_ENABLED)
+    }
+
+    fun isWidgetBlurEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_BLUR_WIDGET_ENABLED, DEFAULT_BLUR_TARGET_ENABLED)
     }
 
     fun isSearchBlurEnabled(context: Context): Boolean {
@@ -128,6 +218,34 @@ object LauncherHomeLayoutPreferences {
         context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_LAYOUT_DARK_MODE, enabled)
+            .apply()
+    }
+
+    fun setDockBlur(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BLUR_DOCK_ENABLED, enabled)
+            .apply()
+    }
+
+    fun setFolderBlur(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BLUR_FOLDER_ENABLED, enabled)
+            .apply()
+    }
+
+    fun setWidgetBlur(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BLUR_WIDGET_ENABLED, enabled)
+            .apply()
+    }
+
+    fun setSearchBlur(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BLUR_SEARCH_ENABLED, enabled)
             .apply()
     }
 

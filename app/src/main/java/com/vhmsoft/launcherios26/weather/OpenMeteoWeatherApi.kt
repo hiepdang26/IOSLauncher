@@ -8,7 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object OpenMeteoWeatherApi {
-    fun buildForecastUrl(coordinates: WeatherCoordinates): String {
+    fun buildForecastUrl(
+        coordinates: WeatherCoordinates,
+        temperatureUnit: WeatherSettingsPolicy.TemperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
+    ): String {
         val parameters = linkedMapOf(
             "latitude" to coordinates.latitude.toString(),
             "longitude" to coordinates.longitude.toString(),
@@ -18,7 +21,7 @@ object OpenMeteoWeatherApi {
             "timezone" to "auto",
             "forecast_days" to "7",
             "forecast_hours" to "8",
-            "temperature_unit" to "celsius",
+            "temperature_unit" to temperatureUnit.apiValue,
             "wind_speed_unit" to "kmh"
         )
         return FORECAST_ENDPOINT + parameters.entries.joinToString("&") { (key, value) ->
@@ -28,9 +31,10 @@ object OpenMeteoWeatherApi {
 
     suspend fun fetchForecast(
         coordinates: WeatherCoordinates,
-        locationName: String
+        locationName: String,
+        temperatureUnit: WeatherSettingsPolicy.TemperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
     ): WeatherForecast = withContext(Dispatchers.IO) {
-        val connection = URL(buildForecastUrl(coordinates)).openConnection() as HttpURLConnection
+        val connection = URL(buildForecastUrl(coordinates, temperatureUnit)).openConnection() as HttpURLConnection
         connection.connectTimeout = NETWORK_TIMEOUT_MS
         connection.readTimeout = NETWORK_TIMEOUT_MS
         connection.requestMethod = "GET"

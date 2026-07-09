@@ -192,6 +192,11 @@
     <string name="settings_rename">Đổi tên</string>
     <string name="settings_layout">Bố trí</string>
     <string name="settings_weather">Thời tiết</string>
+    <string name="settings_blur_effect">Hiệu ứng mờ</string>
+    <string name="settings_blur_dock">Đế mờ</string>
+    <string name="settings_blur_folder">Thư mục Blur</string>
+    <string name="settings_blur_widget">Tiện ích Blur</string>
+    <string name="settings_blur_search">Thanh tìm kiếm mờ</string>
     <string name="layout_back_settings">‹ Cài đặt</string>
     <string name="layout_dark_mode">Chế độ tối</string>
     <string name="layout_iphone8_style">iPhone 8 Style</string>
@@ -210,6 +215,9 @@
     <string name="launcher_edit_done">Xong</string>
     <string name="home_widget_add_entry">Thêm tiện ích</string>
     <string name="home_widget_no_room">Không còn chỗ</string>
+    <string name="home_widget_no_widgets_for_app">Ứng dụng này không có tiện ích.</string>
+    <string name="home_widget_added_hold_hint">Chạm và giữ để chọn 1 tiện ích</string>
+    <string name="home_widget_provider_preview_subtitle">%1$s  %2$s</string>
     <string name="home_widget_photo_crop_back">‹ Thay đổi biểu tượng</string>
     <string name="home_widget_photo_crop_title">Ảnh của tôi</string>
     <string name="home_widget_photo_pick_failed">Không mở được ảnh đã chọn.</string>
@@ -224,8 +232,13 @@
     <string name="weather_refresh_failed">Không lấy được thông tin thời tiết.</string>
     <string name="weather_settings_unit">Đơn vị</string>
     <string name="weather_settings_unit_celsius">°C</string>
+    <string name="weather_settings_unit_fahrenheit">°F</string>
     <string name="weather_settings_auto_refresh">Tự động làm mới</string>
     <string name="weather_settings_auto_refresh_hourly">Mỗi tiếng</string>
+    <string name="weather_settings_auto_refresh_3_hours">3 giờ một lần</string>
+    <string name="weather_settings_auto_refresh_6_hours">6 giờ một lần</string>
+    <string name="weather_settings_auto_refresh_9_hours">Cứ 9 giờ một lần</string>
+    <string name="weather_settings_auto_refresh_12_hours">12 giờ một lần</string>
     <string name="weather_today_summary">Hôm nay: %1$s, %2$d° gió %3$d km/h. Nhiệt độ cao nhất là %4$d°. Nhiệt độ tối thiểu là %5$d°.</string>
     <string name="weather_daily_forecast_title">DỰ BÁO 7 NGÀY</string>
     <string name="auto_rearrange_apps">Tự động sắp xếp lại ứng dụng</string>

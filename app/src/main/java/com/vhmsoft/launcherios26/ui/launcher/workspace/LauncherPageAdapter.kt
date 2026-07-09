@@ -26,7 +26,11 @@ import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.databinding.ItemAppLibraryPageBinding
 import com.vhmsoft.launcherios26.databinding.ItemLauncherPageBinding
 import com.vhmsoft.launcherios26.databinding.ItemLauncherWidgetPageBinding
+import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
+import com.vhmsoft.launcherios26.weather.HomeHourlyWeather
+import com.vhmsoft.launcherios26.weather.WeatherConditionMapper
 import com.vhmsoft.launcherios26.weather.WeatherForecast
+import com.vhmsoft.launcherios26.weather.WeatherHomeWidgetPolicy
 import com.vhmsoft.launcherios26.weather.WeatherWidgetUiState
 
 class LauncherPageAdapter(
@@ -968,58 +972,51 @@ class LauncherPageAdapter(
         }
 
         private fun createWeatherForecastWidget(forecast: WeatherForecast): View {
+            val summary = WeatherHomeWidgetPolicy.homeSummary(forecast)
             return FrameLayout(binding.root.context).apply {
                 background = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
-                    intArrayOf(0xFF3D6FA8.toInt(), 0xFF6EA2DE.toInt())
+                    intArrayOf(0xFF3E70A8.toInt(), 0xFF78A9E6.toInt())
                 ).apply {
-                    cornerRadius = dp(18).toFloat()
+                    cornerRadius = dp(22).toFloat()
                 }
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { onWeatherWidgetClicked() }
                 addView(
                     TextView(context).apply {
-                        text = forecast.locationName
+                        text = summary.locationName
                         setTextColor(Color.WHITE)
-                        textSize = 15f
+                        textSize = 16f
+                        typeface = Typeface.DEFAULT_BOLD
+                        includeFontPadding = false
                     },
                     FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        dp(34),
+                        dp(188),
+                        dp(28),
                         Gravity.TOP or Gravity.START
                     ).apply {
                         leftMargin = dp(16)
-                        topMargin = dp(14)
+                        topMargin = dp(16)
                     }
                 )
                 addView(
                     TextView(context).apply {
                         text = context.getString(
                             R.string.launcher_widget_weather_temperature_format,
-                            forecast.currentTemperatureC
+                            summary.currentTemperature
                         )
                         setTextColor(Color.WHITE)
-                        textSize = 44f
+                        textSize = 48f
                         includeFontPadding = false
                     },
                     FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT,
-                        dp(62),
+                        dp(66),
                         Gravity.START or Gravity.TOP
                     ).apply {
                         leftMargin = dp(16)
-                        topMargin = dp(54)
-                    }
-                )
-                addView(
-                    ImageView(context).apply {
-                        setImageResource(R.drawable.ic_weather_24)
-                        imageTintList = ColorStateList.valueOf(Color.WHITE)
-                    },
-                    FrameLayout.LayoutParams(dp(54), dp(54), Gravity.TOP or Gravity.END).apply {
-                        topMargin = dp(18)
-                        rightMargin = dp(16)
+                        topMargin = dp(50)
                     }
                 )
                 addView(
@@ -1027,34 +1024,128 @@ class LauncherPageAdapter(
                         orientation = LinearLayout.VERTICAL
                         gravity = Gravity.END
                         addView(
+                            ImageView(context).apply {
+                                setImageResource(weatherIconRes(summary.conditionCode))
+                                imageTintList = ColorStateList.valueOf(Color.WHITE)
+                            },
+                            LinearLayout.LayoutParams(dp(38), dp(38)).apply {
+                                bottomMargin = dp(4)
+                            }
+                        )
+                        addView(
                             TextView(context).apply {
-                                text = forecast.condition
+                                text = summary.condition
                                 setTextColor(Color.WHITE)
-                                textSize = 15f
+                                textSize = 17f
+                                typeface = Typeface.DEFAULT_BOLD
                                 gravity = Gravity.END
+                                includeFontPadding = false
+                                maxLines = 1
                             }
                         )
                         addView(
                             TextView(context).apply {
                                 text = context.getString(
                                     R.string.launcher_widget_weather_high_low_format,
-                                    forecast.highTemperatureC,
-                                    forecast.lowTemperatureC
+                                    summary.highTemperature,
+                                    summary.lowTemperature
                                 )
                                 setTextColor(Color.WHITE)
-                                textSize = 13f
+                                textSize = 14f
                                 gravity = Gravity.END
+                                includeFontPadding = false
                             }
                         )
                     },
                     FrameLayout.LayoutParams(
-                        dp(152),
+                        dp(148),
                         ViewGroup.LayoutParams.WRAP_CONTENT,
-                        Gravity.END or Gravity.CENTER_VERTICAL
+                        Gravity.TOP or Gravity.END
                     ).apply {
-                        rightMargin = dp(18)
+                        topMargin = dp(16)
+                        rightMargin = dp(14)
                     }
                 )
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER
+                        summary.hourly.forEach { item ->
+                            addView(
+                                createHomeWeatherHourlyColumn(item),
+                                LinearLayout.LayoutParams(
+                                    0,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    1f
+                                )
+                            )
+                        }
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(72),
+                        Gravity.START or Gravity.BOTTOM
+                    ).apply {
+                        leftMargin = dp(12)
+                        rightMargin = dp(12)
+                        bottomMargin = dp(12)
+                    }
+                )
+            }
+        }
+
+        private fun createHomeWeatherHourlyColumn(item: HomeHourlyWeather): View {
+            return LinearLayout(binding.root.context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                addView(
+                    TextView(context).apply {
+                        text = item.label
+                        setTextColor(Color.WHITE)
+                        textSize = 13f
+                        gravity = Gravity.CENTER
+                        includeFontPadding = false
+                    },
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(18)
+                    )
+                )
+                addView(
+                    ImageView(context).apply {
+                        setImageResource(weatherIconRes(item.conditionCode))
+                        imageTintList = ColorStateList.valueOf(Color.WHITE)
+                    },
+                    LinearLayout.LayoutParams(dp(28), dp(28)).apply {
+                        topMargin = dp(4)
+                    }
+                )
+                addView(
+                    TextView(context).apply {
+                        text = context.getString(
+                            R.string.launcher_widget_weather_temperature_format,
+                            item.temperature
+                        )
+                        setTextColor(Color.WHITE)
+                        textSize = 16f
+                        gravity = Gravity.CENTER
+                        includeFontPadding = false
+                    },
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(22)
+                    ).apply {
+                        topMargin = dp(2)
+                    }
+                )
+            }
+        }
+
+        private fun weatherIconRes(conditionCode: Int): Int {
+            return when {
+                WeatherConditionMapper.isWet(conditionCode) -> R.drawable.ic_weather_rain_24
+                conditionCode == 3 || conditionCode in 45..48 -> R.drawable.ic_weather_cloud_24
+                else -> R.drawable.ic_weather_24
             }
         }
 
@@ -1605,9 +1696,9 @@ class LauncherPageAdapter(
         const val MIN_PAGE_ROWS = 5
         const val DEFAULT_PAGE_ROWS = 6
         const val MAX_PAGE_ROWS = 6
-        const val MIN_ICON_SIZE_DP = 44
-        const val DEFAULT_ICON_SIZE_DP = 64
-        const val MAX_ICON_SIZE_DP = 78
+        const val MIN_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP
+        const val DEFAULT_ICON_SIZE_DP = LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP
+        const val MAX_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP
         const val WIDGET_WIGGLE_DEGREES = 1.45f
         const val WIDGET_WIGGLE_DURATION_MS = 130L
     }

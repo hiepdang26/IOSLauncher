@@ -1,5 +1,6 @@
 package com.cloudx.ios17.features.launcher
 
+import com.cloudx.ios17.core.utils.Constants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -67,5 +68,77 @@ class LauncherEditModeEntryPolicyTest {
     @Test
     fun iconTap_doesNotExitEditMode() {
         assertFalse(LauncherEditModeEntryPolicy.shouldExitEditModeFromIconTap())
+    }
+
+    @Test
+    fun returnToHome_closesOpenFolderBeforeLeavingEditMode() {
+        assertEquals(
+            LauncherEditModeEntryPolicy.ReturnHomeAction.CLOSE_FOLDER,
+            LauncherEditModeEntryPolicy.returnHomeAction(
+                isEditing = true,
+                todayWidgetEditing = false,
+                folderVisible = true
+            )
+        )
+    }
+
+    @Test
+    fun returnToHome_leavesEditModeOnlyWhenNoFolderIsOpen() {
+        assertEquals(
+            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_EDIT_MODE,
+            LauncherEditModeEntryPolicy.returnHomeAction(
+                isEditing = true,
+                todayWidgetEditing = false,
+                folderVisible = false
+            )
+        )
+    }
+
+    @Test
+    fun returnToHome_closesFolderInNormalMode() {
+        assertEquals(
+            LauncherEditModeEntryPolicy.ReturnHomeAction.CLOSE_FOLDER,
+            LauncherEditModeEntryPolicy.returnHomeAction(
+                isEditing = false,
+                todayWidgetEditing = false,
+                folderVisible = true
+            )
+        )
+    }
+
+    @Test
+    fun appTap_launchesOnlyOutsideEditMode() {
+        assertEquals(
+            LauncherEditModeEntryPolicy.TapAction.LAUNCH_ITEM,
+            LauncherEditModeEntryPolicy.tapAction(
+                itemType = Constants.ITEM_TYPE_APPLICATION,
+                isEditing = false
+            )
+        )
+        assertEquals(
+            LauncherEditModeEntryPolicy.TapAction.IGNORE,
+            LauncherEditModeEntryPolicy.tapAction(
+                itemType = Constants.ITEM_TYPE_APPLICATION,
+                isEditing = true
+            )
+        )
+    }
+
+    @Test
+    fun folderTap_opensInBothNormalAndEditMode() {
+        assertEquals(
+            LauncherEditModeEntryPolicy.TapAction.OPEN_FOLDER,
+            LauncherEditModeEntryPolicy.tapAction(
+                itemType = Constants.ITEM_TYPE_FOLDER,
+                isEditing = false
+            )
+        )
+        assertEquals(
+            LauncherEditModeEntryPolicy.TapAction.OPEN_FOLDER,
+            LauncherEditModeEntryPolicy.tapAction(
+                itemType = Constants.ITEM_TYPE_FOLDER,
+                isEditing = true
+            )
+        )
     }
 }

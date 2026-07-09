@@ -13,7 +13,8 @@ object HomeWidgetPreferences {
         val type: String,
         val size: HomeWidgetPlacementPolicy.WidgetSize,
         var page: Int,
-        var cell: Int
+        var cell: Int,
+        val appWidgetId: Int? = null
     )
 
     fun read(context: Context): MutableList<Item> {
@@ -37,7 +38,9 @@ object HomeWidgetPreferences {
                     type = type,
                     size = size,
                     page = objectValue.optInt("page", 0).coerceAtLeast(0),
-                    cell = objectValue.optInt("cell", 0).coerceAtLeast(0)
+                    cell = objectValue.optInt("cell", 0).coerceAtLeast(0),
+                    appWidgetId = objectValue.optInt("appWidgetId", -1)
+                        .takeIf { appWidgetId -> appWidgetId != -1 }
                 )
             )
         }
@@ -54,6 +57,11 @@ object HomeWidgetPreferences {
                     .put("size", item.size.name)
                     .put("page", item.page)
                     .put("cell", item.cell)
+                    .apply {
+                        item.appWidgetId?.let { appWidgetId ->
+                            put("appWidgetId", appWidgetId)
+                        }
+                    }
             )
         }
         context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)

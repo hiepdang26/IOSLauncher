@@ -12,6 +12,7 @@ import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.databinding.ItemLauncherIconBinding
+import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
 import java.util.Collections
 import kotlin.math.max
 import kotlin.math.min
@@ -511,6 +512,7 @@ class LauncherIconAdapter(
             binding.iconPlate.visibility = View.VISIBLE
             binding.appLabel.visibility = View.VISIBLE
             binding.appLabel.text = item.label
+            binding.appLabel.textSize = LauncherHomeIconSizePolicy.appLabelTextSizeSp(iconSizeDp)
             binding.appIcon.contentDescription = item.label
             when (item) {
                 is LauncherHomeItemUiModel.App -> {
@@ -768,10 +770,10 @@ class LauncherIconAdapter(
     )
 
     private companion object {
-        const val MIN_COMPACT_ICON_SIZE_DP = 44
+        const val MIN_COMPACT_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP
         const val MIN_TINY_ICON_SIZE_DP = 32
-        const val DEFAULT_ICON_SIZE_DP = 64
-        const val MAX_ICON_SIZE_DP = 78
+        const val DEFAULT_ICON_SIZE_DP = LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP
+        const val MAX_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP
         const val CELL_VERTICAL_GAP_DP = 7
         const val MIN_LABEL_HEIGHT_DP = 22
         const val TWO_LINE_LABEL_HEIGHT_DP = 30

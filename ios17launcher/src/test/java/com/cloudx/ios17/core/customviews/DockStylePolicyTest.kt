@@ -71,4 +71,75 @@ class DockStylePolicyTest {
         assertTrue(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.ROUNDED))
         assertFalse(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.CURRENT))
     }
+
+    @Test
+    fun wallpaperBlurDrawsOnlyForModernDockWhenDockBlurIsEnabled() {
+        assertTrue(
+            DockStylePolicy.drawsWallpaperBlur(
+                style = DockStylePolicy.Style.ROUNDED,
+                dockBlurEnabled = true,
+                externalRealtimeLiquidGlassEnabled = false
+            )
+        )
+        assertTrue(
+            DockStylePolicy.drawsWallpaperBlur(
+                style = DockStylePolicy.Style.LIQUID_GLASS,
+                dockBlurEnabled = true,
+                externalRealtimeLiquidGlassEnabled = false
+            )
+        )
+        assertFalse(
+            DockStylePolicy.drawsWallpaperBlur(
+                style = DockStylePolicy.Style.CURRENT,
+                dockBlurEnabled = true,
+                externalRealtimeLiquidGlassEnabled = false
+            )
+        )
+        assertFalse(
+            DockStylePolicy.drawsWallpaperBlur(
+                style = DockStylePolicy.Style.ROUNDED,
+                dockBlurEnabled = false,
+                externalRealtimeLiquidGlassEnabled = false
+            )
+        )
+        assertFalse(
+            DockStylePolicy.drawsWallpaperBlur(
+                style = DockStylePolicy.Style.LIQUID_GLASS,
+                dockBlurEnabled = true,
+                externalRealtimeLiquidGlassEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun realtimeLiquidGlassDockRequiresLiquidGlassStyleButNotDockBlurEnabled() {
+        assertTrue(
+            DockStylePolicy.usesExternalRealtimeLiquidGlass(
+                style = DockStylePolicy.Style.LIQUID_GLASS,
+                realtimeLiquidGlassAvailable = true,
+                dockBlurEnabled = true
+            )
+        )
+        assertTrue(
+            DockStylePolicy.usesExternalRealtimeLiquidGlass(
+                style = DockStylePolicy.Style.LIQUID_GLASS,
+                realtimeLiquidGlassAvailable = true,
+                dockBlurEnabled = false
+            )
+        )
+        assertFalse(
+            DockStylePolicy.usesExternalRealtimeLiquidGlass(
+                style = DockStylePolicy.Style.ROUNDED,
+                realtimeLiquidGlassAvailable = true,
+                dockBlurEnabled = true
+            )
+        )
+        assertFalse(
+            DockStylePolicy.usesExternalRealtimeLiquidGlass(
+                style = DockStylePolicy.Style.LIQUID_GLASS,
+                realtimeLiquidGlassAvailable = false,
+                dockBlurEnabled = true
+            )
+        )
+    }
 }

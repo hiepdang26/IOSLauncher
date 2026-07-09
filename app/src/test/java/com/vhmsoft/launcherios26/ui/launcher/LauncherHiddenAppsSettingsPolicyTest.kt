@@ -15,6 +15,11 @@ class LauncherHiddenAppsSettingsPolicyTest {
     }
 
     @Test
+    fun hiddenAppsMenu_showsPageBeforeLoadingApps() {
+        assertTrue(LauncherHiddenAppsSettingsPolicy.showsPageBeforeLoadingApps)
+    }
+
+    @Test
     fun sections_splitHiddenAndVisibleAppsAlphabetically() {
         val chrome = app("Chrome", "chrome")
         val maps = app("Maps", "maps")

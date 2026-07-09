@@ -82,6 +82,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
+import android.widget.RadioButton
 import android.widget.RelativeLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -94,6 +95,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.doOnPreDraw
 import androidx.core.widget.NestedScrollView
@@ -114,6 +116,7 @@ import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
 import com.cloudx.ios17.core.LauncherHomeLayoutSettings
 import com.cloudx.ios17.core.LauncherLiquidGlassDrawableFactory
 import com.cloudx.ios17.core.LauncherLiquidGlassStylePolicy
+import com.cloudx.ios17.core.LauncherRealtimeLiquidGlassPolicy
 import com.cloudx.ios17.core.LauncherRenameUiPolicy
 import com.cloudx.ios17.core.Preferences
 import com.cloudx.ios17.core.Utilities
@@ -125,12 +128,12 @@ import com.cloudx.ios17.core.customviews.BlissDragShadowBuilder
 import com.cloudx.ios17.core.customviews.BlissFrameLayout
 import com.cloudx.ios17.core.customviews.BlissInput
 import com.cloudx.ios17.core.customviews.BlurBackgroundView
-import com.cloudx.ios17.core.customviews.BlurLayout
 import com.cloudx.ios17.core.customviews.DockGridLayout
 import com.cloudx.ios17.core.customviews.DockStylePolicy
 import com.cloudx.ios17.core.customviews.HorizontalPager
 import com.cloudx.ios17.core.customviews.InsettableFrameLayout
 import com.cloudx.ios17.core.customviews.InsettableRelativeLayout
+import com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassLayout
 import com.cloudx.ios17.core.customviews.PageIndicatorLinearLayout
 import com.cloudx.ios17.core.customviews.RoundedWidgetView
 import com.cloudx.ios17.core.customviews.SquareFrameLayout
@@ -169,8 +172,11 @@ import com.cloudx.ios17.features.suggestions.SuggestionsResult
 import com.cloudx.ios17.features.launcher.workspace.LauncherPageIndicatorWheelView
 import com.cloudx.ios17.features.launcher.workspace.LauncherPageIndicatorWindowPolicy
 import com.cloudx.ios17.features.weather.DeviceStatusService
-import com.cloudx.ios17.features.weather.WeatherPreferences
+import com.cloudx.ios17.features.weather.HomeHourlyWeather
+import com.cloudx.ios17.features.weather.HomeWeatherIconType
+import com.cloudx.ios17.features.weather.HomeWeatherWidgetPolicy
 import com.cloudx.ios17.features.weather.WeatherSourceListenerService
+import com.cloudx.ios17.features.weather.WeatherSettingsPolicy
 import com.cloudx.ios17.features.weather.WeatherUpdateService
 import com.cloudx.ios17.features.weather.WeatherUtils
 import com.cloudx.ios17.features.weather.openmeteo.DailyWeather
@@ -242,6 +248,8 @@ class LauncherActivity : AppCompatActivity(),
         val providerInfo: AppWidgetProviderInfo,
         val label: CharSequence,
         val icon: Drawable?,
+        val preview: Drawable?,
+        val sizeText: String,
         val span: TodayWidgetLayoutPolicy.Span
     )
 
@@ -261,7 +269,9 @@ class LauncherActivity : AppCompatActivity(),
         val size: HomeWidgetPlacementPolicy.WidgetSize,
         val itemId: String,
         val sessionId: Long,
-        val existingItemId: String? = null
+        val existingItemId: String? = null,
+        val appWidgetId: Int? = null,
+        val preview: Drawable? = null
     )
 
     private data class HomeWidgetDragCellState(
@@ -283,6 +293,8 @@ class LauncherActivity : AppCompatActivity(),
         private const val REQUEST_TODAY_BIND_APPWIDGET = 721
         private const val REQUEST_TODAY_CREATE_APPWIDGET = 722
         private const val REQUEST_HOME_WIDGET_PHOTO_PICK = 723
+        private const val REQUEST_HOME_BIND_APPWIDGET = 724
+        private const val REQUEST_HOME_CREATE_APPWIDGET = 725
         private const val PAGE_INDICATOR_VISIBLE_MS = 2000L
         private const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
         private const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
@@ -311,12 +323,14 @@ class LauncherActivity : AppCompatActivity(),
         private const val HOME_WIDGET_TYPE_WEATHER = "weather"
         private const val HOME_WIDGET_TYPE_BATTERY = "battery"
         private const val HOME_WIDGET_TYPE_PICTURE = "picture"
+        private const val HOME_WIDGET_TYPE_SYSTEM = "system"
+        private const val HOME_WIDGET_PICKER_TOP_CLEARANCE_DP = 88
+        private const val HOME_WIDGET_PICKER_BOTTOM_OVERFLOW_DP = 0
         private const val HOME_WIDGET_DISPLACEMENT_PREVIEW_THROTTLE_MS = 48L
         private const val HOME_WIDGET_MOVE_DURATION_MS = 140L
         private const val HOME_WIDGET_REMOVE_TAG = "home_widget_remove"
         private const val HOME_WIDGET_DRAG_PREVIEW_TAG = "home_widget_drag_preview"
         private const val WEATHER_LOCATION_PERMISSION_REQUEST = 731
-        private val WEATHER_AUTO_REFRESH_MS = TimeUnit.HOURS.toMillis(1)
         private const val HIDDEN_APPS_PREF_NAME = "ios_launcher_preferences"
         private const val HIDDEN_APPS_PREF_IDS = "hidden_icon_keys"
         private const val LEGACY_HIDDEN_APPS_PREF_NAME = "ios_launcher_hidden_apps"
@@ -356,6 +370,7 @@ class LauncherActivity : AppCompatActivity(),
     private var renameAppPanel: View? = null
     private var layoutSettingsPanel: View? = null
     private var hiddenAppsPanel: View? = null
+    private var blurSettingsPanel: View? = null
     private var weatherSettingsPanel: View? = null
     private var weatherDetailPanel: View? = null
     private var photoWidgetCropPanel: View? = null
@@ -371,6 +386,7 @@ class LauncherActivity : AppCompatActivity(),
     private var latestWeatherForecast: WeatherForecast? = null
     private var latestWeatherRefreshUptime = 0L
     private var weatherLoadInFlight = false
+    private var weatherRequestGeneration = 0
     private var openWeatherDetailAfterRefresh = false
     private var indicatorMode = IndicatorMode.SEARCH
     private var indicatorWheelView: LauncherPageIndicatorWheelView? = null
@@ -498,12 +514,15 @@ class LauncherActivity : AppCompatActivity(),
     private var widgetPickerDialog: BottomSheetDialog? = null
     private var widgetPreviewOverlay: FrameLayout? = null
     private var pendingTodayWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var nextTodayQuickWidgetId = TODAY_QUICK_WIDGET_ID_START
     private val homeWidgetItems: MutableList<HomeWidgetPreferences.Item> = ArrayList()
     private var homeWidgetEntryCard: View? = null
     private var homeWidgetPickerOverlay: FrameLayout? = null
     private var homeWidgetPickerDialog: BottomSheetDialog? = null
+    private var homeWidgetProviderDialog: BottomSheetDialog? = null
     private var homeWidgetPickerSheet: View? = null
+    private var homeWidgetProviderSheet: View? = null
     private var homeWidgetDragSpec: HomeWidgetDragSpec? = null
     private var homeWidgetDragPreview: ImageView? = null
     private var homeWidgetDragDropped = false
@@ -625,6 +644,21 @@ class LauncherActivity : AppCompatActivity(),
 
     fun getRootView(): View = mLauncherView
 
+    fun openWeatherSettingsPage() {
+        if (!::mLauncherView.isInitialized) {
+            return
+        }
+        hideWeatherDetailPage()
+        showWeatherSettingsPage()
+    }
+
+    fun openBlurEffectSettingsPage() {
+        if (!::mLauncherView.isInitialized) {
+            return
+        }
+        showBlurEffectSettingsPanel()
+    }
+
     private fun setupViews() {
         workspace = mLauncherView.findViewById(R.id.workspace)
         wallpaperChangeReceiver = WallpaperChangeReceiver(workspace)
@@ -687,6 +721,13 @@ class LauncherActivity : AppCompatActivity(),
                 )
             ) {
                 hideHomeWidgetEntryCard()
+            } else if (
+                HomeWidgetEditStatePolicy.shouldExitEditModeOnHomeTap(
+                    editing = isWobbling,
+                    entryCardVisible = homeWidgetEntryCard != null
+                )
+            ) {
+                handleWobbling(false)
             }
         }
         liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(this)
@@ -930,14 +971,10 @@ class LauncherActivity : AppCompatActivity(),
     private fun refreshLiquidGlassAppearanceIfNeeded() {
         val latestLiquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(this)
         val latestDarkModeEnabled = LauncherHomeLayoutPreferences.isDarkModeEnabled(this)
-        val liquidGlassChanged = latestLiquidGlassEnabled != liquidGlassEnabled
-        val darkModeChanged = latestDarkModeEnabled != darkModeEnabled
         liquidGlassEnabled = latestLiquidGlassEnabled
         darkModeEnabled = latestDarkModeEnabled
         applyLiquidGlassAppearance()
-        if (liquidGlassChanged || darkModeChanged) {
-            refreshVisibleFolderPreviewIcons()
-        }
+        refreshVisibleFolderPreviewIcons()
     }
 
     private fun refreshVisibleFolderPreviewIcons() {
@@ -968,46 +1005,79 @@ class LauncherActivity : AppCompatActivity(),
     private fun applyLiquidGlassAppearance() {
         if (::mDock.isInitialized) {
             mDock.refreshStyle()
+            applyDockRealtimeLiquidGlass()
         }
         if (::mIndicator.isInitialized) {
-            mIndicator.background = roundedRectangle(
-                LauncherLiquidGlassStylePolicy.pageIndicator(
-                    enabled = liquidGlassEnabled,
-                    darkMode = darkModeEnabled
-                )
-            )
+            mIndicator.background = roundedRectangle(indicatorBackgroundStyle())
         }
         if (::mLauncherView.isInitialized) {
-            val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
-            folderBackground?.background =
-                roundedRectangle(
-                    LauncherLiquidGlassStylePolicy.folderPanel(
-                        enabled = liquidGlassEnabled,
-                        darkMode = darkModeEnabled
+            if (::mFolderWindowContainer.isInitialized) {
+                mFolderWindowContainer.background = ColorDrawable(
+                    LauncherLiquidGlassStylePolicy.folderBackdropOverlay(
+                        darkMode = styleDarkModeForLiquidGlass()
                     )
                 )
+            }
+            val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
+                enabled = liquidGlassEnabled,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+            val folderGlass = mLauncherView.findViewById<LauncherRealtimeLiquidGlassLayout>(R.id.folder_bg_blur)
+            val folderRealtimeGlass = applyRealtimeLiquidGlass(
+                container = folderGlass,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
+                style = folderStyle
+            )
+            folderGlass?.setLiquidMaterial(
+                if (folderRealtimeGlass) roundedRectangle(folderStyle) else null
+            )
+            val folderBackground = mLauncherView.findViewById<View>(R.id.folder_apps_background)
+            folderBackground?.background = if (folderRealtimeGlass) {
+                ColorDrawable(Color.TRANSPARENT)
+            } else {
+                roundedRectangle(folderStyle)
+            }
         }
         if (::swipeSearchContainer.isInitialized) {
             val searchInput = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
-            (searchInput?.parent as? View)?.background =
-                roundedRectangle(
-                    LauncherLiquidGlassStylePolicy.searchPill(
-                        enabled = liquidGlassEnabled,
-                        darkMode = darkModeEnabled
-                    )
-                )
+            val searchInputPanel = searchInput?.parent as? View
+            val searchPillStyle = LauncherLiquidGlassStylePolicy.searchPill(
+                enabled = liquidGlassEnabled,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+            val searchGlassContainer = searchInputPanel?.parent as? LauncherRealtimeLiquidGlassLayout
+            val searchRealtimeGlass = applyRealtimeLiquidGlass(
+                container = searchGlassContainer,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+                style = searchPillStyle
+            )
+            searchGlassContainer?.setLiquidMaterial(
+                if (searchRealtimeGlass) roundedRectangle(searchPillStyle) else null
+            )
+            searchInputPanel?.background = if (searchRealtimeGlass) {
+                ColorDrawable(Color.TRANSPARENT)
+            } else {
+                roundedRectangle(searchPillStyle)
+            }
             val suggestions = swipeSearchContainer.findViewById<RecyclerView>(R.id.suggestionRecyclerView)
             val suggestionsPanel = suggestions?.parent as? View
-            if (liquidGlassEnabled || darkModeEnabled) {
-                suggestionsPanel?.background =
-                    roundedRectangle(
-                        LauncherLiquidGlassStylePolicy.searchResultsPanel(
-                            enabled = liquidGlassEnabled,
-                            darkMode = darkModeEnabled
-                        )
-                    )
+            val suggestionsStyle = LauncherLiquidGlassStylePolicy.searchResultsPanel(
+                enabled = liquidGlassEnabled,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+            val suggestionsGlassContainer = suggestionsPanel?.parent as? LauncherRealtimeLiquidGlassLayout
+            val suggestionsRealtimeGlass = applyRealtimeLiquidGlass(
+                container = suggestionsGlassContainer,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+                style = suggestionsStyle
+            )
+            suggestionsGlassContainer?.setLiquidMaterial(
+                if (suggestionsRealtimeGlass) roundedRectangle(suggestionsStyle) else null
+            )
+            suggestionsPanel?.background = if (suggestionsRealtimeGlass) {
+                ColorDrawable(Color.TRANSPARENT)
             } else {
-                suggestionsPanel?.setBackgroundResource(R.drawable.item_widget_round_corner)
+                roundedRectangle(suggestionsStyle)
             }
         }
         if (::darkBlurLayer.isInitialized) {
@@ -1017,6 +1087,96 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun darkBlurAlphaFor(blurAlpha: Float): Float =
         if (darkModeEnabled) blurAlpha.coerceIn(0f, 1f) else 0f
+
+    private fun applyRealtimeLiquidGlass(
+        container: LauncherRealtimeLiquidGlassLayout?,
+        surface: LauncherRealtimeLiquidGlassPolicy.Surface,
+        style: LauncherLiquidGlassStylePolicy.BackgroundStyle
+    ): Boolean {
+        val useRealtimeGlass = shouldUseRealtimeLiquidGlass()
+        container?.applyRealtimeLiquidGlass(
+            enabled = useRealtimeGlass,
+            source = realtimeLiquidGlassSource(),
+            profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = surface,
+                radiusDp = style.radiusDp,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+        )
+        return useRealtimeGlass && container != null
+    }
+
+    private fun applyDockRealtimeLiquidGlass() {
+        if (!::mLauncherView.isInitialized || !::mDock.isInitialized) return
+        val dockGlass = mLauncherView.findViewById<LauncherRealtimeLiquidGlassLayout>(
+            R.id.dock_liquid_glass_background
+        )
+        val dockStyle = currentDockStyle()
+        val dockBlurEnabled = LauncherHomeLayoutPreferences.isDockBlurEnabled(this)
+        val useRealtimeDock = DockStylePolicy.usesExternalRealtimeLiquidGlass(
+            style = dockStyle,
+            realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
+            dockBlurEnabled = dockBlurEnabled
+        )
+        val dockMaterialStyle = LauncherLiquidGlassStylePolicy.dockMaterial(
+            enabled = dockBlurEnabled,
+            darkMode = styleDarkModeForLiquidGlass(),
+            liquidGlass = liquidGlassEnabled
+        )
+
+        syncDockRealtimeGlassLayout(dockGlass)
+        dockGlass.blurCornerRadius = dp(dockMaterialStyle.radiusDp).toFloat()
+        dockGlass.visibility = if (useRealtimeDock) VISIBLE else GONE
+        dockGlass.setLiquidMaterial(
+            if (useRealtimeDock) roundedRectangle(dockMaterialStyle) else null
+        )
+        dockGlass.applyRealtimeLiquidGlass(
+            enabled = useRealtimeDock,
+            source = realtimeLiquidGlassSource(),
+            profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                radiusDp = dockMaterialStyle.radiusDp,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+        )
+        mDock.setExternalRealtimeLiquidGlassEnabled(useRealtimeDock)
+    }
+
+    private fun syncDockRealtimeGlassLayout(dockGlass: LauncherRealtimeLiquidGlassLayout) {
+        val dockLayoutParams = mDock.layoutParams
+            as? InsettableRelativeLayout.LayoutParams ?: return
+        val glassLayoutParams = dockGlass.layoutParams
+            as? InsettableRelativeLayout.LayoutParams ?: return
+
+        glassLayoutParams.width = dockLayoutParams.width
+        glassLayoutParams.height = dockLayoutParams.height
+        glassLayoutParams.leftMargin = dockLayoutParams.leftMargin
+        glassLayoutParams.rightMargin = dockLayoutParams.rightMargin
+        glassLayoutParams.topMargin = dockLayoutParams.topMargin
+        glassLayoutParams.bottomMargin = dockLayoutParams.bottomMargin
+        dockGlass.layoutParams = glassLayoutParams
+    }
+
+    private fun currentDockStyle(): DockStylePolicy.Style {
+        val layoutPrefs = getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        return DockStylePolicy.styleFor(
+            iphone8StyleEnabled = layoutPrefs.getBoolean(DockStylePolicy.KEY_LAYOUT_IPHONE8_STYLE, false),
+            liquidGlassEnabled = liquidGlassEnabled,
+            darkModeEnabled = darkModeEnabled
+        )
+    }
+
+    private fun shouldUseRealtimeLiquidGlass(): Boolean =
+        LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeLiquidGlass(liquidGlassEnabled)
+
+    private fun styleDarkModeForLiquidGlass(): Boolean =
+        darkModeEnabled && !liquidGlassEnabled
+
+    private fun realtimeLiquidGlassSource(): ViewGroup? {
+        if (!::mLauncherView.isInitialized) return null
+        return mLauncherView.findViewById<ViewGroup>(R.id.liquid_glass_source)
+            ?: if (::workspace.isInitialized) workspace else mLauncherView as? ViewGroup
+    }
 
     private fun overlayBlurMasterEnabled(): Boolean =
         LauncherHomeLayoutPreferences.isBlurEffectEnabled(this)
@@ -1028,15 +1188,17 @@ class LauncherActivity : AppCompatActivity(),
         )
 
     private fun folderOverlayBlurAlpha(): Float =
-        LauncherBlurEffectPolicy.overlayAlpha(
+        LauncherBlurEffectPolicy.folderOverlayAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
-            targetEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this)
+            folderEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this),
+            liquidGlassEnabled = liquidGlassEnabled
         )
 
     private fun folderBackgroundContentAlpha(): Float =
         LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
-            folderEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this)
+            folderEnabled = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this),
+            liquidGlassEnabled = liquidGlassEnabled
         )
 
     private fun searchBackgroundContentAlpha(): Float =
@@ -1356,28 +1518,30 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createWeatherForecastWidget(forecast: WeatherForecast): View {
+        val summary = HomeWeatherWidgetPolicy.homeSummary(forecast)
         return FrameLayout(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF07081B.toInt(), 0xFF253655.toInt())
+                intArrayOf(0xFF3E70A8.toInt(), 0xFF78A9E6.toInt())
             ).apply {
-                cornerRadius = dp(18).toFloat()
+                cornerRadius = dp(22).toFloat()
             }
             addView(
                 TextView(context).apply {
-                    text = forecast.locationName
+                    text = summary.locationName
                     setTextColor(Color.WHITE)
-                    textSize = 15f
+                    textSize = 16f
                     typeface = Typeface.DEFAULT_BOLD
+                    includeFontPadding = false
                     maxLines = 1
                     ellipsize = TextUtils.TruncateAt.END
                 },
                 FrameLayout.LayoutParams(
                     dp(170),
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(28),
                     Gravity.START or Gravity.TOP
                 ).apply {
-                    leftMargin = dp(18)
+                    leftMargin = dp(16)
                     topMargin = dp(16)
                 }
             )
@@ -1385,32 +1549,19 @@ class LauncherActivity : AppCompatActivity(),
                 TextView(context).apply {
                     text = getString(
                         R.string.launcher_widget_weather_temperature_format,
-                        forecast.currentTemperatureC
+                        summary.currentTemperature
                     )
                     includeFontPadding = false
                     setTextColor(Color.WHITE)
-                    textSize = 48f
+                    textSize = 46f
                 },
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(62),
                     Gravity.START or Gravity.TOP
                 ).apply {
-                    leftMargin = dp(18)
-                    topMargin = dp(54)
-                }
-            )
-            addView(
-                TextView(context).apply {
-                    text = WeatherConditionMapper.glyphFor(forecast.conditionCode)
-                    includeFontPadding = false
-                    setTextColor(Color.WHITE)
-                    textSize = 42f
-                    gravity = Gravity.CENTER
-                },
-                FrameLayout.LayoutParams(dp(62), dp(54), Gravity.END or Gravity.TOP).apply {
-                    topMargin = dp(18)
-                    rightMargin = dp(18)
+                    leftMargin = dp(16)
+                    topMargin = dp(48)
                 }
             )
             addView(
@@ -1418,12 +1569,19 @@ class LauncherActivity : AppCompatActivity(),
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.END
                     addView(
+                        weatherIconView(summary.conditionCode, dp(36)),
+                        LinearLayout.LayoutParams(dp(42), dp(36)).apply {
+                            bottomMargin = dp(4)
+                        }
+                    )
+                    addView(
                         TextView(context).apply {
-                            text = forecast.condition
+                            text = summary.condition
                             setTextColor(Color.WHITE)
-                            textSize = 15f
+                            textSize = 16f
                             typeface = Typeface.DEFAULT_BOLD
                             gravity = Gravity.END
+                            includeFontPadding = false
                             maxLines = 1
                             ellipsize = TextUtils.TruncateAt.END
                         }
@@ -1432,23 +1590,117 @@ class LauncherActivity : AppCompatActivity(),
                         TextView(context).apply {
                             text = getString(
                                 R.string.launcher_widget_weather_high_low_format,
-                                forecast.highTemperatureC,
-                                forecast.lowTemperatureC
+                                summary.highTemperature,
+                                summary.lowTemperature
                             )
                             setTextColor(Color.WHITE)
-                            textSize = 13f
+                            textSize = 14f
                             gravity = Gravity.END
+                            includeFontPadding = false
                         }
                     )
                 },
                 FrameLayout.LayoutParams(
                     dp(150),
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    Gravity.END or Gravity.CENTER_VERTICAL
+                    Gravity.END or Gravity.TOP
                 ).apply {
-                    rightMargin = dp(18)
+                    topMargin = dp(16)
+                    rightMargin = dp(14)
                 }
             )
+            addView(
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                    summary.hourly.forEach { item ->
+                        addView(
+                            createHomeWeatherHourlyColumn(item),
+                            LinearLayout.LayoutParams(
+                                0,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                1f
+                            )
+                        )
+                    }
+                },
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(64),
+                    Gravity.START or Gravity.BOTTOM
+                ).apply {
+                    leftMargin = dp(12)
+                    rightMargin = dp(12)
+                    bottomMargin = dp(10)
+                }
+            )
+        }
+    }
+
+    private fun createHomeWeatherHourlyColumn(item: HomeHourlyWeather): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            addView(
+                TextView(context).apply {
+                    text = item.label
+                    setTextColor(Color.WHITE)
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    includeFontPadding = false
+                    maxLines = 1
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(17)
+                )
+            )
+            addView(
+                weatherIconView(item.conditionCode, dp(25)),
+                LinearLayout.LayoutParams(dp(28), dp(25)).apply {
+                    topMargin = dp(3)
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = getString(
+                        R.string.launcher_widget_weather_temperature_format,
+                        item.temperature
+                    )
+                    setTextColor(Color.WHITE)
+                    textSize = 16f
+                    gravity = Gravity.CENTER
+                    includeFontPadding = false
+                    maxLines = 1
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(21)
+                ).apply {
+                    topMargin = dp(2)
+                }
+            )
+        }
+    }
+
+    private fun weatherIconView(conditionCode: Int, iconSize: Int): ImageView {
+        return ImageView(this).apply {
+            setImageResource(homeWeatherIconRes(conditionCode))
+            setColorFilter(Color.WHITE)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            minimumWidth = iconSize
+            minimumHeight = iconSize
+        }
+    }
+
+    private fun homeWeatherIconRes(conditionCode: Int): Int {
+        return when (HomeWeatherWidgetPolicy.iconTypeFor(conditionCode)) {
+            HomeWeatherIconType.CLEAR -> R.drawable.ic_weather_24
+            HomeWeatherIconType.CLOUD -> R.drawable.ic_home_weather_cloud_24
+            HomeWeatherIconType.RAIN -> R.drawable.ic_home_weather_rain_24
+            HomeWeatherIconType.SNOW -> R.drawable.ic_home_weather_snow_24
+            HomeWeatherIconType.STORM -> R.drawable.ic_home_weather_storm_24
         }
     }
 
@@ -2216,7 +2468,7 @@ class LauncherActivity : AppCompatActivity(),
 
         val sheet = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(10), dp(24), dp(20))
+            setPadding(dp(24), dp(10), dp(24), dp(34))
             background = roundedRectangle(0xF0F4F4F4.toInt(), 28)
             clipChildren = false
             clipToPadding = false
@@ -2764,6 +3016,13 @@ class LauncherActivity : AppCompatActivity(),
                 providerInfo = providerInfo,
                 label = providerInfo.loadLabel(packageManager),
                 icon = providerInfo.loadIcon(this, density),
+                preview = runCatching {
+                    providerInfo.loadPreviewImage(this, density)
+                }.getOrNull(),
+                sizeText = HomeWidgetProviderPreviewPolicy.sizeText(
+                    providerInfo.minWidth,
+                    providerInfo.minHeight
+                ),
                 span = TodayWidgetLayoutPolicy.spanFor(providerInfo.minWidth, providerInfo.minHeight)
             )
         }.sortedWith { left, right ->
@@ -2870,9 +3129,14 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun hideHomeWidgetEntryCard() {
+    private fun hideHomeWidgetEntryCard(immediate: Boolean = false) {
         val card = homeWidgetEntryCard ?: return
         homeWidgetEntryCard = null
+        if (immediate) {
+            card.animate().cancel()
+            (card.parent as? ViewGroup)?.removeView(card)
+            return
+        }
         card.animate()
             .alpha(0f)
             .translationY(homeWidgetEntryCardTargetTop - dp(10))
@@ -2886,23 +3150,33 @@ class LauncherActivity : AppCompatActivity(),
     private fun showHomeWidgetPicker() {
         dismissTodayWidgetPicker()
         dismissTodayWidgetPreview()
+        dismissHomeWidgetProviderPreview()
         dismissHomeWidgetPicker()
 
-        val expandedHeight = (resources.displayMetrics.heightPixels * 0.9f).toInt()
-        val peekHeight = (resources.displayMetrics.heightPixels * 0.84f).toInt()
+        hideHomeWidgetEntryCard(immediate = true)
+        val topClearance = homeWidgetPickerTopClearance()
+        val bottomOverflow = homeWidgetPickerBottomOverflow()
+        val expandedHeight = HomeWidgetProviderPreviewPolicy.pickerHeight(
+            screenHeightPx = resources.displayMetrics.heightPixels,
+            topClearancePx = topClearance,
+            preferredHeightPx = resources.displayMetrics.heightPixels,
+            bottomOverflowPx = bottomOverflow
+        )
+        val peekHeight = expandedHeight
 
         val sheet = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(24), dp(10), dp(24), dp(18))
             background = roundedRectangle(0xF4F4F4F4.toInt(), 28)
-            clipChildren = false
-            clipToPadding = false
+            clipChildren = true
+            clipToPadding = true
             isClickable = true
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 expandedHeight
             )
         }
+        applyHomeWidgetSheetInsets(sheet, bottomPaddingDp = 18)
         homeWidgetPickerSheet = sheet
 
         addSheetGrabber(sheet, expandTouchTarget = false)
@@ -2922,6 +3196,8 @@ class LauncherActivity : AppCompatActivity(),
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             background = roundedRectangle(0x33000000, 14)
+            elevation = dp(12).toFloat()
+            translationZ = dp(12).toFloat()
             setPadding(dp(12), 0, dp(10), 0)
             addView(
                 ImageView(context).apply {
@@ -2949,8 +3225,9 @@ class LauncherActivity : AppCompatActivity(),
         val scrollView = NestedScrollView(this).apply {
             isFillViewport = false
             isVerticalScrollBarEnabled = false
-            clipChildren = false
-            clipToPadding = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipChildren = true
+            clipToPadding = true
         }
         val resultContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -2992,6 +3269,9 @@ class LauncherActivity : AppCompatActivity(),
                 if (homeWidgetPickerDialog === this) {
                     homeWidgetPickerDialog = null
                     homeWidgetPickerSheet = null
+                    if (isWobbling && !homeWidgetTouchDragActive && homeWidgetDragSpec == null) {
+                        showHomeWidgetEntryCard()
+                    }
                 }
             }
         }
@@ -3005,21 +3285,70 @@ class LauncherActivity : AppCompatActivity(),
                 com.google.android.material.R.id.design_bottom_sheet
             )
             bottomSheet?.setBackgroundColor(Color.TRANSPARENT)
+            bottomSheet?.fitsSystemWindows = false
+            bottomSheet?.setPadding(0, 0, 0, 0)
             bottomSheet?.layoutParams = bottomSheet?.layoutParams?.apply {
                 height = expandedHeight
             }
             bottomSheet?.requestLayout()
             homeWidgetPickerSheet = bottomSheet ?: sheet
+            configureHomeWidgetBottomSheetWindow(dialog)
 
             BottomSheetBehavior.from(bottomSheet ?: return@setOnShowListener).apply {
+                isFitToContents = false
+                expandedOffset = topClearance
                 isDraggable = true
                 isHideable = true
-                skipCollapsed = false
+                skipCollapsed = true
                 this.peekHeight = peekHeight
-                state = BottomSheetBehavior.STATE_COLLAPSED
+                state = BottomSheetBehavior.STATE_EXPANDED
             }
         }
         dialog.show()
+    }
+
+    private fun homeWidgetPickerTopClearance(): Int {
+        val rootLocation = IntArray(2)
+        (mLauncherView as? View)?.getLocationOnScreen(rootLocation)
+        val topBarBounds = Rect()
+        val anchorBottom = if (::editTopBar.isInitialized && editTopBar.getGlobalVisibleRect(topBarBounds)) {
+            topBarBounds.bottom
+        } else {
+            null
+        }
+        val fallback = dp(HOME_WIDGET_PICKER_TOP_CLEARANCE_DP)
+        return HomeWidgetProviderPreviewPolicy.pickerTopClearance(
+            anchorBottomOnScreenPx = anchorBottom,
+            rootTopOnScreenPx = rootLocation[1],
+            fallbackPx = fallback,
+            marginPx = dp(18)
+        )
+    }
+
+    private fun homeWidgetPickerBottomOverflow(): Int = dp(HOME_WIDGET_PICKER_BOTTOM_OVERFLOW_DP)
+
+    private fun configureHomeWidgetBottomSheetWindow(dialog: BottomSheetDialog) {
+        dialog.window?.let { window ->
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            window.navigationBarColor = Color.TRANSPARENT
+        }
+    }
+
+    private fun applyHomeWidgetSheetInsets(sheet: View, bottomPaddingDp: Int) {
+        val left = dp(24)
+        val top = dp(10)
+        val right = dp(24)
+        val bottom = dp(bottomPaddingDp)
+        ViewCompat.setOnApplyWindowInsetsListener(sheet) { view, insets ->
+            val navigationBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.setPadding(left, top, right, bottom + navigationBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(sheet)
     }
 
     private fun renderHomeWidgetPickerContent(container: LinearLayout, query: String) {
@@ -3069,7 +3398,14 @@ class LauncherActivity : AppCompatActivity(),
             container.addView(row)
         }
 
-        homeWidgetPickerApps(normalizedQuery).forEach { app ->
+        val apps = homeWidgetPickerApps(normalizedQuery)
+        val visibleApps = apps.take(
+            HomeWidgetProviderPreviewPolicy.visibleAppCount(
+                totalApps = apps.size,
+                hasSearchQuery = normalizedQuery.isNotBlank()
+            )
+        )
+        visibleApps.forEach { app ->
             container.addView(createHomeWidgetAppRow(app))
         }
     }
@@ -3096,6 +3432,8 @@ class LauncherActivity : AppCompatActivity(),
             FrameLayout(this).apply {
                 clipChildren = false
                 clipToPadding = false
+                elevation = dp(18).toFloat()
+                translationZ = dp(18).toFloat()
                 isLongClickable = true
                 setOnLongClickListener(startDragListener)
                 addView(
@@ -3157,29 +3495,32 @@ class LauncherActivity : AppCompatActivity(),
     private fun createHomeWidgetAppRow(app: ApplicationItem): View {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showHomeWidgetProviderPreview(app) }
             addView(
                 LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(14), dp(12), 0, dp(12))
+                    setPadding(dp(14), dp(8), 0, dp(8))
                     addView(
                         ImageView(context).apply {
                             setImageDrawable(app.icon)
                             scaleType = ImageView.ScaleType.FIT_CENTER
                         },
-                        LinearLayout.LayoutParams(dp(58), dp(58)).apply {
-                            rightMargin = dp(20)
+                        LinearLayout.LayoutParams(dp(50), dp(50)).apply {
+                            rightMargin = dp(18)
                         }
                     )
                     addView(
                         TextView(context).apply {
                             text = app.title
                             setTextColor(Color.BLACK)
-                            textSize = 18f
-                            typeface = Typeface.DEFAULT_BOLD
+                            textSize = 17f
+                            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                             gravity = Gravity.CENTER_VERTICAL
                         },
-                        LinearLayout.LayoutParams(0, dp(72), 1f)
+                        LinearLayout.LayoutParams(0, dp(58), 1f)
                     )
                 },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -3189,9 +3530,291 @@ class LauncherActivity : AppCompatActivity(),
                     setBackgroundColor(0x1A000000)
                 },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)).apply {
-                    leftMargin = dp(92)
+                    leftMargin = dp(82)
                 }
             )
+        }
+    }
+
+    private fun showHomeWidgetProviderPreview(app: ApplicationItem) {
+        val packageName = app.componentName?.packageName
+        if (packageName.isNullOrBlank()) {
+            Toast.makeText(this, R.string.home_widget_no_widgets_for_app, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val providers = homeWidgetProvidersForPackage(packageName)
+        if (providers.isEmpty()) {
+            Toast.makeText(this, R.string.home_widget_no_widgets_for_app, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        dismissHomeWidgetProviderPreview()
+
+        val topClearance = homeWidgetPickerTopClearance()
+        val bottomOverflow = homeWidgetPickerBottomOverflow()
+        val expandedHeight = HomeWidgetProviderPreviewPolicy.pickerHeight(
+            screenHeightPx = resources.displayMetrics.heightPixels,
+            topClearancePx = topClearance,
+            preferredHeightPx = resources.displayMetrics.heightPixels,
+            bottomOverflowPx = bottomOverflow
+        )
+        val sheet = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(10), dp(24), dp(34))
+            background = roundedRectangle(0xF4F4F4F4.toInt(), 28)
+            clipChildren = false
+            clipToPadding = false
+            isClickable = true
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                expandedHeight
+            )
+        }
+        applyHomeWidgetSheetInsets(sheet, bottomPaddingDp = 34)
+        addSheetGrabber(sheet, expandTouchTarget = false)
+        sheet.addView(
+            View(this).apply { background = roundedRectangle(0x33000000, 4) },
+            LinearLayout.LayoutParams(dp(60), dp(8)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(14)
+            }
+        )
+
+        val title = TextView(this).apply {
+            text = getString(R.string.home_widget_add_entry)
+            gravity = Gravity.CENTER
+            setTextColor(Color.BLACK)
+            textSize = 26f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        sheet.addView(
+            title,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(42)
+            }
+        )
+
+        val subtitle = TextView(this).apply {
+            gravity = Gravity.CENTER
+            setTextColor(0x8A000000.toInt())
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        sheet.addView(
+            subtitle,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(12)
+            }
+        )
+
+        val previewScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipChildren = false
+            clipToPadding = false
+        }
+        val previewRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            clipChildren = false
+            clipToPadding = false
+        }
+        previewScroll.addView(
+            previewRow,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        sheet.addView(
+            previewScroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            ).apply {
+                topMargin = dp(26)
+            }
+        )
+
+        val pageWidth = (resources.displayMetrics.widthPixels - dp(48)).coerceAtLeast(dp(220))
+        providers.forEach { provider ->
+            previewRow.addView(
+                createHomeWidgetProviderPreviewPage(provider),
+                LinearLayout.LayoutParams(pageWidth, LinearLayout.LayoutParams.MATCH_PARENT).apply {
+                    leftMargin = dp(4)
+                    rightMargin = dp(4)
+                }
+            )
+        }
+
+        fun selectedIndex(): Int {
+            val stride = pageWidth + dp(8)
+            return ((previewScroll.scrollX + stride / 2) / stride).coerceIn(0, providers.lastIndex)
+        }
+
+        fun updateSubtitle() {
+            val provider = providers[selectedIndex()]
+            subtitle.text = getString(
+                R.string.home_widget_provider_preview_subtitle,
+                provider.label,
+                provider.sizeText
+            )
+        }
+        updateSubtitle()
+        previewScroll.setOnScrollChangeListener { _, _, _, _, _ -> updateSubtitle() }
+
+        val addButton = TextView(this).apply {
+            text = getString(R.string.add_widget).uppercase()
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            textSize = 21f
+            typeface = Typeface.DEFAULT_BOLD
+            background = roundedRectangle(0xFF3897F5.toInt(), 16)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                Toast.makeText(this@LauncherActivity, R.string.home_widget_added_hold_hint, Toast.LENGTH_SHORT).show()
+            }
+        }
+        sheet.addView(
+            addButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(64)
+            ).apply {
+                topMargin = dp(24)
+            }
+        )
+
+        val dialog = BottomSheetDialog(this).apply {
+            setCancelable(true)
+            setCanceledOnTouchOutside(true)
+            setContentView(sheet)
+            setOnDismissListener {
+                if (homeWidgetProviderDialog === this) {
+                    homeWidgetProviderDialog = null
+                    homeWidgetProviderSheet = null
+                }
+            }
+        }
+        homeWidgetProviderDialog = dialog
+        homeWidgetProviderSheet = sheet
+        dialog.setOnShowListener {
+            dialog.window?.setDimAmount(0.52f)
+            val bottomSheet = dialog.findViewById<FrameLayout>(
+                com.google.android.material.R.id.design_bottom_sheet
+            )
+            bottomSheet?.setBackgroundColor(Color.TRANSPARENT)
+            bottomSheet?.fitsSystemWindows = false
+            bottomSheet?.setPadding(0, 0, 0, 0)
+            bottomSheet?.layoutParams = bottomSheet?.layoutParams?.apply {
+                height = expandedHeight
+            }
+            bottomSheet?.requestLayout()
+            homeWidgetProviderSheet = bottomSheet ?: sheet
+            configureHomeWidgetBottomSheetWindow(dialog)
+            BottomSheetBehavior.from(bottomSheet ?: return@setOnShowListener).apply {
+                isFitToContents = false
+                expandedOffset = topClearance
+                isDraggable = true
+                isHideable = true
+                skipCollapsed = true
+                peekHeight = expandedHeight
+                state = BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+        dialog.show()
+    }
+
+    private fun createHomeWidgetProviderPreviewPage(provider: TodayWidgetProvider): View {
+        val startDragListener = View.OnLongClickListener { view ->
+            startHomeWidgetProviderDrag(
+                provider = provider,
+                source = view,
+                rawX = homeWidgetTouchLastRawX,
+                rawY = homeWidgetTouchLastRawY
+            )
+        }
+        return FrameLayout(this).apply {
+            background = roundedRectangle(0xFFE2E2E6.toInt(), 34)
+            clipChildren = false
+            clipToPadding = false
+            isClickable = true
+            isLongClickable = true
+            setOnLongClickListener(startDragListener)
+            val preview = provider.preview
+            if (preview != null) {
+                addView(
+                    ImageView(context).apply {
+                        setImageDrawable(freshDrawable(preview))
+                        adjustViewBounds = true
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        isLongClickable = true
+                        setOnLongClickListener(startDragListener)
+                    },
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            } else {
+                addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        setPadding(dp(28), dp(28), dp(28), dp(28))
+                        addView(
+                            ImageView(context).apply {
+                                setImageDrawable(freshDrawable(provider.icon))
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                background = roundedRectangle(Color.WHITE, 24)
+                                setPadding(dp(16), dp(16), dp(16), dp(16))
+                                isLongClickable = true
+                                setOnLongClickListener(startDragListener)
+                            },
+                            LinearLayout.LayoutParams(dp(104), dp(104))
+                        )
+                        addView(
+                            TextView(context).apply {
+                                text = provider.label
+                                gravity = Gravity.CENTER
+                                setTextColor(Color.BLACK)
+                                textSize = 20f
+                                typeface = Typeface.DEFAULT_BOLD
+                                maxLines = 2
+                                ellipsize = TextUtils.TruncateAt.END
+                                isLongClickable = true
+                                setOnLongClickListener(startDragListener)
+                            },
+                            LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                topMargin = dp(18)
+                            }
+                        )
+                    },
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+            installHomeWidgetTouchDragTracking(this)
+        }
+    }
+
+    private fun homeWidgetProvidersForPackage(packageName: String): List<TodayWidgetProvider> {
+        return todayWidgetProviders().filter { provider ->
+            provider.providerInfo.provider.packageName == packageName
         }
     }
 
@@ -3337,6 +3960,7 @@ class LauncherActivity : AppCompatActivity(),
         clearHomeWidgetDragPreviewState()
         removeHomeWidgetDragPreview()
         dismissHomeWidgetPicker()
+        dismissHomeWidgetProviderPreview()
         dismissHomeWidgetOptionsPopup()
         clearAllHomeWidgetEditChrome()
         renderHomeWidgets()
@@ -3388,7 +4012,10 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun installHomeWidgetTouchDragTracking(root: View) {
+    private fun installHomeWidgetTouchDragTracking(
+        root: View,
+        widgetType: String? = null
+    ) {
         val listener = View.OnTouchListener { source, event ->
             homeWidgetTouchLastRawX = event.rawX
             homeWidgetTouchLastRawY = event.rawY
@@ -3401,20 +4028,30 @@ class LauncherActivity : AppCompatActivity(),
                 false
             }
         }
-        attachHomeWidgetTouchDragTracking(root, listener)
+        attachHomeWidgetTouchDragTracking(root, listener, widgetType)
     }
 
     private fun attachHomeWidgetTouchDragTracking(
         view: View,
-        listener: View.OnTouchListener
+        listener: View.OnTouchListener,
+        widgetType: String?
     ) {
         if (view.tag == HOME_WIDGET_REMOVE_TAG) {
+            return
+        }
+        if (
+            widgetType != null &&
+            !HomeWidgetInteractionPolicy.shouldAttachLauncherTouchTracking(
+                widgetType = widgetType,
+                isProviderContent = view is RoundedWidgetView
+            )
+        ) {
             return
         }
         view.setOnTouchListener(listener)
         if (view is ViewGroup) {
             for (index in 0 until view.childCount) {
-                attachHomeWidgetTouchDragTracking(view.getChildAt(index), listener)
+                attachHomeWidgetTouchDragTracking(view.getChildAt(index), listener, widgetType)
             }
         }
     }
@@ -3517,7 +4154,11 @@ class LauncherActivity : AppCompatActivity(),
             isClickable = true
             isLongClickable = true
             setOnLongClickListener(startDragListener)
-            val body = createHomeWidgetBody(item.type, startDragListener, item.id)
+            val body = if (item.type == HOME_WIDGET_TYPE_SYSTEM) {
+                createHomeSystemWidgetBody(item, startDragListener)
+            } else {
+                createHomeWidgetBody(item.type, startDragListener, item.id)
+            }
             addView(
                 body,
                 FrameLayout.LayoutParams(
@@ -3526,7 +4167,7 @@ class LauncherActivity : AppCompatActivity(),
                 )
             )
             installHomeWidgetClickAction(this, item, startDragListener)
-            installHomeWidgetTouchDragTracking(this)
+            installHomeWidgetTouchDragTracking(this, item.type)
         }
         return host
     }
@@ -3861,6 +4502,9 @@ class LauncherActivity : AppCompatActivity(),
         val fallbackItem = visualFallbackItem ?: host?.tag as? HomeWidgetPreferences.Item
         val removedWidgetIds = linkedSetOf(widgetId)
         fallbackItem?.id?.let { removedWidgetIds.add(it) }
+        val appWidgetIdsByHomeWidgetId = homeWidgetItems
+            .mapNotNull { item -> item.appWidgetId?.let { appWidgetId -> item.id to appWidgetId } }
+            .toMap()
         val beforeWidgetIds = homeWidgetItems.map { it.id }.toSet()
         val hostToRemove = host ?: pages.firstNotNullOfOrNull { page ->
             (0 until page.childCount)
@@ -3877,6 +4521,8 @@ class LauncherActivity : AppCompatActivity(),
         homeWidgetItems.addAll(result.items)
         val validWidgetIds = homeWidgetItems.map { it.id }.toSet()
         removedWidgetIds.addAll(beforeWidgetIds - validWidgetIds)
+        removedWidgetIds.mapNotNull { id -> appWidgetIdsByHomeWidgetId[id] }
+            .forEach { appWidgetId -> mAppWidgetHost.deleteAppWidgetId(appWidgetId) }
         removeHomeWidgetViewsByIds(removedWidgetIds)
         removeStaleHomeWidgetViews(validWidgetIds, removedWidgetIds)
         if (!result.removed) {
@@ -4098,10 +4744,135 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
+    private fun createHomeSystemWidgetBody(
+        item: HomeWidgetPreferences.Item,
+        startDragListener: View.OnLongClickListener?
+    ): FrameLayout {
+        return FrameLayout(this).apply {
+            clipChildren = false
+            clipToPadding = false
+            isLongClickable = startDragListener != null
+            startDragListener?.let { setOnLongClickListener(it) }
+            val widgetContent = createHomeSystemWidgetContent(item).apply {
+                isLongClickable = startDragListener != null
+                startDragListener?.let { setOnLongClickListener(it) }
+            }
+            addView(
+                widgetContent,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+    }
+
+    private fun createHomeSystemWidgetPreviewBody(preview: Drawable): FrameLayout {
+        return FrameLayout(this).apply {
+            background = roundedRectangle(0xFFE2E2E6.toInt(), 20)
+            clipChildren = false
+            clipToPadding = false
+            addView(
+                ImageView(context).apply {
+                    setImageDrawable(freshDrawable(preview))
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    adjustViewBounds = true
+                },
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+    }
+
+    private fun createHomeSystemWidgetContent(item: HomeWidgetPreferences.Item): View {
+        val appWidgetId = item.appWidgetId
+        if (appWidgetId != null) {
+            val appWidgetInfo = mAppWidgetManager.getAppWidgetInfo(appWidgetId)
+            if (appWidgetInfo != null) {
+                val hostView = mAppWidgetHost.createView(applicationContext, appWidgetId, appWidgetInfo) as RoundedWidgetView
+                hostView.setAppWidget(appWidgetId, appWidgetInfo)
+                hostView.setPadding(0, 0, 0, 0)
+                hostView.layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                hostView.post {
+                    updateHomeSystemWidgetOptions(hostView, appWidgetInfo)
+                }
+                return hostView
+            }
+        }
+        return createHomeSystemWidgetFallback(appWidgetId)
+    }
+
+    private fun updateHomeSystemWidgetOptions(
+        widgetView: RoundedWidgetView,
+        appWidgetInfo: AppWidgetProviderInfo
+    ) {
+        val density = resources.displayMetrics.density.coerceAtLeast(1f)
+        val widthDp = widgetView.width
+            .takeIf { it > 0 }
+            ?.let { widthPx -> (widthPx / density).toInt() }
+            ?: appWidgetInfo.minWidth
+        val heightDp = widgetView.height
+            .takeIf { it > 0 }
+            ?.let { heightPx -> (heightPx / density).toInt() }
+            ?: appWidgetInfo.minHeight
+        val options = Bundle().apply {
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp.coerceAtLeast(1))
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp.coerceAtLeast(1))
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp.coerceAtLeast(1))
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp.coerceAtLeast(1))
+            putBoolean(WidgetViewBuilder.WIDGET_OPTION_DARK_TEXT, isWorkspaceDarkText(this@LauncherActivity))
+        }
+        widgetView.updateAppWidgetOptions(options)
+    }
+
+    private fun createHomeSystemWidgetFallback(appWidgetId: Int?): View {
+        val appWidgetInfo = appWidgetId?.let { id -> mAppWidgetManager.getAppWidgetInfo(id) }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = roundedRectangle(0xE8FFFFFF.toInt(), 20)
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            addView(
+                ImageView(context).apply {
+                    setImageDrawable(runCatching {
+                        appWidgetInfo?.loadIcon(context, resources.displayMetrics.densityDpi)
+                    }.getOrNull())
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                },
+                LinearLayout.LayoutParams(dp(56), dp(56))
+            )
+            addView(
+                TextView(context).apply {
+                    text = runCatching {
+                        appWidgetInfo?.loadLabel(packageManager)
+                    }.getOrNull() ?: getString(R.string.home_widget_add_entry)
+                    gravity = Gravity.CENTER
+                    setTextColor(Color.BLACK)
+                    textSize = 15f
+                    typeface = Typeface.DEFAULT_BOLD
+                    maxLines = 2
+                    ellipsize = TextUtils.TruncateAt.END
+                },
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = dp(12)
+                }
+            )
+        }
+    }
+
     private fun homeWidgetLabel(type: String): String {
         return when (type) {
             HOME_WIDGET_TYPE_BATTERY -> getString(R.string.today_widget_battery)
             HOME_WIDGET_TYPE_PICTURE -> getString(R.string.today_widget_picture)
+            HOME_WIDGET_TYPE_SYSTEM -> getString(R.string.home_widget_add_entry)
             else -> getString(R.string.today_widget_weather)
         }
     }
@@ -4391,7 +5162,16 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun refreshWeatherForecast(force: Boolean) {
+    private fun refreshWeatherForecast(
+        force: Boolean,
+        showLoading: Boolean = true,
+        restartInFlight: Boolean = false
+    ) {
+        if (restartInFlight) {
+            weatherRequestGeneration += 1
+            weatherLoadInFlight = false
+        }
+        val requestGeneration = weatherRequestGeneration
         if (!hasWeatherLocationPermission()) {
             setWeatherWidgetState(WeatherWidgetUiState.PermissionRequired)
             return
@@ -4410,44 +5190,70 @@ class LauncherActivity : AppCompatActivity(),
         }
 
         weatherLoadInFlight = true
-        setWeatherWidgetState(WeatherWidgetUiState.Loading)
+        if (showLoading || latestWeatherForecast == null) {
+            setWeatherWidgetState(WeatherWidgetUiState.Loading)
+        }
         WeatherLocationProvider.currentCoordinates(this) { coordinates ->
+            if (requestGeneration != weatherRequestGeneration) {
+                return@currentCoordinates
+            }
             if (coordinates == null) {
                 weatherLoadInFlight = false
                 openWeatherDetailAfterRefresh = false
                 setWeatherWidgetState(WeatherWidgetUiState.PermissionRequired)
                 Toast.makeText(this, R.string.weather_location_unavailable, Toast.LENGTH_SHORT).show()
             } else {
-                fetchWeatherForecast(coordinates)
+                fetchWeatherForecast(coordinates, requestGeneration)
             }
         }
     }
 
-    private fun fetchWeatherForecast(coordinates: WeatherCoordinates) {
+    private fun fetchWeatherForecast(
+        coordinates: WeatherCoordinates,
+        requestGeneration: Int
+    ) {
         val appContext = applicationContext
+        val requestedUnit = selectedWeatherTemperatureUnit()
         weatherExecutor.execute {
             try {
                 val locationName = WeatherLocationProvider.locationName(appContext, coordinates)
-                val forecast = OpenMeteoWeatherApi.fetchForecast(coordinates, locationName)
+                val forecast = OpenMeteoWeatherApi.fetchForecast(
+                    coordinates = coordinates,
+                    locationName = locationName,
+                    temperatureUnit = requestedUnit
+                )
                 weatherRefreshHandler.post {
+                    if (requestGeneration != weatherRequestGeneration) {
+                        return@post
+                    }
+                    val displayForecast = WeatherSettingsPolicy.convertForecastTemperatureUnit(
+                        forecast,
+                        selectedWeatherTemperatureUnit()
+                    )
                     weatherLoadInFlight = false
-                    latestWeatherForecast = forecast
+                    latestWeatherForecast = displayForecast
                     latestWeatherRefreshUptime = SystemClock.elapsedRealtime()
-                    setWeatherWidgetState(WeatherWidgetUiState.Forecast(forecast))
+                    setWeatherWidgetState(WeatherWidgetUiState.Forecast(displayForecast))
                     scheduleNextWeatherRefresh()
                     if (weatherDetailPanel != null || openWeatherDetailAfterRefresh) {
                         openWeatherDetailAfterRefresh = false
-                        showWeatherDetailPage(forecast)
+                        showWeatherDetailPage(displayForecast)
                     }
                 }
             } catch (_: IOException) {
                 weatherRefreshHandler.post {
+                    if (requestGeneration != weatherRequestGeneration) {
+                        return@post
+                    }
                     weatherLoadInFlight = false
                     openWeatherDetailAfterRefresh = false
                     setWeatherWidgetState(WeatherWidgetUiState.NoNetwork)
                 }
             } catch (_: Exception) {
                 weatherRefreshHandler.post {
+                    if (requestGeneration != weatherRequestGeneration) {
+                        return@post
+                    }
                     weatherLoadInFlight = false
                     openWeatherDetailAfterRefresh = false
                     setWeatherWidgetState(WeatherWidgetUiState.NoNetwork)
@@ -4476,12 +5282,16 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun isWeatherForecastStale(): Boolean {
         return latestWeatherRefreshUptime == 0L ||
-            SystemClock.elapsedRealtime() - latestWeatherRefreshUptime >= WEATHER_AUTO_REFRESH_MS
+            SystemClock.elapsedRealtime() - latestWeatherRefreshUptime >= weatherAutoRefreshIntervalMs()
     }
 
     private fun scheduleNextWeatherRefresh() {
         weatherRefreshHandler.removeCallbacks(weatherRefreshRunnable)
-        weatherRefreshHandler.postDelayed(weatherRefreshRunnable, WEATHER_AUTO_REFRESH_MS)
+        weatherRefreshHandler.postDelayed(weatherRefreshRunnable, weatherAutoRefreshIntervalMs())
+    }
+
+    private fun weatherAutoRefreshIntervalMs(): Long {
+        return selectedWeatherRefreshInterval().millis
     }
 
     private fun hasWeatherLocationPermission(): Boolean {
@@ -4503,24 +5313,26 @@ class LauncherActivity : AppCompatActivity(),
     private fun showWeatherSettingsPage() {
         hideWeatherSettingsPage()
         dismissHomeWidgetOptionsPopup()
+        dismissLauncherOptionsPopup()
+        forceHideContextOverlayImmediately()
         val backgroundColor = if (darkModeEnabled) Color.BLACK else 0xFFEDEDEF.toInt()
         val toolbarColor = if (darkModeEnabled) 0xFF1C1C1E.toInt() else backgroundColor
         val titleColor = if (darkModeEnabled) Color.WHITE else Color.BLACK
         val dividerColor = if (darkModeEnabled) 0xFF38383A.toInt() else 0xFFC7C7CC.toInt()
         val rowColor = if (darkModeEnabled) 0xFF1C1C1E.toInt() else 0xFFEDEDEF.toInt()
-        val selectedRowColor = if (darkModeEnabled) 0xFF2C2C2E.toInt() else 0xFFD3D3D5.toInt()
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             fitsSystemWindows = true
             setBackgroundColor(backgroundColor)
-            elevation = dp(48).toFloat()
+            elevation = dp(80).toFloat()
+            translationZ = dp(80).toFloat()
             isClickable = true
             isFocusable = true
         }
         panel.addView(
             createWeatherSettingsToolbar(toolbarColor, titleColor),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(112))
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96))
         )
         panel.addView(
             View(this).apply { setBackgroundColor(dividerColor) },
@@ -4529,15 +5341,17 @@ class LauncherActivity : AppCompatActivity(),
         panel.addView(
             createWeatherSettingsOptionRow(
                 title = getString(R.string.weather_settings_unit),
-                subtitle = getString(R.string.weather_settings_unit_celsius),
-                rowColor = rowColor
+                subtitle = weatherTemperatureUnitLabel(selectedWeatherTemperatureUnit()),
+                rowColor = rowColor,
+                onClick = { showWeatherUnitDialog() }
             )
         )
         panel.addView(
             createWeatherSettingsOptionRow(
                 title = getString(R.string.weather_settings_auto_refresh),
-                subtitle = getString(R.string.weather_settings_auto_refresh_hourly),
-                rowColor = selectedRowColor
+                subtitle = weatherRefreshIntervalLabel(selectedWeatherRefreshInterval()),
+                rowColor = rowColor,
+                onClick = { showWeatherRefreshIntervalDialog() }
             )
         )
 
@@ -4549,6 +5363,7 @@ class LauncherActivity : AppCompatActivity(),
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+        panel.bringToFront()
     }
 
     private fun hideWeatherSettingsPage() {
@@ -4598,26 +5413,31 @@ class LauncherActivity : AppCompatActivity(),
     private fun createWeatherSettingsOptionRow(
         title: String,
         subtitle: String,
-        rowColor: Int
+        rowColor: Int,
+        onClick: () -> Unit
     ): View {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(rowColor)
-            setPadding(dp(34), 0, dp(18), 0)
+            setPadding(dp(20), 0, dp(18), 0)
+            isClickable = true
+            isFocusable = true
+            foreground = selectableItemBackground()
+            setOnClickListener { onClick() }
             addView(
                 FrameLayout(context).apply {
-                    background = roundedRectangle(0xFFFFC400.toInt(), 8)
+                    background = roundedRectangle(0xFFFFC400.toInt(), 7)
                     addView(
                         ImageView(context).apply {
                             setImageResource(R.drawable.ic_weather_24)
                             setColorFilter(Color.WHITE)
                         },
-                        FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER)
+                        FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER)
                     )
                 },
-                LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-                    marginEnd = dp(56)
+                LinearLayout.LayoutParams(dp(34), dp(34)).apply {
+                    marginEnd = dp(24)
                 }
             )
             addView(
@@ -4628,7 +5448,7 @@ class LauncherActivity : AppCompatActivity(),
                         TextView(context).apply {
                             text = title
                             setTextColor(if (darkModeEnabled) Color.WHITE else 0xFF1C1C1E.toInt())
-                            textSize = 20f
+                            textSize = 18f
                             includeFontPadding = false
                         }
                     )
@@ -4636,7 +5456,7 @@ class LauncherActivity : AppCompatActivity(),
                         TextView(context).apply {
                             text = subtitle
                             setTextColor(if (darkModeEnabled) 0xFFAEAEB2.toInt() else 0xFF6D6D72.toInt())
-                            textSize = 17f
+                            textSize = 15f
                             includeFontPadding = false
                         }
                     )
@@ -4644,7 +5464,250 @@ class LauncherActivity : AppCompatActivity(),
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             )
         }.also { row ->
-            row.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96))
+            installWeatherSettingsOptionClick(row, onClick)
+            row.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(80))
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun installWeatherSettingsOptionClick(view: View, onClick: () -> Unit) {
+        view.isClickable = true
+        view.setOnClickListener { onClick() }
+        view.setOnTouchListener { touchedView, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> true
+                MotionEvent.ACTION_UP -> {
+                    touchedView.performClick()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> true
+                else -> false
+            }
+        }
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                installWeatherSettingsOptionClick(view.getChildAt(index), onClick)
+            }
+        }
+    }
+
+    private fun selectedWeatherTemperatureUnit(): WeatherSettingsPolicy.TemperatureUnit {
+        return WeatherSettingsPolicy.temperatureUnit(Preferences.useMetricUnits(this))
+    }
+
+    private fun selectedWeatherRefreshInterval(): WeatherSettingsPolicy.RefreshInterval {
+        return WeatherSettingsPolicy.refreshInterval(Preferences.weatherRefreshIntervalValue(this))
+    }
+
+    private fun weatherTemperatureUnitLabel(unit: WeatherSettingsPolicy.TemperatureUnit): String {
+        return when (unit) {
+            WeatherSettingsPolicy.TemperatureUnit.CELSIUS ->
+                getString(R.string.weather_settings_unit_celsius)
+            WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT ->
+                getString(R.string.weather_settings_unit_fahrenheit)
+        }
+    }
+
+    private fun weatherRefreshIntervalLabel(interval: WeatherSettingsPolicy.RefreshInterval): String {
+        return when (interval) {
+            WeatherSettingsPolicy.RefreshInterval.HOURLY ->
+                getString(R.string.weather_settings_auto_refresh_hourly)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_3_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_3_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_6_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_6_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_9_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_9_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_12_HOURS ->
+                getString(R.string.weather_settings_auto_refresh_12_hours)
+        }
+    }
+
+    private fun showWeatherUnitDialog() {
+        val options = listOf(
+            WeatherSettingsPolicy.TemperatureUnit.CELSIUS,
+            WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT
+        )
+        showWeatherChoiceDialog(
+            title = getString(R.string.weather_settings_unit),
+            options = options,
+            selected = selectedWeatherTemperatureUnit(),
+            labelFor = { weatherTemperatureUnitLabel(it) },
+            onSelected = { selectedUnit ->
+                applyWeatherTemperatureUnitSelection(selectedUnit)
+            }
+        )
+    }
+
+    private fun showWeatherRefreshIntervalDialog() {
+        val options = listOf(
+            WeatherSettingsPolicy.RefreshInterval.HOURLY,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_3_HOURS,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_6_HOURS,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_9_HOURS,
+            WeatherSettingsPolicy.RefreshInterval.EVERY_12_HOURS
+        )
+        showWeatherChoiceDialog(
+            title = getString(R.string.weather_settings_auto_refresh),
+            options = options,
+            selected = selectedWeatherRefreshInterval(),
+            labelFor = { weatherRefreshIntervalLabel(it) },
+            onSelected = { selectedInterval ->
+                applyWeatherRefreshIntervalSelection(selectedInterval)
+            }
+        )
+    }
+
+    private fun applyWeatherTemperatureUnitSelection(
+        selectedUnit: WeatherSettingsPolicy.TemperatureUnit
+    ) {
+        val currentUnit = selectedWeatherTemperatureUnit()
+        Preferences.setUseMetricUnits(this, selectedUnit.useMetric)
+        latestWeatherRefreshUptime = 0L
+        if (currentUnit != selectedUnit) {
+            latestWeatherForecast = latestWeatherForecast?.let { forecast ->
+                WeatherSettingsPolicy.convertForecastTemperatureUnit(forecast, selectedUnit)
+            }
+            latestWeatherForecast?.let { forecast ->
+                setWeatherWidgetState(WeatherWidgetUiState.Forecast(forecast))
+            }
+            refreshWeatherForecast(
+                force = true,
+                showLoading = latestWeatherForecast == null,
+                restartInFlight = true
+            )
+        }
+        showWeatherSettingsPage()
+    }
+
+    private fun applyWeatherRefreshIntervalSelection(
+        selectedInterval: WeatherSettingsPolicy.RefreshInterval
+    ) {
+        val currentInterval = selectedWeatherRefreshInterval()
+        Preferences.setWeatherRefreshIntervalValue(this, selectedInterval.preferenceValue)
+        scheduleNextWeatherRefresh()
+        if (currentInterval != selectedInterval) {
+            refreshWeatherForecast(
+                force = true,
+                showLoading = latestWeatherForecast == null,
+                restartInFlight = true
+            )
+        }
+        showWeatherSettingsPage()
+    }
+
+    private fun <T> showWeatherChoiceDialog(
+        title: String,
+        options: List<T>,
+        selected: T,
+        labelFor: (T) -> String,
+        onSelected: (T) -> Unit
+    ) {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = roundedRectangle(Color.WHITE, 22)
+            setPadding(dp(28), dp(26), dp(28), dp(18))
+        }
+        card.addView(
+            TextView(this).apply {
+                text = title
+                setTextColor(Color.BLACK)
+                textSize = 24f
+                typeface = Typeface.DEFAULT_BOLD
+                includeFontPadding = false
+            },
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(18)
+            }
+        )
+
+        options.forEach { option ->
+            card.addView(
+                createWeatherChoiceRow(
+                    label = labelFor(option),
+                    checked = option == selected
+                ) {
+                    dialog.dismiss()
+                    onSelected(option)
+                }
+            )
+        }
+
+        card.addView(
+            TextView(this).apply {
+                text = getString(R.string.dialog_cancel)
+                setTextColor(0xFF009688.toInt())
+                textSize = 16f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                background = selectableItemBackground()
+                setOnClickListener { dialog.dismiss() }
+            },
+            LinearLayout.LayoutParams(dp(88), dp(52)).apply {
+                gravity = Gravity.END
+                topMargin = dp(16)
+            }
+        )
+
+        dialog.setContentView(card)
+        dialog.setOnShowListener {
+            dialog.window?.let { window ->
+                window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                window.setDimAmount(0.62f)
+                window.setLayout(
+                    (resources.displayMetrics.widthPixels * 0.86f).toInt(),
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
+        }
+        dialog.show()
+    }
+
+    private fun createWeatherChoiceRow(
+        label: String,
+        checked: Boolean,
+        onClick: () -> Unit
+    ): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            background = selectableItemBackground()
+            setOnClickListener { onClick() }
+            addView(
+                RadioButton(context).apply {
+                    isChecked = checked
+                    isClickable = false
+                    isFocusable = false
+                },
+                LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+                    marginEnd = dp(26)
+                }
+            )
+            addView(
+                TextView(context).apply {
+                    text = label
+                    setTextColor(0xFF2C2C2E.toInt())
+                    textSize = 21f
+                    includeFontPadding = false
+                    gravity = Gravity.CENTER_VERTICAL
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            )
+        }.also { row ->
+            row.layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(64)
+            )
         }
     }
 
@@ -5055,7 +6118,7 @@ class LauncherActivity : AppCompatActivity(),
         applyHomeWidgetEditState()
         setHomeWidgetDragIconJiggleReduced(true)
         removeHomeWidgetDragPreview()
-        createHomeWidgetDragPreview(spec.type, spec.size)
+        createHomeWidgetDragPreview(spec)
         scheduleHomeWidgetDragPreview(rawX, rawY)
         scheduleHomeWidgetDisplacementPreview(spec, rawX, rawY)
         updateDragEdgeGlows(true)
@@ -5069,12 +6132,16 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun hideHomeWidgetPickerDuringTouchDrag() {
         homeWidgetPickerDialog?.window?.setDimAmount(0f)
+        homeWidgetProviderDialog?.window?.setDimAmount(0f)
         homeWidgetPickerSheet?.animate()?.cancel()
+        homeWidgetProviderSheet?.animate()?.cancel()
         homeWidgetPickerSheet?.alpha = 0f
+        homeWidgetProviderSheet?.alpha = 0f
     }
 
     private fun restoreHomeWidgetPickerAfterTouchDragIfNeeded() {
         homeWidgetPickerSheet?.alpha = 1f
+        homeWidgetProviderSheet?.alpha = 1f
     }
 
     private fun handleHomeWidgetTouchDragMotion(source: View, event: MotionEvent): Boolean {
@@ -5160,8 +6227,9 @@ class LauncherActivity : AppCompatActivity(),
         } else {
             null
         }
-        val placed = pendingItem?.let { upsertHomeWidgetItem(it) } == true
+        val placed = pendingItem?.let { placeHomeWidgetDropItem(it, spec) } == true
         if (!placed) {
+            deleteUnplacedHomeSystemWidgetIfNeeded(spec)
             restoreHomeWidgetDragAppCells(animate = true)
             restoreHomeWidgetDragWidgetCells(animate = true)
             draggedHost?.alpha = 1f
@@ -5177,6 +6245,7 @@ class LauncherActivity : AppCompatActivity(),
         clearHomeWidgetDragPreviewState()
         removeHomeWidgetDragPreview()
         dismissHomeWidgetPicker()
+        dismissHomeWidgetProviderPreview()
         if (shouldRestoreEntryCard) {
             showHomeWidgetEntryCard()
         }
@@ -5235,10 +6304,11 @@ class LauncherActivity : AppCompatActivity(),
                         removeHomeWidgetDragPreview()
                         return@post
                     }
-                    val placed = pendingItem?.let { upsertHomeWidgetItem(it) } == true
+                    val placed = pendingItem?.let { placeHomeWidgetDropItem(it, spec) } == true
                     if (placed) {
                         DatabaseManager.getManager(this@LauncherActivity).saveLayouts(pages, mDock)
                     } else {
+                        deleteUnplacedHomeSystemWidgetIfNeeded(spec)
                         restoreHomeWidgetDragAppCells(animate = true)
                         restoreHomeWidgetDragWidgetCells(animate = true)
                         draggedHost?.alpha = 1f
@@ -5247,6 +6317,7 @@ class LauncherActivity : AppCompatActivity(),
                     clearHomeWidgetDragPreviewState()
                     removeHomeWidgetDragPreview()
                     dismissHomeWidgetPicker()
+                    dismissHomeWidgetProviderPreview()
                     if (shouldRestoreEntryCard) {
                         showHomeWidgetEntryCard()
                     }
@@ -5384,7 +6455,8 @@ class LauncherActivity : AppCompatActivity(),
                 type = spec.type,
                 size = spec.size,
                 page = pageIndex,
-                cell = placement.anchorCell
+                cell = placement.anchorCell,
+                appWidgetId = spec.appWidgetId
             ),
             displacedCells = displacedCells,
             displacedWidgetCells = displacedWidgetCells
@@ -5965,6 +7037,28 @@ class LauncherActivity : AppCompatActivity(),
         return true
     }
 
+    private fun placeHomeWidgetDropItem(
+        item: HomeWidgetPreferences.Item,
+        spec: HomeWidgetDragSpec
+    ): Boolean {
+        val placed = upsertHomeWidgetItem(item)
+        if (placed && spec.existingItemId == null && item.appWidgetId == pendingHomeSystemWidgetId) {
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        }
+        return placed
+    }
+
+    private fun deleteUnplacedHomeSystemWidgetIfNeeded(spec: HomeWidgetDragSpec) {
+        val appWidgetId = spec.appWidgetId ?: return
+        if (spec.type != HOME_WIDGET_TYPE_SYSTEM || spec.existingItemId != null) {
+            return
+        }
+        mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+        if (pendingHomeSystemWidgetId == appWidgetId) {
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        }
+    }
+
     private fun dropCellForHomeGridRaw(gridLayout: GridLayout, rawX: Float, rawY: Float): Int {
         val location = IntArray(2)
         gridLayout.getLocationOnScreen(location)
@@ -6021,13 +7115,30 @@ class LauncherActivity : AppCompatActivity(),
         homeWidgetPickerOverlay = null
     }
 
-    private fun homeWidgetDragStartPoint(source: View, rawX: Float, rawY: Float): Pair<Float, Float> {
-        if (rawX > 0f && rawY > 0f) {
-            return rawX to rawY
+    private fun dismissHomeWidgetProviderPreview() {
+        val dialog = homeWidgetProviderDialog
+        homeWidgetProviderDialog = null
+        homeWidgetProviderSheet = null
+        dialog?.setOnDismissListener(null)
+        if (dialog?.isShowing == true) {
+            dialog.dismiss()
         }
+    }
+
+    private fun homeWidgetDragStartPoint(source: View, rawX: Float, rawY: Float): Pair<Float, Float> {
         val location = IntArray(2)
         source.getLocationOnScreen(location)
-        return (location[0] + source.width / 2f) to (location[1] + source.height / 2f)
+        val point = HomeWidgetInteractionPolicy.dragStartPoint(
+            rawX = rawX,
+            rawY = rawY,
+            sourceBounds = HomeWidgetInteractionPolicy.Bounds(
+                left = location[0],
+                top = location[1],
+                right = location[0] + source.width,
+                bottom = location[1] + source.height
+            )
+        )
+        return point.x to point.y
     }
 
     private fun startExistingHomeWidgetDrag(
@@ -6049,7 +7160,8 @@ class LauncherActivity : AppCompatActivity(),
                 size = latestItem.size,
                 itemId = latestItem.id,
                 sessionId = sessionId,
-                existingItemId = latestItem.id
+                existingItemId = latestItem.id,
+                appWidgetId = latestItem.appWidgetId
             ),
             host = host,
             rawX = startPoint.first,
@@ -6081,6 +7193,48 @@ class LauncherActivity : AppCompatActivity(),
         )
     }
 
+    private fun startHomeWidgetProviderDrag(
+        provider: TodayWidgetProvider,
+        source: View,
+        rawX: Float = homeWidgetTouchLastRawX,
+        rawY: Float = homeWidgetTouchLastRawY
+    ): Boolean {
+        val appWidgetId = mAppWidgetHost.allocateAppWidgetId()
+        pendingHomeSystemWidgetId = appWidgetId
+        return try {
+            if (!mAppWidgetManager.bindAppWidgetIdIfAllowed(appWidgetId, provider.providerInfo.provider)) {
+                mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+                pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                Toast.makeText(this, R.string.toast_failed, Toast.LENGTH_SHORT).show()
+                return true
+            }
+            val sessionId = HomeWidgetDragSessionPolicy.nextSessionId(homeWidgetDragSessionId)
+            val startPoint = homeWidgetDragStartPoint(source, rawX, rawY)
+            beginHomeWidgetTouchDrag(
+                spec = HomeWidgetDragSpec(
+                    type = HOME_WIDGET_TYPE_SYSTEM,
+                    size = HomeWidgetProviderPreviewPolicy.homeWidgetSize(
+                        provider.providerInfo.minWidth,
+                        provider.providerInfo.minHeight
+                    ),
+                    itemId = createHomeWidgetId(),
+                    sessionId = sessionId,
+                    appWidgetId = appWidgetId,
+                    preview = provider.preview ?: provider.icon
+                ),
+                host = null,
+                rawX = startPoint.first,
+                rawY = startPoint.second,
+                startedFromPicker = true
+            )
+        } catch (e: IllegalArgumentException) {
+            mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            Toast.makeText(this, R.string.toast_failed, Toast.LENGTH_SHORT).show()
+            true
+        }
+    }
+
     private fun createHomeWidgetId(): String =
         "home_widget_${SystemClock.uptimeMillis()}_${homeWidgetItems.size}"
 
@@ -6097,7 +7251,9 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun renderHomeWidgetDragBitmap(
         type: String,
-        size: HomeWidgetPlacementPolicy.WidgetSize
+        size: HomeWidgetPlacementPolicy.WidgetSize,
+        appWidgetId: Int? = null,
+        preview: Drawable? = null
     ): Bitmap? {
         val page = pages.getOrNull(getCurrentAppsPageNumber()) ?: pages.firstOrNull() ?: return null
         val span = HomeWidgetPlacementPolicy.spanFor(size, page.columnCount)
@@ -6113,8 +7269,23 @@ class LauncherActivity : AppCompatActivity(),
                 homeWidgetHorizontalInset(span),
                 homeWidgetBottomInset()
             )
+            val widgetBody = if (type == HOME_WIDGET_TYPE_SYSTEM) {
+                preview?.let { createHomeSystemWidgetPreviewBody(it) } ?: createHomeSystemWidgetBody(
+                    HomeWidgetPreferences.Item(
+                        id = "preview",
+                        type = HOME_WIDGET_TYPE_SYSTEM,
+                        size = size,
+                        page = 0,
+                        cell = 0,
+                        appWidgetId = appWidgetId
+                    ),
+                    null
+                )
+            } else {
+                createHomeWidgetBody(type, null)
+            }
             addView(
-                createHomeWidgetBody(type, null),
+                widgetBody,
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
@@ -6130,12 +7301,9 @@ class LauncherActivity : AppCompatActivity(),
         return bitmap
     }
 
-    private fun createHomeWidgetDragPreview(
-        type: String,
-        size: HomeWidgetPlacementPolicy.WidgetSize
-    ) {
+    private fun createHomeWidgetDragPreview(spec: HomeWidgetDragSpec) {
         removeHomeWidgetDragPreview()
-        val bitmap = renderHomeWidgetDragBitmap(type, size) ?: return
+        val bitmap = renderHomeWidgetDragBitmap(spec.type, spec.size, spec.appWidgetId, spec.preview) ?: return
         homeWidgetDragPreview = ImageView(this).apply {
             tag = HOME_WIDGET_DRAG_PREVIEW_TAG
             setImageBitmap(bitmap)
@@ -6256,6 +7424,111 @@ class LauncherActivity : AppCompatActivity(),
         widgetPreviewOverlay = null
     }
 
+    private fun addHomeWidgetFromProvider(providerInfo: AppWidgetProviderInfo) {
+        dismissHomeWidgetProviderPreview()
+        dismissHomeWidgetPicker()
+
+        val appWidgetId = mAppWidgetHost.allocateAppWidgetId()
+        pendingHomeSystemWidgetId = appWidgetId
+
+        try {
+            if (mAppWidgetManager.bindAppWidgetIdIfAllowed(appWidgetId, providerInfo.provider)) {
+                handleHomeSystemWidgetBound(appWidgetId)
+            } else {
+                val permissionIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, providerInfo.provider)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, providerInfo.profile)
+                }
+                startActivityForResult(permissionIntent, REQUEST_HOME_BIND_APPWIDGET)
+            }
+        } catch (e: IllegalArgumentException) {
+            mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            Toast.makeText(this, R.string.toast_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun handleHomeSystemWidgetBound(appWidgetId: Int) {
+        val appWidgetInfo = mAppWidgetManager.getAppWidgetInfo(appWidgetId)
+        if (appWidgetInfo == null) {
+            mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
+
+        if (appWidgetInfo.configure != null) {
+            startHomeSystemWidgetConfigureActivitySafely(appWidgetId)
+        } else {
+            createHomeSystemWidget(appWidgetId)
+        }
+    }
+
+    private fun startHomeSystemWidgetConfigureActivitySafely(appWidgetId: Int) {
+        try {
+            mAppWidgetHost.startAppWidgetConfigureActivityForResult(
+                this,
+                appWidgetId,
+                0,
+                REQUEST_HOME_CREATE_APPWIDGET,
+                null
+            )
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.activity_not_found, Toast.LENGTH_SHORT).show()
+            createHomeSystemWidget(appWidgetId)
+        }
+    }
+
+    private fun createHomeSystemWidget(appWidgetId: Int) {
+        val appWidgetInfo = mAppWidgetManager.getAppWidgetInfo(appWidgetId)
+        if (appWidgetInfo == null) {
+            mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
+
+        val spec = HomeWidgetDragSpec(
+            type = HOME_WIDGET_TYPE_SYSTEM,
+            size = HomeWidgetProviderPreviewPolicy.homeWidgetSize(
+                appWidgetInfo.minWidth,
+                appWidgetInfo.minHeight
+            ),
+            itemId = createHomeWidgetId(),
+            sessionId = HomeWidgetDragSessionPolicy.nextSessionId(homeWidgetDragSessionId),
+            appWidgetId = appWidgetId
+        )
+        val placed = placeHomeWidgetInFirstAvailableCell(spec)
+        if (!placed) {
+            mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+            pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
+
+        pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        handleWobbling(true)
+        Toast.makeText(this, R.string.home_widget_added_hold_hint, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun placeHomeWidgetInFirstAvailableCell(spec: HomeWidgetDragSpec): Boolean {
+        val pageIndex = getCurrentAppsPageNumber().coerceIn(0, (pages.size - 1).coerceAtLeast(0))
+        val page = pages.getOrNull(pageIndex) ?: return false
+        val maxCells = page.rowCount * page.columnCount
+        for (cell in 0 until maxCells) {
+            val resolved = resolveHomeWidgetPlacementForCell(
+                spec = spec,
+                pageIndex = pageIndex,
+                page = page,
+                dropCell = cell,
+                showNoRoomToast = false
+            ) ?: continue
+            commitHomeWidgetDisplacement(resolved)
+            return upsertHomeWidgetItem(resolved.item)
+        }
+
+        Toast.makeText(this, R.string.home_widget_no_room, Toast.LENGTH_SHORT).show()
+        return false
+    }
+
     private fun addTodayWidgetFromProvider(providerInfo: AppWidgetProviderInfo) {
         dismissTodayWidgetPreview()
         dismissTodayWidgetPicker()
@@ -6333,6 +7606,7 @@ class LauncherActivity : AppCompatActivity(),
         super.onPause()
         dismissTodayWidgetPicker()
         dismissTodayWidgetPreview()
+        dismissHomeWidgetProviderPreview()
         hideAppLibrarySearchOverlay(animated = false)
         hideAppLibraryDetailOverlay(animated = false)
         hideRenameAppPicker()
@@ -7339,6 +8613,13 @@ class LauncherActivity : AppCompatActivity(),
                 )
             ) {
                 hideHomeWidgetEntryCard()
+            } else if (
+                HomeWidgetEditStatePolicy.shouldExitEditModeOnHomeTap(
+                    editing = isWobbling,
+                    entryCardVisible = homeWidgetEntryCard != null
+                )
+            ) {
+                handleWobbling(false)
             } else if (!isWobbling) {
                 dismissLauncherOptionsPopup()
             }
@@ -7473,15 +8754,14 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createAppLibrarySearchPill(): View {
+        val searchStyle = LauncherLiquidGlassStylePolicy.searchPill(
+            enabled = liquidGlassEnabled,
+            darkMode = styleDarkModeForLiquidGlass()
+        )
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            background = roundedRectangle(
-                LauncherLiquidGlassStylePolicy.searchPill(
-                    enabled = liquidGlassEnabled,
-                    darkMode = darkModeEnabled
-                )
-            )
+            background = roundedRectangle(searchStyle)
             isClickable = true
             isFocusable = true
             setOnClickListener { showAppLibrarySearchOverlay() }
@@ -7509,10 +8789,8 @@ class LauncherActivity : AppCompatActivity(),
             )
         }
         return glassContainer(
-            radiusDp = LauncherLiquidGlassStylePolicy.searchPill(
-                enabled = liquidGlassEnabled,
-                darkMode = darkModeEnabled
-            ).radiusDp,
+            style = searchStyle,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
             content = content
         ).apply {
             isClickable = true
@@ -7551,13 +8829,30 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun glassContainer(radiusDp: Int, content: View): FrameLayout {
+    private fun glassContainer(
+        style: LauncherLiquidGlassStylePolicy.BackgroundStyle,
+        surface: LauncherRealtimeLiquidGlassPolicy.Surface,
+        content: View
+    ): FrameLayout {
         val container = if (liquidGlassEnabled || darkModeEnabled) {
-            BlurLayout(this).apply {
-                blurCornerRadius = dp(radiusDp).toFloat()
+            LauncherRealtimeLiquidGlassLayout(this).apply {
+                blurCornerRadius = dp(style.radiusDp).toFloat()
+                applyRealtimeLiquidGlass(
+                    enabled = shouldUseRealtimeLiquidGlass(),
+                    source = realtimeLiquidGlassSource(),
+                    profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+                        surface = surface,
+                        radiusDp = style.radiusDp,
+                        darkMode = styleDarkModeForLiquidGlass()
+                    )
+                )
             }
         } else {
             FrameLayout(this)
+        }
+        if (container is LauncherRealtimeLiquidGlassLayout && shouldUseRealtimeLiquidGlass()) {
+            container.setLiquidMaterial(roundedRectangle(style))
+            content.background = ColorDrawable(Color.TRANSPARENT)
         }
         container.clipToOutline = true
         container.addView(
@@ -7579,7 +8874,7 @@ class LauncherActivity : AppCompatActivity(),
             val folderStyle = LauncherLiquidGlassStylePolicy.appLibraryFolder(
                 enabled = liquidGlassEnabled,
                 empty = group.apps.isEmpty(),
-                darkMode = darkModeEnabled
+                darkMode = styleDarkModeForLiquidGlass()
             )
             val cardContent = FrameLayout(context).apply {
                 background = roundedRectangle(folderStyle)
@@ -7592,7 +8887,8 @@ class LauncherActivity : AppCompatActivity(),
                 )
             }
             val folderCard = glassContainer(
-                radiusDp = folderStyle.radiusDp,
+                style = folderStyle,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 content = cardContent
             ).apply {
                 clipToOutline = true
@@ -8041,7 +9337,7 @@ class LauncherActivity : AppCompatActivity(),
 
         val fieldStyle = LauncherLiquidGlassStylePolicy.searchField(
             enabled = liquidGlassEnabled,
-            darkMode = darkModeEnabled
+            darkMode = styleDarkModeForLiquidGlass()
         )
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -8064,7 +9360,8 @@ class LauncherActivity : AppCompatActivity(),
             )
         }
         return glassContainer(
-            radiusDp = fieldStyle.radiusDp,
+            style = fieldStyle,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
             content = content
         )
     }
@@ -8355,18 +9652,13 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun visibleLauncherItemsForHome(launcherItems: List<LauncherItem>): List<LauncherItem> {
         val hiddenIds = readHiddenAppIds()
-        val visibleItems = HiddenAppsPolicy.visibleLauncherItems(launcherItems, hiddenIds)
-        if (hiddenIds.isEmpty()) {
-            return visibleItems
-        }
-
         val graphicsUtil = GraphicsUtil(this)
-        visibleItems.filterIsInstance<FolderItem>().forEach { folder ->
-            if (!folder.items.isNullOrEmpty()) {
-                runCatching { folder.icon = graphicsUtil.generateFolderIcon(this, folder) }
-            }
+        return LauncherVisibleHomeItemsPolicy.visibleItems(
+            launcherItems = launcherItems,
+            hiddenAppIds = hiddenIds
+        ) { folder ->
+            runCatching { folder.icon = graphicsUtil.generateFolderIcon(this, folder) }
         }
-        return visibleItems
     }
 
     private fun showHiddenAppsPanel() {
@@ -8718,6 +10010,24 @@ class LauncherActivity : AppCompatActivity(),
             } else if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                 mAppWidgetHost.deleteAppWidgetId(appWidgetId)
                 pendingTodayWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            }
+        } else if (requestCode == REQUEST_HOME_BIND_APPWIDGET) {
+            val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingHomeSystemWidgetId)
+                ?: pendingHomeSystemWidgetId
+            if (resultCode == RESULT_OK && appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                handleHomeSystemWidgetBound(appWidgetId)
+            } else if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+                pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+            }
+        } else if (requestCode == REQUEST_HOME_CREATE_APPWIDGET) {
+            val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, pendingHomeSystemWidgetId)
+                ?: pendingHomeSystemWidgetId
+            if (resultCode == RESULT_OK && appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                createHomeSystemWidget(appWidgetId)
+            } else if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                mAppWidgetHost.deleteAppWidgetId(appWidgetId)
+                pendingHomeSystemWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
             }
         } else if (requestCode == REQUEST_HOME_WIDGET_PHOTO_PICK) {
             if (resultCode == RESULT_OK) {
@@ -9117,15 +10427,15 @@ class LauncherActivity : AppCompatActivity(),
         })
 
         icon.setOnClickListener { view ->
-            if (isWobbling) {
-                return@setOnClickListener
-            }
-
-            if (launcherItem.itemType != Constants.ITEM_TYPE_FOLDER) {
-                startActivitySafely(applicationContext, launcherItem, view)
-            } else {
-                folderFromDock = !((iconView.parent as View).parent is HorizontalPager)
-                displayFolder(launcherItem as FolderItem, iconView)
+            when (LauncherEditModeEntryPolicy.tapAction(launcherItem.itemType, isWobbling)) {
+                LauncherEditModeEntryPolicy.TapAction.IGNORE -> Unit
+                LauncherEditModeEntryPolicy.TapAction.LAUNCH_ITEM -> {
+                    startActivitySafely(applicationContext, launcherItem, view)
+                }
+                LauncherEditModeEntryPolicy.TapAction.OPEN_FOLDER -> {
+                    folderFromDock = !((iconView.parent as View).parent is HorizontalPager)
+                    displayFolder(launcherItem as FolderItem, iconView)
+                }
             }
         }
 
@@ -9172,6 +10482,10 @@ class LauncherActivity : AppCompatActivity(),
             if (LauncherEditModeEntryPolicy.shouldEnterEditMode(editHomeClicked = true)) {
                 handleWobbling(true)
             }
+        }
+        menu.findViewById<View>(R.id.blurEffectButton)?.setOnClickListener {
+            popup.dismiss()
+            showBlurEffectSettingsPanel()
         }
         menu.findViewById<View>(R.id.deleteButton)?.setOnClickListener {
             popup.dismiss()
@@ -9258,6 +10572,216 @@ class LauncherActivity : AppCompatActivity(),
                 unselectedColor = 0xFF8E8E93.toInt()
             )
         }
+    }
+
+    private fun showBlurEffectSettingsPanel() {
+        hideBlurEffectSettingsPanel()
+        dismissLauncherOptionsPopup()
+
+        val palette = layoutSettingsPalette(darkModeEnabled)
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(palette.backgroundColor)
+            elevation = dp(42).toFloat()
+            isClickable = true
+            isFocusable = true
+        }
+
+        panel.addView(
+            FrameLayout(this).apply {
+                setBackgroundColor(palette.toolbarColor)
+                addView(
+                    TextView(context).apply {
+                        text = getString(R.string.layout_back_settings)
+                        setTextColor(0xFF007AFF.toInt())
+                        textSize = 20f
+                        gravity = Gravity.CENTER_VERTICAL
+                        includeFontPadding = false
+                        setOnClickListener { hideBlurEffectSettingsPanel() }
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(56),
+                        Gravity.START or Gravity.BOTTOM
+                    ).apply {
+                        leftMargin = dp(14)
+                    }
+                )
+                addView(
+                    TextView(context).apply {
+                        text = getString(R.string.settings_blur_effect)
+                        setTextColor(palette.primaryTextColor)
+                        textSize = 20f
+                        typeface = Typeface.DEFAULT_BOLD
+                        gravity = Gravity.CENTER
+                        includeFontPadding = false
+                    },
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        dp(56),
+                        Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(112))
+        )
+
+        panel.addView(
+            View(this).apply { setBackgroundColor(palette.dividerColor) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+        )
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(palette.backgroundColor)
+        }
+        content.addView(
+            createBlurSettingsSwitchRow(
+                title = getString(R.string.settings_blur_dock),
+                checked = LauncherHomeLayoutPreferences.isDockBlurEnabled(this),
+                textColor = palette.secondaryTextColor,
+                rowColor = palette.rowColor,
+                dividerColor = palette.dividerColor
+            ) { enabled ->
+                saveDockBlurSetting(enabled)
+            }
+        )
+        content.addView(
+            createBlurSettingsSwitchRow(
+                title = getString(R.string.settings_blur_folder),
+                checked = LauncherHomeLayoutPreferences.isFolderBlurEnabled(this),
+                textColor = palette.secondaryTextColor,
+                rowColor = palette.rowColor,
+                dividerColor = palette.dividerColor
+            ) { enabled ->
+                LauncherHomeLayoutPreferences.setFolderBlur(this, enabled)
+            }
+        )
+        content.addView(
+            createBlurSettingsSwitchRow(
+                title = getString(R.string.settings_blur_widget),
+                checked = LauncherHomeLayoutPreferences.isWidgetBlurEnabled(this),
+                textColor = palette.secondaryTextColor,
+                rowColor = palette.rowColor,
+                dividerColor = palette.dividerColor
+            ) { enabled ->
+                LauncherHomeLayoutPreferences.setWidgetBlur(this, enabled)
+            }
+        )
+        content.addView(
+            createBlurSettingsSwitchRow(
+                title = getString(R.string.settings_blur_search),
+                checked = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
+                textColor = palette.secondaryTextColor,
+                rowColor = palette.rowColor,
+                dividerColor = palette.dividerColor
+            ) { enabled ->
+                LauncherHomeLayoutPreferences.setSearchBlur(this, enabled)
+            }
+        )
+
+        panel.addView(
+            ScrollView(this).apply {
+                isFillViewport = true
+                overScrollMode = View.OVER_SCROLL_NEVER
+                setBackgroundColor(palette.backgroundColor)
+                addView(
+                    content,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        )
+
+        blurSettingsPanel = panel
+        (mLauncherView as? ViewGroup)?.addView(
+            panel,
+            RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
+
+    @SuppressLint("UseSwitchCompatOrMaterialCode")
+    private fun createBlurSettingsSwitchRow(
+        title: String,
+        checked: Boolean,
+        textColor: Int,
+        rowColor: Int,
+        dividerColor: Int,
+        onCheckedChanged: (Boolean) -> Unit
+    ): View {
+        lateinit var switchView: Switch
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(rowColor)
+            addView(
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    isClickable = true
+                    isFocusable = true
+                    setPadding(dp(24), 0, dp(36), 0)
+                    setOnClickListener { switchView.isChecked = !switchView.isChecked }
+
+                    addView(
+                        ImageView(context).apply {
+                            background = roundedRectangle(0xFF2F8FF7.toInt(), 9)
+                            setImageResource(R.drawable.ic_grid_24)
+                            setColorFilter(Color.WHITE)
+                            setPadding(dp(8), dp(8), dp(8), dp(8))
+                            contentDescription = null
+                        },
+                        LinearLayout.LayoutParams(dp(50), dp(50))
+                    )
+                    addView(
+                        TextView(context).apply {
+                            text = title
+                            setTextColor(textColor)
+                            textSize = 20f
+                            includeFontPadding = false
+                        },
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            marginStart = dp(28)
+                        }
+                    )
+
+                    switchView = Switch(context).apply {
+                        isChecked = checked
+                        setOnCheckedChangeListener { _, isChecked -> onCheckedChanged(isChecked) }
+                    }
+                    addView(
+                        switchView,
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    )
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96))
+            )
+            addView(
+                View(context).apply { setBackgroundColor(dividerColor) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
+            )
+        }
+    }
+
+    private fun saveDockBlurSetting(enabled: Boolean) {
+        if (enabled == LauncherHomeLayoutPreferences.isDockBlurEnabled(this)) return
+
+        LauncherHomeLayoutPreferences.setDockBlur(this, enabled)
+        if (::mDock.isInitialized) {
+            mDock.refreshStyle()
+            applyDockRealtimeLiquidGlass()
+        }
+    }
+
+    private fun hideBlurEffectSettingsPanel() {
+        val panel = blurSettingsPanel ?: return
+        blurSettingsPanel = null
+        (panel.parent as? ViewGroup)?.removeView(panel)
     }
 
     private fun showLayoutSettingsPanel() {
@@ -10532,10 +12056,27 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (
+            HomeWidgetInteractionPolicy.shouldCaptureGlobalDragMotion(
+                active = homeWidgetTouchDragActive,
+                action = homeWidgetGlobalTouchAction(event)
+            )
+        ) {
+            return handleHomeWidgetTouchDragMotion(mLauncherView, event)
+        }
         if (handleHomeWidgetRemoveButtonGlobalTouch(event)) {
             return true
         }
         return super.dispatchTouchEvent(event)
+    }
+
+    private fun homeWidgetGlobalTouchAction(event: MotionEvent): HomeWidgetInteractionPolicy.TouchAction {
+        return when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> HomeWidgetInteractionPolicy.TouchAction.MOVE
+            MotionEvent.ACTION_UP -> HomeWidgetInteractionPolicy.TouchAction.UP
+            MotionEvent.ACTION_CANCEL -> HomeWidgetInteractionPolicy.TouchAction.CANCEL
+            else -> HomeWidgetInteractionPolicy.TouchAction.OTHER
+        }
     }
 
     private fun handleHomeWidgetRemoveButtonGlobalTouch(event: MotionEvent): Boolean {
@@ -12406,6 +13947,9 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun updateIcon(appView: BlissFrameLayout, app: LauncherItem, drawable: Drawable?, folderFromDock: Boolean) {
         app.icon = drawable
+        if (app is FolderItem) {
+            appView.refreshFolderPreviewBackground()
+        }
         val tags = appView.tag as List<*>
         val iv = tags[0] as SquareImageView
         iv.setImageDrawable(drawable)
@@ -12789,7 +14333,7 @@ class LauncherActivity : AppCompatActivity(),
         mIndicator.alpha = 1f
         mIndicator.visibility = VISIBLE
         mIndicator.removeAllViews()
-        mIndicator.addView(createIndicatorSearchText())
+        mIndicator.addView(createIndicatorSearchControl())
         if (animated) {
             val child = mIndicator.getChildAt(0)
             if (child != null) {
@@ -12803,23 +14347,67 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun createIndicatorSearchText(): TextView {
-        val searchText = TextView(this)
-        searchText.text = getString(R.string.launcher_search_hint)
-        searchText.gravity = Gravity.CENTER
-        searchText.includeFontPadding = false
-        searchText.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search_18, 0, 0, 0)
-        searchText.compoundDrawablePadding = dp(4)
-        searchText.setTextColor(Color.WHITE)
-        searchText.textSize = 12f
-        searchText.layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-        searchText.isClickable = true
-        searchText.isFocusable = true
-        searchText.setOnClickListener { openSearchFromIndicator() }
-        return searchText
+    private fun createIndicatorSearchControl(): View {
+        val spec = LauncherIndicatorSearchPillPolicy.visualSpec()
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openSearchFromIndicator() }
+
+            addView(
+                ImageView(context).apply {
+                    setImageResource(R.drawable.ic_search_18)
+                    setColorFilter(Color.WHITE)
+                },
+                LinearLayout.LayoutParams(dp(spec.iconSizeDp), dp(spec.iconSizeDp))
+            )
+
+            addView(
+                TextView(context).apply {
+                    text = getString(R.string.launcher_search_hint)
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    textSize = spec.textSizeSp
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginStart = dp(spec.iconTextGapDp)
+                }
+            )
+        }
+    }
+
+    private fun indicatorBackgroundStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle =
+        if (indicatorMode == IndicatorMode.SEARCH) {
+            LauncherLiquidGlassStylePolicy.searchPill(
+                enabled = liquidGlassEnabled,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+        } else {
+            LauncherLiquidGlassStylePolicy.pageIndicator(
+                enabled = liquidGlassEnabled,
+                darkMode = styleDarkModeForLiquidGlass()
+            )
+        }
+
+    private fun applyIndicatorBackgroundForCurrentMode() {
+        mIndicator.background = roundedRectangle(indicatorBackgroundStyle())
+    }
+
+    private fun updateIndicatorFrame(widthDp: Int, heightDp: Int) {
+        val layoutParams = mIndicator.layoutParams
+        layoutParams.width = dp(widthDp)
+        layoutParams.height = dp(heightDp)
+        mIndicator.layoutParams = layoutParams
     }
 
     private fun openSearchFromIndicator() {
@@ -12839,10 +14427,8 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun ensureDotsIndicatorFrame() {
-        val layoutParams = mIndicator.layoutParams
-        layoutParams.width = dp(PAGE_INDICATOR_SEARCH_WIDTH_DP)
-        layoutParams.height = dp(PAGE_INDICATOR_SEARCH_HEIGHT_DP)
-        mIndicator.layoutParams = layoutParams
+        updateIndicatorFrame(PAGE_INDICATOR_SEARCH_WIDTH_DP, PAGE_INDICATOR_SEARCH_HEIGHT_DP)
+        applyIndicatorBackgroundForCurrentMode()
         mIndicator.setPadding(dp(PAGE_INDICATOR_DOT_PADDING_DP), 0, dp(PAGE_INDICATOR_DOT_PADDING_DP), 0)
         mIndicator.layoutTransition = null
     }
@@ -12867,11 +14453,10 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun ensureSearchIndicatorFrame() {
-        val layoutParams = mIndicator.layoutParams
-        layoutParams.width = dp(PAGE_INDICATOR_SEARCH_WIDTH_DP)
-        layoutParams.height = dp(PAGE_INDICATOR_SEARCH_HEIGHT_DP)
-        mIndicator.layoutParams = layoutParams
-        mIndicator.setPadding(dp(10), 0, dp(10), 0)
+        val spec = LauncherIndicatorSearchPillPolicy.visualSpec()
+        updateIndicatorFrame(spec.widthDp, spec.heightDp)
+        applyIndicatorBackgroundForCurrentMode()
+        mIndicator.setPadding(0, 0, 0, 0)
         indicatorWheelView = null
     }
 
@@ -12927,6 +14512,10 @@ class LauncherActivity : AppCompatActivity(),
         }
         if (weatherSettingsPanel != null) {
             hideWeatherSettingsPage()
+            return
+        }
+        if (blurSettingsPanel != null) {
+            hideBlurEffectSettingsPanel()
             return
         }
         returnToHomeScreen()
@@ -13180,6 +14769,11 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
 
+        if (blurSettingsPanel != null) {
+            hideBlurEffectSettingsPanel()
+            return
+        }
+
         if (renameAppPanel != null) {
             hideRenameAppPicker()
             return
@@ -13225,12 +14819,18 @@ class LauncherActivity : AppCompatActivity(),
             hideSwipeSearchContainer()
         }
 
-        if (isWobbling) {
-            handleWobbling(false)
-        } else if (isTodayWidgetEditing) {
-            setTodayWidgetEditing(false)
-        } else if (mFolderWindowContainer.visibility == VISIBLE) {
-            hideFolderWindowContainer()
+        val folderVisible = mFolderWindowContainer.visibility == VISIBLE
+        when (
+            LauncherEditModeEntryPolicy.returnHomeAction(
+                isEditing = isWobbling,
+                todayWidgetEditing = isTodayWidgetEditing,
+                folderVisible = folderVisible
+            )
+        ) {
+            LauncherEditModeEntryPolicy.ReturnHomeAction.CLOSE_FOLDER -> hideFolderWindowContainer()
+            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_EDIT_MODE -> handleWobbling(false)
+            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_TODAY_WIDGET_EDIT -> setTodayWidgetEditing(false)
+            LauncherEditModeEntryPolicy.ReturnHomeAction.NONE -> Unit
         }
     }
 
@@ -13678,6 +15278,9 @@ class LauncherActivity : AppCompatActivity(),
                 appView.findViewById<View>(R.id.app_label).visibility = VISIBLE
                 appView.layoutParams = iconLayoutParams
                 viewGroup.addView(appView)
+            }
+            if (isWobbling) {
+                toggleWobbleAnimation(viewGroup, true)
             }
             container.addView(viewGroup)
             return viewGroup

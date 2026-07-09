@@ -6,6 +6,7 @@ data class LauncherBlurSettings(
     val widgetEnabled: Boolean = true,
     val searchEnabled: Boolean = true
 ) {
+    val dockBlurActive: Boolean = enabled
     val folderBlurActive: Boolean = enabled && folderEnabled
     val widgetBlurActive: Boolean = enabled && widgetEnabled
     val searchBlurActive: Boolean = enabled && searchEnabled

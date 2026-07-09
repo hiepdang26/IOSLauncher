@@ -34,6 +34,7 @@
     <string name="settings_rename">Đổi tên</string>
     <string name="settings_app_library">Thư viện ứng dụng</string>
     <string name="settings_hidden_apps">Ứng Dụng Ẩn</string>
+    <string name="settings_hidden_apps_loading">Đang tải ứng dụng...</string>
     <string name="hidden_apps_section_hidden">ỨNG DỤNG ẨN</string>
     <string name="hidden_apps_section_apps">ỨNG DỤNG</string>
     <string name="settings_notifications">Thông báo</string>
@@ -67,7 +68,7 @@
     <string name="settings_no_apps_found">Không có ứng dụng nào.</string>
     <string name="settings_blur_enabled">Bật hiệu ứng mờ</string>
     <string name="settings_blur_message">Áp dụng hiệu ứng mờ khi mở thư mục, tìm kiếm và menu ứng dụng.</string>
-    <string name="settings_blur_master">Để mờ</string>
+    <string name="settings_blur_master">Đế mờ</string>
     <string name="settings_blur_folder">Thư mục Blur</string>
     <string name="settings_blur_widget">Tiện ích Blur</string>
     <string name="settings_blur_search">Thanh tìm kiếm mờ</string>
@@ -140,8 +141,13 @@
     <string name="weather_refresh_failed">Kh&#244;ng l&#7845;y &#273;&#432;&#7907;c th&#244;ng tin th&#7901;i ti&#7871;t.</string>
     <string name="weather_settings_unit">&#272;&#417;n v&#7883;</string>
     <string name="weather_settings_unit_celsius">&#176;C</string>
+    <string name="weather_settings_unit_fahrenheit">&#176;F</string>
     <string name="weather_settings_auto_refresh">T&#7921; &#273;&#7897;ng l&#224;m m&#7899;i</string>
     <string name="weather_settings_auto_refresh_hourly">M&#7895;i ti&#7871;ng</string>
+    <string name="weather_settings_auto_refresh_3_hours">3 gi&#7901; m&#7897;t l&#7847;n</string>
+    <string name="weather_settings_auto_refresh_6_hours">6 gi&#7901; m&#7897;t l&#7847;n</string>
+    <string name="weather_settings_auto_refresh_9_hours">C&#7913; 9 gi&#7901; m&#7897;t l&#7847;n</string>
+    <string name="weather_settings_auto_refresh_12_hours">12 gi&#7901; m&#7897;t l&#7847;n</string>
     <string name="weather_today_summary">H&#244;m nay: %1$s, %2$d&#176; gi&#243; %3$d km/h. Nhi&#7879;t &#273;&#7897; cao nh&#7845;t l&#224; %4$d&#176;. Nhi&#7879;t &#273;&#7897; t&#7889;i thi&#7875;u l&#224; %5$d&#176;.</string>
     <string name="weather_daily_forecast_title">D&#7920; B&#193;O 7 NG&#192;Y</string>
     <string name="launcher_widget_weather">Th&#7901;i ti&#7871;t</string>

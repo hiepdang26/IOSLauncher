@@ -28,7 +28,11 @@ open class BlurLayout @JvmOverloads constructor(context: Context, attrs: Attribu
         }
 
     override fun onDraw(canvas: Canvas) {
-        delegate.draw(canvas)
+        if (shouldDrawBlurBackground()) {
+            delegate.draw(canvas)
+        }
         super.onDraw(canvas)
     }
+
+    protected open fun shouldDrawBlurBackground(): Boolean = true
 }

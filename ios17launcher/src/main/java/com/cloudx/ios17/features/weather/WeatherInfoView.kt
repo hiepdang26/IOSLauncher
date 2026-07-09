@@ -2,6 +2,7 @@ package com.cloudx.ios17.features.weather
 
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.util.AttributeSet
@@ -100,8 +101,38 @@ class WeatherInfoView @JvmOverloads constructor(
     }
 
     private fun startWeatherPreferences() {
+        val launcherActivity = findLauncherActivity(context)
+        when (WeatherSettingsEntryPolicy.targetForLauncherContext(launcherActivity != null)) {
+            WeatherSettingsEntryPolicy.Target.LAUNCHER_SETTINGS -> {
+                launcherActivity?.openWeatherSettingsPage()
+            }
+            WeatherSettingsEntryPolicy.Target.LEGACY_PREFERENCES -> {
+                startLegacyWeatherPreferences()
+            }
+        }
+    }
+
+    private fun startLegacyWeatherPreferences() {
         val intent = Intent(context, WeatherPreferences::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
+    }
+
+    private fun findLauncherActivity(context: Context): LauncherActivity? {
+        var current: Context? = context
+        while (current != null) {
+            if (current is LauncherActivity) {
+                return current
+            }
+            if (current !is ContextWrapper) {
+                return null
+            }
+            val baseContext = current.baseContext
+            if (baseContext === current) {
+                return null
+            }
+            current = baseContext
+        }
+        return null
     }
 }

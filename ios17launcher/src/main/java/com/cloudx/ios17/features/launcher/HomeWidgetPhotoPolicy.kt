@@ -17,6 +17,8 @@ object HomeWidgetPhotoPolicy {
         return when (size) {
             HomeWidgetPlacementPolicy.WidgetSize.SMALL -> OutputSize(width = 720, height = 720)
             HomeWidgetPlacementPolicy.WidgetSize.FULL_WIDTH -> OutputSize(width = 1440, height = 720)
+            HomeWidgetPlacementPolicy.WidgetSize.TALL -> OutputSize(width = 720, height = 1440)
+            HomeWidgetPlacementPolicy.WidgetSize.LARGE -> OutputSize(width = 1440, height = 1440)
         }
     }
 

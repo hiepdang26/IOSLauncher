@@ -26,6 +26,8 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
     private val lastInsets = Rect()
     private var appliedDockStyle = DockStylePolicy.Style.ROUNDED
     private var aboveBlurStyleDrawable: Drawable? = null
+    private var externalRealtimeLiquidGlassEnabled = false
+    private var dockBlurEnabled = true
 
     override val offsetX: Float
         get() = translationX
@@ -40,10 +42,20 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
     }
 
     override fun onDraw(canvas: Canvas) {
-        blurDelegate.draw(canvas)
-        if (DockStylePolicy.drawsStyleAboveBlur(appliedDockStyle)) {
-            aboveBlurStyleDrawable?.setBounds(0, 0, width, height)
-            aboveBlurStyleDrawable?.draw(canvas)
+        if (!externalRealtimeLiquidGlassEnabled) {
+            if (
+                DockStylePolicy.drawsWallpaperBlur(
+                    style = appliedDockStyle,
+                    dockBlurEnabled = dockBlurEnabled,
+                    externalRealtimeLiquidGlassEnabled = externalRealtimeLiquidGlassEnabled
+                )
+            ) {
+                blurDelegate.draw(canvas)
+            }
+            if (DockStylePolicy.drawsStyleAboveBlur(appliedDockStyle)) {
+                aboveBlurStyleDrawable?.setBounds(0, 0, width, height)
+                aboveBlurStyleDrawable?.draw(canvas)
+            }
         }
         super.onDraw(canvas)
     }
@@ -63,13 +75,22 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         applyDockStyle(lastInsets)
     }
 
+    fun setExternalRealtimeLiquidGlassEnabled(enabled: Boolean) {
+        if (externalRealtimeLiquidGlassEnabled != enabled) {
+            externalRealtimeLiquidGlassEnabled = enabled
+            invalidate()
+        }
+    }
+
     private fun applyDockStyle(safeInsets: Rect) {
         val deviceProfile = com.cloudx.ios17.BlissLauncher.getApplication(mContext).deviceProfile
         val lp = layoutParams as? com.cloudx.ios17.core.customviews.InsettableRelativeLayout.LayoutParams ?: return
         val metrics = DockStylePolicy.layoutMetrics(deviceProfile.hotseatCellHeightPx, safeInsets.bottom)
         lp.height = metrics.heightPx
         val dockStyle = currentDockStyle()
+        val blurEnabled = isDockBlurEnabled()
         appliedDockStyle = dockStyle
+        dockBlurEnabled = blurEnabled
         when (dockStyle) {
             DockStylePolicy.Style.CURRENT -> {
                 aboveBlurStyleDrawable = null
@@ -98,8 +119,9 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
                 aboveBlurStyleDrawable = GradientDrawable(
                     GradientDrawable.Orientation.LEFT_RIGHT,
                     LauncherLiquidGlassStylePolicy.dockGradient(
-                        enabled = false,
-                        darkMode = isDarkModeEnabled()
+                        enabled = blurEnabled,
+                        darkMode = styleDarkModeForLiquidGlass(),
+                        liquidGlass = false
                     )
                 ).apply {
                     cornerRadius = dp(38).toFloat()
@@ -124,8 +146,9 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
                 aboveBlurStyleDrawable = LauncherLiquidGlassDrawableFactory.create(
                     context = context,
                     style = LauncherLiquidGlassStylePolicy.dockMaterial(
-                        enabled = true,
-                        darkMode = isDarkModeEnabled()
+                        enabled = blurEnabled,
+                        darkMode = styleDarkModeForLiquidGlass(),
+                        liquidGlass = isLiquidGlassEnabled()
                     )
                 )
                 lp.leftMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
@@ -174,6 +197,18 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
     private fun isDarkModeEnabled(): Boolean {
         val prefs = mContext.getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_DARK_MODE, false)
+    }
+
+    private fun isLiquidGlassEnabled(): Boolean {
+        val prefs = mContext.getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_LIQUID_GLASS, false)
+    }
+
+    private fun styleDarkModeForLiquidGlass(): Boolean =
+        isDarkModeEnabled() && !isLiquidGlassEnabled()
+
+    private fun isDockBlurEnabled(): Boolean {
+        return LauncherHomeLayoutPreferences.isDockBlurEnabled(mContext)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()

@@ -11,6 +11,7 @@ import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.databinding.ItemLauncherDockIconBinding
+import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
 import java.util.Collections
 
 class LauncherDockAdapter(
@@ -551,9 +552,9 @@ class LauncherDockAdapter(
     )
 
     private companion object {
-        const val MIN_ICON_SIZE_DP = 44
-        const val DEFAULT_ICON_SIZE_DP = 64
-        const val MAX_ICON_SIZE_DP = 78
+        const val MIN_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP
+        const val DEFAULT_ICON_SIZE_DP = LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP
+        const val MAX_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP
         const val MAX_DOCK_ITEMS = 4
     }
 }

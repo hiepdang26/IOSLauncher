@@ -11,12 +11,12 @@ class LauncherResponsiveWorkspaceLayoutTest {
             rootHeightPx = 840,
             density = 1f,
             preferredRows = 6,
-            preferredIconSizeDp = 64,
+            preferredIconSizeDp = 52,
             iphone8Style = false
         )
 
         assertEquals(6, spec.effectiveRows)
-        assertEquals(64, spec.effectiveIconSizeDp)
+        assertEquals(52, spec.effectiveIconSizeDp)
         assertEquals(78, spec.homeTopPaddingDp)
     }
 
@@ -26,12 +26,13 @@ class LauncherResponsiveWorkspaceLayoutTest {
             rootHeightPx = 640,
             density = 1f,
             preferredRows = 6,
-            preferredIconSizeDp = 64,
+            preferredIconSizeDp = 52,
             iphone8Style = false
         )
 
         assertEquals(6, spec.effectiveRows)
         assertTrue(spec.effectiveIconSizeDp <= 56)
+        assertTrue(spec.effectiveIconSizeDp >= 45)
         assertTrue(spec.homeTopPaddingDp < 78)
         assertTrue(spec.dockHeightDp < 92)
     }
@@ -42,12 +43,13 @@ class LauncherResponsiveWorkspaceLayoutTest {
             rootHeightPx = 560,
             density = 1f,
             preferredRows = 6,
-            preferredIconSizeDp = 64,
+            preferredIconSizeDp = 52,
             iphone8Style = false
         )
 
         assertEquals(6, spec.effectiveRows)
         assertTrue(spec.effectiveIconSizeDp <= 56)
+        assertTrue(spec.effectiveIconSizeDp >= 45)
     }
 
     @Test
@@ -56,12 +58,12 @@ class LauncherResponsiveWorkspaceLayoutTest {
             rootHeightPx = 840,
             density = 1f,
             preferredRows = 5,
-            preferredIconSizeDp = 70,
+            preferredIconSizeDp = 66,
             iphone8Style = true
         )
 
         assertEquals(5, spec.effectiveRows)
-        assertEquals(70, spec.effectiveIconSizeDp)
+        assertEquals(66, spec.effectiveIconSizeDp)
         assertTrue(spec.dockHeightDp > 92)
     }
 }

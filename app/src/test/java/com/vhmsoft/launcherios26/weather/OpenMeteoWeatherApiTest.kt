@@ -23,4 +23,14 @@ class OpenMeteoWeatherApiTest {
         assertFalse(url.contains("apikey"))
         assertEquals(url, OpenMeteoWeatherApi.buildForecastUrl(WeatherCoordinates(21.048, 105.763)))
     }
+
+    @Test
+    fun buildForecastUrl_usesSelectedTemperatureUnit() {
+        val url = OpenMeteoWeatherApi.buildForecastUrl(
+            coordinates = WeatherCoordinates(latitude = 21.048, longitude = 105.763),
+            temperatureUnit = WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT
+        )
+
+        assertTrue(url.contains("temperature_unit=fahrenheit"))
+    }
 }

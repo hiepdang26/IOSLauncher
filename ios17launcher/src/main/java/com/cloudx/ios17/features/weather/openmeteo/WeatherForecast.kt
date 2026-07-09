@@ -1,5 +1,7 @@
 package com.cloudx.ios17.features.weather.openmeteo
 
+import com.cloudx.ios17.features.weather.WeatherSettingsPolicy
+
 data class WeatherForecast(
     val locationName: String,
     val currentTemperatureC: Int,
@@ -10,7 +12,8 @@ data class WeatherForecast(
     val windDirectionDegrees: Int,
     val windSpeedKmh: Int,
     val hourly: List<HourlyWeather>,
-    val daily: List<DailyWeather>
+    val daily: List<DailyWeather>,
+    val temperatureUnit: WeatherSettingsPolicy.TemperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
 )
 
 data class HourlyWeather(

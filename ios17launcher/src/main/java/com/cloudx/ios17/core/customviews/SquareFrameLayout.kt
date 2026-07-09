@@ -30,6 +30,11 @@ class SquareFrameLayout @JvmOverloads constructor(
         setWillNotDraw(false)
     }
 
+    fun disableBlur() {
+        mBlurDelegate = null
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         mBlurDelegate?.let { delegate ->
             val count = canvas.save()

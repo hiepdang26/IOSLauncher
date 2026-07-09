@@ -1,12 +1,16 @@
 package com.cloudx.ios17.features.weather.openmeteo
 
+import com.cloudx.ios17.features.weather.WeatherSettingsPolicy
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
 object OpenMeteoWeatherApi {
-    fun buildForecastUrl(coordinates: WeatherCoordinates): String {
+    fun buildForecastUrl(
+        coordinates: WeatherCoordinates,
+        temperatureUnit: WeatherSettingsPolicy.TemperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
+    ): String {
         val parameters = linkedMapOf(
             "latitude" to coordinates.latitude.toString(),
             "longitude" to coordinates.longitude.toString(),
@@ -16,7 +20,7 @@ object OpenMeteoWeatherApi {
             "timezone" to "auto",
             "forecast_days" to "7",
             "forecast_hours" to "8",
-            "temperature_unit" to "celsius",
+            "temperature_unit" to temperatureUnit.apiValue,
             "wind_speed_unit" to "kmh"
         )
         return FORECAST_ENDPOINT + parameters.entries.joinToString("&") { (key, value) ->
@@ -25,8 +29,12 @@ object OpenMeteoWeatherApi {
     }
 
     @Throws(IOException::class)
-    fun fetchForecast(coordinates: WeatherCoordinates, locationName: String): WeatherForecast {
-        val connection = URL(buildForecastUrl(coordinates)).openConnection() as HttpURLConnection
+    fun fetchForecast(
+        coordinates: WeatherCoordinates,
+        locationName: String,
+        temperatureUnit: WeatherSettingsPolicy.TemperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
+    ): WeatherForecast {
+        val connection = URL(buildForecastUrl(coordinates, temperatureUnit)).openConnection() as HttpURLConnection
         connection.connectTimeout = NETWORK_TIMEOUT_MS
         connection.readTimeout = NETWORK_TIMEOUT_MS
         connection.requestMethod = "GET"
@@ -41,7 +49,7 @@ object OpenMeteoWeatherApi {
             if (responseCode !in 200..299) {
                 throw IOException("Open-Meteo HTTP $responseCode: $body")
             }
-            return OpenMeteoWeatherParser.parse(body, locationName)
+            return OpenMeteoWeatherParser.parse(body, locationName, temperatureUnit)
         } finally {
             connection.disconnect()
         }

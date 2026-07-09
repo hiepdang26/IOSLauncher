@@ -9,23 +9,29 @@
     android:clipToPadding="false"
     tools:context="com.cloudx.ios17.features.launcher.LauncherActivity">
 
-    <com.cloudx.ios17.core.customviews.BlurBackgroundView
-        android:id="@+id/blur_layer"
+    <com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassSourceLayout
+        android:id="@+id/liquid_glass_source"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
 
-    <View
-        android:id="@+id/dark_blur_layer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:alpha="0"
-        android:background="#5C000000" />
+        <com.cloudx.ios17.core.customviews.BlurBackgroundView
+            android:id="@+id/blur_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
-    <com.cloudx.ios17.core.customviews.HorizontalPager
-        android:id="@+id/pages_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentTop="true" />
+        <View
+            android:id="@+id/dark_blur_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0"
+            android:background="#5C000000" />
+
+        <com.cloudx.ios17.core.customviews.HorizontalPager
+            android:id="@+id/pages_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassSourceLayout>
 
     <com.cloudx.ios17.core.customviews.PageIndicatorLinearLayout
         android:id="@+id/page_indicator"
@@ -41,6 +47,15 @@
         android:paddingStart="10dp"
         android:paddingEnd="10dp"
         android:showDividers="middle" />
+
+    <com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassLayout
+        android:id="@+id/dock_liquid_glass_background"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:visibility="gone"
+        app:blurCornerRadius="38dp" />
 
     <com.cloudx.ios17.core.customviews.DockGridLayout
         android:id="@+id/dock"
@@ -180,7 +195,7 @@
             android:textCursorDrawable="@drawable/folder_title_text_cursor"
             android:textSize="40sp" />
 
-        <com.cloudx.ios17.core.customviews.BlurLayout
+        <com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassLayout
             android:id="@+id/folder_bg_blur"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -209,7 +224,7 @@
                     app:ci_drawable_unselected="@drawable/dot_off" />
 
             </LinearLayout>
-        </com.cloudx.ios17.core.customviews.BlurLayout>
+        </com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassLayout>
 
     </RelativeLayout>
 

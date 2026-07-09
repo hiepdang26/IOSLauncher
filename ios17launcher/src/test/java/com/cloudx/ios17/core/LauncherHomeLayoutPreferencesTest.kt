@@ -28,8 +28,8 @@ class LauncherHomeLayoutPreferencesTest {
 
     @Test
     fun resolve_coercesIconSliderRange() {
-        assertEquals(52, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 1, rows = 6).iconSizeDp)
-        assertEquals(78, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 200, rows = 6).iconSizeDp)
+        assertEquals(45, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 1, rows = 6).iconSizeDp)
+        assertEquals(68, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 200, rows = 6).iconSizeDp)
     }
 
     @Test
@@ -39,31 +39,66 @@ class LauncherHomeLayoutPreferencesTest {
             rows = 6
         )
 
-        assertEquals(65, settings.iconSizeDp)
+        assertEquals(56, settings.iconSizeDp)
     }
 
     @Test
-    fun defaultIconSize_sitsAtTheMiddleOfSliderRange() {
-        val lowerRange =
-            LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP -
-                LauncherHomeLayoutPreferences.MIN_HOME_ICON_SIZE_DP
-        val upperRange =
-            LauncherHomeLayoutPreferences.MAX_HOME_ICON_SIZE_DP -
-                LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP
-
-        assertEquals(lowerRange, upperRange)
+    fun defaultIconSize_sitsAtTheMiddleOfSliderControl() {
         assertEquals(
             LauncherHomeLayoutPreferences.ICON_SIZE_SLIDER_MAX / 2,
             LauncherHomeLayoutPreferences.DEFAULT_ICON_SIZE_SLIDER_PROGRESS
+        )
+        assertEquals(
+            LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP,
+            LauncherHomeLayoutPreferences.sliderProgressToIconSize(
+                LauncherHomeLayoutPreferences.DEFAULT_ICON_SIZE_SLIDER_PROGRESS
+            )
         )
     }
 
     @Test
     fun sliderProgress_mapsBackToClampedIconSizes() {
-        assertEquals(52, LauncherHomeLayoutPreferences.sliderProgressToIconSize(-20))
-        assertEquals(65, LauncherHomeLayoutPreferences.sliderProgressToIconSize(13))
-        assertEquals(78, LauncherHomeLayoutPreferences.sliderProgressToIconSize(200))
-        assertEquals(13, LauncherHomeLayoutPreferences.iconSizeToSliderProgress(65))
+        assertEquals(45, LauncherHomeLayoutPreferences.sliderProgressToIconSize(-20))
+        assertEquals(56, LauncherHomeLayoutPreferences.sliderProgressToIconSize(10))
+        assertEquals(68, LauncherHomeLayoutPreferences.sliderProgressToIconSize(200))
+        assertEquals(10, LauncherHomeLayoutPreferences.iconSizeToSliderProgress(56))
+    }
+
+    @Test
+    fun appLabelTextSize_scalesWithIconSize() {
+        assertEquals(11f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(45), 0.001f)
+        assertEquals(13f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(56), 0.001f)
+        assertEquals(15f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(68), 0.001f)
+    }
+
+    @Test
+    fun migrateStoredIconSize_mapsPreviousDefaultSizesToNewDefaultOnce() {
+        assertEquals(56, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(55, migrationApplied = false))
+        assertEquals(56, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(65, migrationApplied = false))
+        assertEquals(55, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(55, migrationApplied = true))
+        assertEquals(65, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(65, migrationApplied = true))
+        assertEquals(45, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(1, migrationApplied = false))
+        assertEquals(68, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(200, migrationApplied = false))
+    }
+
+    @Test
+    fun migrateStoredIconSize_mapsPreviousCompactDefaultToNewDefaultOnce() {
+        assertEquals(
+            56,
+            LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
+                iconSizeDp = 52,
+                migrationApplied = true,
+                default56MigrationApplied = false
+            )
+        )
+        assertEquals(
+            52,
+            LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
+                iconSizeDp = 52,
+                migrationApplied = true,
+                default56MigrationApplied = true
+            )
+        )
     }
 
     @Test

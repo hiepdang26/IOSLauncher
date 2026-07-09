@@ -14,6 +14,10 @@ object HomeWidgetEditStatePolicy {
         return editing && entryCardVisible
     }
 
+    fun shouldExitEditModeOnHomeTap(editing: Boolean, entryCardVisible: Boolean): Boolean {
+        return editing && !entryCardVisible
+    }
+
     fun shouldPurgeEditChrome(editing: Boolean, draggingWidget: Boolean): Boolean {
         return !shouldShowRemoveButton(editing, draggingWidget)
     }

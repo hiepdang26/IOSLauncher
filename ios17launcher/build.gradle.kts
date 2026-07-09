@@ -18,6 +18,12 @@ android {
         buildConfigField("String", "SENTRY_DSN", "\"\"")
     }
 
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/liquidglass/CMakeLists.txt")
+        }
+    }
+
     buildFeatures {
         buildConfig = true
         viewBinding = true

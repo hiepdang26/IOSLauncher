@@ -8,12 +8,20 @@ object LauncherBlurEffectPolicy {
         return if (masterEnabled && targetEnabled) 1f else 0f
     }
 
-    fun folderBackgroundContentAlpha(masterEnabled: Boolean, folderEnabled: Boolean): Float {
-        return if (masterEnabled && folderEnabled) {
-            FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
-        } else {
-            1f
-        }
+    fun folderOverlayAlpha(
+        masterEnabled: Boolean,
+        folderEnabled: Boolean,
+        liquidGlassEnabled: Boolean
+    ): Float {
+        return 1f
+    }
+
+    fun folderBackgroundContentAlpha(
+        masterEnabled: Boolean,
+        folderEnabled: Boolean,
+        liquidGlassEnabled: Boolean = false
+    ): Float {
+        return FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
     }
 
     fun searchBackgroundContentAlpha(masterEnabled: Boolean, searchEnabled: Boolean): Float {

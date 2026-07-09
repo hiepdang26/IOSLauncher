@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.cloudx.ios17.features.weather.WeatherSettingsPolicy
 
 class OpenMeteoWeatherApiTest {
     @Test
@@ -22,5 +23,20 @@ class OpenMeteoWeatherApiTest {
         assertTrue(url.contains("timezone=auto"))
         assertFalse(url.contains("apikey"))
         assertEquals(url, OpenMeteoWeatherApi.buildForecastUrl(WeatherCoordinates(21.048, 105.763)))
+    }
+
+    @Test
+    fun buildForecastUrl_usesSelectedTemperatureUnit() {
+        val fahrenheitUrl = OpenMeteoWeatherApi.buildForecastUrl(
+            coordinates = WeatherCoordinates(latitude = 21.048, longitude = 105.763),
+            temperatureUnit = WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT
+        )
+        val celsiusUrl = OpenMeteoWeatherApi.buildForecastUrl(
+            coordinates = WeatherCoordinates(latitude = 21.048, longitude = 105.763),
+            temperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
+        )
+
+        assertTrue(fahrenheitUrl.contains("temperature_unit=fahrenheit"))
+        assertTrue(celsiusUrl.contains("temperature_unit=celsius"))
     }
 }

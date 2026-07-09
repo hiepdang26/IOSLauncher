@@ -1,11 +1,16 @@
 package com.cloudx.ios17.features.weather.openmeteo
 
+import com.cloudx.ios17.features.weather.WeatherSettingsPolicy
 import java.time.LocalDate
 import kotlin.math.roundToInt
 import org.json.JSONObject
 
 object OpenMeteoWeatherParser {
-    fun parse(json: String, locationName: String): WeatherForecast {
+    fun parse(
+        json: String,
+        locationName: String,
+        temperatureUnit: WeatherSettingsPolicy.TemperatureUnit = WeatherSettingsPolicy.TemperatureUnit.CELSIUS
+    ): WeatherForecast {
         val root = JSONObject(json)
         val current = root.getJSONObject("current")
         val daily = root.getJSONObject("daily")
@@ -25,7 +30,8 @@ object OpenMeteoWeatherParser {
             windDirectionDegrees = current.optDouble("wind_direction_10m").roundToInt(),
             windSpeedKmh = current.optDouble("wind_speed_10m").roundToInt(),
             hourly = parseHourly(hourly),
-            daily = parseDaily(daily)
+            daily = parseDaily(daily),
+            temperatureUnit = temperatureUnit
         )
     }
 

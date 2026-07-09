@@ -49,6 +49,7 @@ object Preferences {
     private const val ADDED_PRIVACY_WIDGET = "added_privacy_widget"
 
     private const val AP_MIGRATION_1 = "ap_migration_1"
+    private val WEATHER_REFRESH_INTERVAL_VALUES = setOf("60", "180", "360", "540", "720")
 
     @JvmStatic
     fun isFirstWeatherUpdate(context: Context): Boolean =
@@ -80,8 +81,19 @@ object Preferences {
 
     @JvmStatic
     fun weatherRefreshIntervalInMs(context: Context): Long {
-        val value = getPrefs(context).getString(Constants.WEATHER_REFRESH_INTERVAL, "60")
-        return value!!.toLong() * 60L * 1000L
+        val value = weatherRefreshIntervalValue(context)
+        return value.toLong() * 60L * 1000L
+    }
+
+    @JvmStatic
+    fun weatherRefreshIntervalValue(context: Context): String =
+        getPrefs(context).getString(Constants.WEATHER_REFRESH_INTERVAL, "60")
+            ?.takeIf { it in WEATHER_REFRESH_INTERVAL_VALUES }
+            ?: "60"
+
+    @JvmStatic
+    fun setWeatherRefreshIntervalValue(context: Context, value: String) {
+        getPrefs(context).edit().putString(Constants.WEATHER_REFRESH_INTERVAL, value).apply()
     }
 
     @JvmStatic

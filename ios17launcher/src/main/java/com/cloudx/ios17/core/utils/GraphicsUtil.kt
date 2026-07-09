@@ -9,7 +9,6 @@ import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import com.cloudx.ios17.BlissLauncher
-import com.cloudx.ios17.R
 import com.cloudx.ios17.core.DeviceProfile
 import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
 import com.cloudx.ios17.core.LauncherLiquidGlassDrawableFactory
@@ -20,14 +19,12 @@ import timber.log.Timber
 class GraphicsUtil(private val mContext: Context) {
 
     private val appIconWidth: Int
-    private val mFolderPreviewBackgroundColor: Int
     private val liquidGlassEnabled: Boolean
     private val darkModeEnabled: Boolean
 
     init {
         val deviceProfile = BlissLauncher.getApplication(mContext).deviceProfile
         appIconWidth = deviceProfile.iconSizePx
-        mFolderPreviewBackgroundColor = mContext.getColor(R.color.folder_preview_background_color)
         liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(mContext)
         darkModeEnabled = LauncherHomeLayoutPreferences.isDarkModeEnabled(mContext)
     }
@@ -145,8 +142,8 @@ class GraphicsUtil(private val mContext: Context) {
         width: Int,
         height: Int
     ) {
-        if (!isFolder || (!liquidGlassEnabled && !darkModeEnabled)) {
-            canvas.drawColor(if (isFolder) mFolderPreviewBackgroundColor else getDominantColor(workingBitmap))
+        if (!isFolder) {
+            canvas.drawColor(getDominantColor(workingBitmap))
             return
         }
 

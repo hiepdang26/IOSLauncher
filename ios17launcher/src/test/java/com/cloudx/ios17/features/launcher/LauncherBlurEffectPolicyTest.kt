@@ -12,13 +12,75 @@ class LauncherBlurEffectPolicyTest {
     }
 
     @Test
-    fun folderBackgroundContentAlpha_isDimmedOnlyWhenFolderBlurIsEnabled() {
+    fun folderOverlayAlpha_isOpaqueWheneverFolderIsOpen() {
         assertEquals(
-            FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA,
-            LauncherBlurEffectPolicy.folderBackgroundContentAlpha(true, true)
+            1f,
+            LauncherBlurEffectPolicy.folderOverlayAlpha(
+                masterEnabled = false,
+                folderEnabled = false,
+                liquidGlassEnabled = false
+            )
         )
-        assertEquals(1f, LauncherBlurEffectPolicy.folderBackgroundContentAlpha(false, true))
-        assertEquals(1f, LauncherBlurEffectPolicy.folderBackgroundContentAlpha(true, false))
+        assertEquals(
+            1f,
+            LauncherBlurEffectPolicy.folderOverlayAlpha(
+                masterEnabled = true,
+                folderEnabled = false,
+                liquidGlassEnabled = false
+            )
+        )
+        assertEquals(
+            1f,
+            LauncherBlurEffectPolicy.folderOverlayAlpha(
+                masterEnabled = false,
+                folderEnabled = true,
+                liquidGlassEnabled = false
+            )
+        )
+        assertEquals(
+            1f,
+            LauncherBlurEffectPolicy.folderOverlayAlpha(
+                masterEnabled = false,
+                folderEnabled = false,
+                liquidGlassEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun folderBackgroundContentAlpha_keepsLightFolderBackdropReadable() {
+        assertEquals(
+            0.16f,
+            LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
+                masterEnabled = false,
+                folderEnabled = false,
+                liquidGlassEnabled = false
+            )
+        )
+        assertEquals(
+            0.16f,
+            LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
+                masterEnabled = true,
+                folderEnabled = false,
+                liquidGlassEnabled = false
+            )
+        )
+        assertEquals(
+            0.16f,
+            LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
+                masterEnabled = false,
+                folderEnabled = true,
+                liquidGlassEnabled = false
+            )
+        )
+        assertEquals(
+            0.16f,
+            LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
+                masterEnabled = false,
+                folderEnabled = false,
+                liquidGlassEnabled = true
+            )
+        )
     }
 
     @Test

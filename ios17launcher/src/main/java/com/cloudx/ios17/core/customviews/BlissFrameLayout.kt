@@ -17,7 +17,9 @@ import com.cloudx.ios17.R
 import com.cloudx.ios17.core.DeviceProfile
 import com.cloudx.ios17.core.HomeIconRenderPolicy
 import com.cloudx.ios17.core.LauncherAppLabelStylePolicy
+import com.cloudx.ios17.core.LauncherFolderPreviewBackgroundPolicy
 import com.cloudx.ios17.core.LauncherFolderTitlePolicy
+import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
 import com.cloudx.ios17.core.Utilities
 import com.cloudx.ios17.core.database.model.ApplicationItem
 import com.cloudx.ios17.core.database.model.CalendarIcon
@@ -146,7 +148,7 @@ class BlissFrameLayout @JvmOverloads constructor(
         val label = findViewById<TextView>(R.id.app_label)
         val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
         val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
-        icon.enableBlur()
+        refreshFolderPreviewBackground()
         applyIconMetrics(icon, label)
         squareImageView.iconContentScale = 1f
         squareImageView.setImageDrawable(folderItem.icon)
@@ -157,10 +159,25 @@ class BlissFrameLayout @JvmOverloads constructor(
         tag = arrayListOf(squareImageView, label, folderItem)
     }
 
+    fun refreshFolderPreviewBackground() {
+        val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
+        if (
+            LauncherFolderPreviewBackgroundPolicy.shouldUseParentBlur(
+                liquidGlassEnabled = LauncherHomeLayoutPreferences.isLiquidGlassEnabled(mContext),
+                darkModeEnabled = LauncherHomeLayoutPreferences.isDarkModeEnabled(mContext)
+            )
+        ) {
+            icon.enableBlur()
+        } else {
+            icon.disableBlur()
+        }
+    }
+
     private fun bindShortcutItem(shortcutItem: ShortcutItem) {
         val label = findViewById<TextView>(R.id.app_label)
         val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
         val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
+        icon.disableBlur()
         applyIconMetrics(icon, label)
         squareImageView.iconContentScale = HomeIconRenderPolicy.homeScreenIconContentScale
         squareImageView.setImageDrawable(shortcutItem.icon)
@@ -172,6 +189,7 @@ class BlissFrameLayout @JvmOverloads constructor(
         val label = findViewById<TextView>(R.id.app_label)
         val icon = findViewById<SquareFrameLayout>(R.id.app_icon)
         val squareImageView = findViewById<SquareImageView>(R.id.icon_image_view)
+        icon.disableBlur()
         applyIconMetrics(icon, label)
         squareImageView.iconContentScale = HomeIconRenderPolicy.homeScreenIconContentScale
         if (applicationItem.appType == ApplicationItem.TYPE_CLOCK) {

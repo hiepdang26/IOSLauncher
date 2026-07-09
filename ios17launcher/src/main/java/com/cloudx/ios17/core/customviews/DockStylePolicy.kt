@@ -32,6 +32,26 @@ object DockStylePolicy {
         return style == Style.ROUNDED || style == Style.LIQUID_GLASS
     }
 
+    fun drawsWallpaperBlur(
+        style: Style,
+        dockBlurEnabled: Boolean,
+        externalRealtimeLiquidGlassEnabled: Boolean
+    ): Boolean {
+        return dockBlurEnabled &&
+            !externalRealtimeLiquidGlassEnabled &&
+            style != Style.CURRENT
+    }
+
+    fun usesExternalRealtimeLiquidGlass(
+        style: Style,
+        realtimeLiquidGlassAvailable: Boolean,
+        @Suppress("UNUSED_PARAMETER")
+        dockBlurEnabled: Boolean
+    ): Boolean {
+        return realtimeLiquidGlassAvailable &&
+            style == Style.LIQUID_GLASS
+    }
+
     @Suppress("UNUSED_PARAMETER")
     fun layoutMetrics(hotseatCellHeightPx: Int, bottomInsetPx: Int): LayoutMetrics {
         return LayoutMetrics(

@@ -3,7 +3,9 @@ package com.cloudx.ios17.features.launcher
 object HomeWidgetPlacementPolicy {
     enum class WidgetSize {
         SMALL,
-        FULL_WIDTH
+        FULL_WIDTH,
+        TALL,
+        LARGE
     }
 
     data class Span(
@@ -26,6 +28,14 @@ object HomeWidgetPlacementPolicy {
             WidgetSize.FULL_WIDTH -> Span(
                 columns = safeColumns,
                 rows = 2
+            )
+            WidgetSize.TALL -> Span(
+                columns = minOf(2, safeColumns),
+                rows = 4
+            )
+            WidgetSize.LARGE -> Span(
+                columns = safeColumns,
+                rows = 4
             )
         }
     }

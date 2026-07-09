@@ -9,17 +9,24 @@ object LauncherLiquidGlassStylePolicy {
     )
 
     fun dock(enabled: Boolean, darkMode: Boolean): BackgroundStyle {
+        if (darkMode) {
+            return BackgroundStyle(
+                color = if (enabled) 0x8A182A36.toInt() else 0x78404D5C,
+                radiusDp = 38,
+                strokeColor = if (enabled) 0x72FFFFFF else 0x55FFFFFF
+            )
+        }
         return if (enabled) {
             BackgroundStyle(
-                color = 0x55BDEFFF,
+                color = 0x72D8F9FF,
                 radiusDp = 38,
                 strokeColor = strongGlassStroke
             )
         } else {
             BackgroundStyle(
-                color = if (darkMode) 0x78404D5C else 0x6B3CA9E8,
+                color = 0x4FD8F9FF,
                 radiusDp = 38,
-                strokeColor = if (darkMode) 0x55FFFFFF else 0x66FFFFFF
+                strokeColor = 0x78FFFFFF
             )
         }
     }

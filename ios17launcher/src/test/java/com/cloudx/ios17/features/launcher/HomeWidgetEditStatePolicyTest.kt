@@ -73,6 +73,28 @@ class HomeWidgetEditStatePolicyTest {
     }
 
     @Test
+    fun exitsEditModeOnHomeTapOnlyAfterEntryCardIsGone() {
+        assertTrue(
+            HomeWidgetEditStatePolicy.shouldExitEditModeOnHomeTap(
+                editing = true,
+                entryCardVisible = false
+            )
+        )
+        assertFalse(
+            HomeWidgetEditStatePolicy.shouldExitEditModeOnHomeTap(
+                editing = true,
+                entryCardVisible = true
+            )
+        )
+        assertFalse(
+            HomeWidgetEditStatePolicy.shouldExitEditModeOnHomeTap(
+                editing = false,
+                entryCardVisible = false
+            )
+        )
+    }
+
+    @Test
     fun purgesEditChromeWhenEditingStopsOrWidgetDragStarts() {
         assertTrue(
             HomeWidgetEditStatePolicy.shouldPurgeEditChrome(

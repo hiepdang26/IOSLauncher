@@ -8,14 +8,26 @@ import org.junit.Test
 
 class LauncherLiquidGlassStylePolicyTest {
     @Test
-    fun dock_preservesCurrentBackgroundWhenLiquidGlassIsDisabled() {
+    fun dock_keepsLightPaletteWhenBlurIsDisabledInLightMode() {
         assertEquals(
             LauncherLiquidGlassStylePolicy.BackgroundStyle(
-                color = 0x6B3CA9E8,
+                color = 0x4FD8F9FF,
                 radiusDp = 38,
-                strokeColor = 0x66FFFFFF
+                strokeColor = 0x78FFFFFF
             ),
             LauncherLiquidGlassStylePolicy.dock(enabled = false, darkMode = false)
+        )
+    }
+
+    @Test
+    fun dock_usesDarkPaletteOnlyWhenDarkModeIsEnabled() {
+        assertEquals(
+            LauncherLiquidGlassStylePolicy.BackgroundStyle(
+                color = 0x8A182A36.toInt(),
+                radiusDp = 38,
+                strokeColor = 0x72FFFFFF
+            ),
+            LauncherLiquidGlassStylePolicy.dock(enabled = true, darkMode = true)
         )
         assertEquals(
             LauncherLiquidGlassStylePolicy.BackgroundStyle(
@@ -33,6 +45,7 @@ class LauncherLiquidGlassStylePolicyTest {
         val enabled = LauncherLiquidGlassStylePolicy.dock(enabled = true, darkMode = false)
 
         assertNotEquals(disabled.color, enabled.color)
+        assertTrue(enabled.color > disabled.color)
         assertEquals(0xC8FFFFFF.toInt(), enabled.strokeColor)
         assertEquals(38, enabled.radiusDp)
     }

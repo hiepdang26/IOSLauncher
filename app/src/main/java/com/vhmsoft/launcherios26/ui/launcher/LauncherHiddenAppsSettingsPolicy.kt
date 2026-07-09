@@ -5,6 +5,7 @@ import com.vhmsoft.launcherios26.data.model.LauncherApp
 object LauncherHiddenAppsSettingsPolicy {
     const val opensFullscreenPage = true
     const val usesDialogList = false
+    const val showsPageBeforeLoadingApps = true
 
     data class Sections(
         val hidden: List<LauncherApp>,

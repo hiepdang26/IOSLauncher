@@ -23,6 +23,22 @@ class HomeWidgetPlacementPolicyTest {
     }
 
     @Test
+    fun tallWidgetUsesTwoColumnsAndFourRows() {
+        assertEquals(
+            HomeWidgetPlacementPolicy.Span(columns = 2, rows = 4),
+            HomeWidgetPlacementPolicy.spanFor(HomeWidgetPlacementPolicy.WidgetSize.TALL, columns = 4)
+        )
+    }
+
+    @Test
+    fun largeWidgetUsesAllColumnsAndFourRows() {
+        assertEquals(
+            HomeWidgetPlacementPolicy.Span(columns = 4, rows = 4),
+            HomeWidgetPlacementPolicy.spanFor(HomeWidgetPlacementPolicy.WidgetSize.LARGE, columns = 4)
+        )
+    }
+
+    @Test
     fun placementReturnsAllOccupiedCellsForSmallWidget() {
         val placement = HomeWidgetPlacementPolicy.placementForDropCell(
             dropCell = 5,
@@ -61,6 +77,20 @@ class HomeWidgetPlacementPolicyTest {
         )
 
         assertNull(placement)
+    }
+
+    @Test
+    fun twoSmallWidgetsCanShareTheSameRow() {
+        val secondPlacement = HomeWidgetPlacementPolicy.placementForDropCell(
+            dropCell = 2,
+            size = HomeWidgetPlacementPolicy.WidgetSize.SMALL,
+            columns = 4,
+            maxCells = 24,
+            occupiedCells = setOf(0, 1, 4, 5)
+        )
+
+        assertEquals(2, secondPlacement?.anchorCell)
+        assertEquals(setOf(2, 3, 6, 7), secondPlacement?.occupiedCells)
     }
 
     @Test
