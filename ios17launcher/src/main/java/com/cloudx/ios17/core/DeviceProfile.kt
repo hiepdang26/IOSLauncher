@@ -267,9 +267,15 @@ class DeviceProfile(context: Context) {
     }
 
     private fun updateIconSize(scale: Float, res: Resources, dm: DisplayMetrics) {
+        val responsiveIconSizeDp = LauncherHomeLayoutPreferences.responsiveIconSizeDp(
+            iconSizeDp = homeLayoutSettings.iconSizeDp,
+            density = dm.density,
+            availableWidthPx = availableWidthPx,
+            availableHeightPx = availableHeightPx
+        )
         iconTextSizePx = (
             Utilities.pxFromSp(
-                LauncherHomeLayoutPreferences.appLabelTextSizeSp(homeLayoutSettings.iconSizeDp),
+                LauncherHomeLayoutPreferences.appLabelTextSizeSp(responsiveIconSizeDp),
                 dm
             ) * scale
         ).toInt()

@@ -249,6 +249,12 @@ class LauncherActivity : AppCompatActivity(),
         val userHandle: UserHandle
     )
 
+    private data class PendingInstalledAppReveal(
+        val packageName: String,
+        val userHandle: UserHandle,
+        val targetPagerPage: Int
+    )
+
     private data class TodayWidgetProvider(
         val providerInfo: AppWidgetProviderInfo,
         val label: CharSequence,
@@ -382,6 +388,7 @@ class LauncherActivity : AppCompatActivity(),
     private var photoWidgetCropPanel: View? = null
     private var pendingPhotoWidgetId: String? = null
     private var pendingApplicationUninstall: PendingApplicationUninstall? = null
+    private var pendingInstalledAppReveal: PendingInstalledAppReveal? = null
     private var pendingPhotoWidgetSize: HomeWidgetPlacementPolicy.WidgetSize = HomeWidgetPlacementPolicy.WidgetSize.SMALL
     private var hiddenAppsChanged = false
     private val indicatorHandler = Handler(Looper.getMainLooper())
@@ -588,6 +595,7 @@ class LauncherActivity : AppCompatActivity(),
     private var managedProfileReceiver: ManagedProfileBroadcastReceiver? = null
 
     private var moveTo = 0
+    private var launcherResumedForInstalledAppReveal = false
     private lateinit var oldConfig: Configuration
     private lateinit var wallpaperChangeReceiver: WallpaperChangeReceiver
     private var mDetector: GestureDetectorCompat? = null
@@ -884,6 +892,7 @@ class LauncherActivity : AppCompatActivity(),
 
     override fun onResume() {
         super.onResume()
+        launcherResumedForInstalledAppReveal = true
 
         applyLauncherSystemUi()
         if (refreshHomeLayoutIfNeeded()) {
@@ -932,6 +941,7 @@ class LauncherActivity : AppCompatActivity(),
             }
         }
         updateWidgetWeatherPermissionState(fetchIfNeeded = true)
+        revealPendingInstalledAppIfReady()
     }
 
     private fun refreshCustomIconsIfNeeded() {
@@ -7803,6 +7813,7 @@ class LauncherActivity : AppCompatActivity(),
 
     override fun onPause() {
         super.onPause()
+        launcherResumedForInstalledAppReveal = false
         dismissTodayWidgetPicker()
         dismissTodayWidgetPreview()
         dismissHomeWidgetProviderPreview()
@@ -7843,12 +7854,139 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     fun onAppAddEvent(appAddEvent: AppAddEvent) {
+        moveTo = -1
         updateOrAddApp(appAddEvent.packageName, appAddEvent.userHandle)
         DatabaseManager.getManager(this).saveLayouts(pages, mDock)
         if (moveTo != -1) {
-            mHorizontalPager.setCurrentPage(moveTo)
+            val targetPage = moveTo
+            pendingInstalledAppReveal = PendingInstalledAppReveal(
+                packageName = appAddEvent.packageName,
+                userHandle = appAddEvent.userHandle,
+                targetPagerPage = targetPage
+            )
+            mHorizontalPager.setCurrentPage(targetPage)
             moveTo = -1
+            revealPendingInstalledAppIfReady()
         }
+    }
+
+    private fun revealPendingInstalledAppIfReady() {
+        val pending = pendingInstalledAppReveal ?: return
+        if (
+            !LauncherInstalledAppRevealPolicy.shouldReveal(
+                launcherResumed = launcherResumedForInstalledAppReveal,
+                targetPagerPage = pending.targetPagerPage,
+                homePageCount = pages.size
+            )
+        ) {
+            return
+        }
+
+        if (::mHorizontalPager.isInitialized) {
+            mHorizontalPager.setCurrentPage(pending.targetPagerPage)
+        }
+        val iconView = findInstalledAppRevealView(pending)
+        if (iconView == null) {
+            pendingInstalledAppReveal = null
+            return
+        }
+
+        pendingInstalledAppReveal = null
+        prepareInstalledAppRevealAnimation(iconView)
+    }
+
+    private fun findInstalledAppRevealView(pending: PendingInstalledAppReveal): BlissFrameLayout? {
+        val targetHomePage = pending.targetPagerPage - 1
+        pages.getOrNull(targetHomePage)
+            ?.let { page -> findApplicationViewInGrid(page, pending.packageName, pending.userHandle) }
+            ?.let { return it }
+
+        for (page in pages) {
+            findApplicationViewInGrid(page, pending.packageName, pending.userHandle)?.let { return it }
+        }
+        return null
+    }
+
+    private fun findApplicationViewInGrid(
+        grid: GridLayout,
+        packageName: String,
+        userHandle: UserHandle
+    ): BlissFrameLayout? {
+        for (index in 0 until grid.childCount) {
+            val appView = grid.getChildAt(index) as? BlissFrameLayout ?: continue
+            val item = getAppDetails(appView) as? ApplicationItem ?: continue
+            if (
+                item.packageName.equals(packageName, ignoreCase = true) &&
+                (item.user ?: UserHandle()).isSameUser(userHandle)
+            ) {
+                return appView
+            }
+        }
+        return null
+    }
+
+    private fun prepareInstalledAppRevealAnimation(iconView: BlissFrameLayout) {
+        iconView.animate().cancel()
+        iconView.clearAnimation()
+        iconView.alpha = 0f
+        iconView.scaleX = LauncherInstalledAppRevealPolicy.INITIAL_SCALE
+        iconView.scaleY = LauncherInstalledAppRevealPolicy.INITIAL_SCALE
+        iconView.doOnPreDraw {
+            startInstalledAppRevealAnimation(iconView)
+        }
+        iconView.invalidate()
+    }
+
+    private fun startInstalledAppRevealAnimation(iconView: BlissFrameLayout) {
+        iconView.pivotX = iconView.width / 2f
+        iconView.pivotY = iconView.height / 2f
+
+        val alpha = ObjectAnimator.ofFloat(iconView, View.ALPHA, 0f, 1f).apply {
+            duration = LauncherInstalledAppRevealPolicy.ALPHA_DURATION_MS
+            interpolator = LinearInterpolator()
+        }
+        val scaleX = ObjectAnimator.ofFloat(
+            iconView,
+            View.SCALE_X,
+            LauncherInstalledAppRevealPolicy.INITIAL_SCALE,
+            LauncherInstalledAppRevealPolicy.PEAK_SCALE,
+            LauncherInstalledAppRevealPolicy.SETTLE_SCALE,
+            LauncherInstalledAppRevealPolicy.FINAL_SCALE
+        ).apply {
+            duration = LauncherInstalledAppRevealPolicy.REVEAL_DURATION_MS
+            interpolator = DecelerateInterpolator()
+        }
+        val scaleY = ObjectAnimator.ofFloat(
+            iconView,
+            View.SCALE_Y,
+            LauncherInstalledAppRevealPolicy.INITIAL_SCALE,
+            LauncherInstalledAppRevealPolicy.PEAK_SCALE,
+            LauncherInstalledAppRevealPolicy.SETTLE_SCALE,
+            LauncherInstalledAppRevealPolicy.FINAL_SCALE
+        ).apply {
+            duration = LauncherInstalledAppRevealPolicy.REVEAL_DURATION_MS
+            interpolator = DecelerateInterpolator()
+        }
+
+        AnimatorSet().apply {
+            playTogether(alpha, scaleX, scaleY)
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationCancel(animation: Animator) {
+                    resetInstalledAppRevealView(iconView)
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    resetInstalledAppRevealView(iconView)
+                }
+            })
+            start()
+        }
+    }
+
+    private fun resetInstalledAppRevealView(iconView: BlissFrameLayout) {
+        iconView.alpha = 1f
+        iconView.scaleX = 1f
+        iconView.scaleY = 1f
     }
 
     fun onAppRemoveEvent(appRemoveEvent: AppRemoveEvent) {
@@ -8452,6 +8590,7 @@ class LauncherActivity : AppCompatActivity(),
         if (events == null) {
             subscribeToEvents()
         }
+        revealPendingInstalledAppIfReady()
     }
 
     private fun restorePendingReloadPageIfNeeded() {

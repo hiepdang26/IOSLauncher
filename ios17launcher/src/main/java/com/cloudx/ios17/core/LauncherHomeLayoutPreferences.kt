@@ -2,6 +2,7 @@ package com.cloudx.ios17.core
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 data class LauncherHomeLayoutSettings(
@@ -23,6 +24,8 @@ object LauncherHomeLayoutPreferences {
         "home_icon_size_default_56_migration_applied"
     const val KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED =
         "home_icon_size_default_60_migration_applied"
+    const val KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED =
+        "home_icon_size_default_58_migration_applied"
     const val KEY_HOME_GRID_ROWS = "home_grid_rows"
     const val KEY_AUTO_REARRANGE_APPS = "auto_rearrange"
     const val KEY_LAYOUT_AUTO_REARRANGE_APPS = "layout_auto_arrange"
@@ -40,9 +43,9 @@ object LauncherHomeLayoutPreferences {
     const val HOME_GRID_ROWS_6 = 6
     const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
 
-    const val MIN_HOME_ICON_SIZE_DP = 48
-    const val DEFAULT_HOME_ICON_SIZE_DP = 60
-    const val MAX_HOME_ICON_SIZE_DP = 72
+    const val MIN_HOME_ICON_SIZE_DP = 46
+    const val DEFAULT_HOME_ICON_SIZE_DP = 58
+    const val MAX_HOME_ICON_SIZE_DP = 70
     const val ICON_SIZE_SLIDER_MAX = 20
     const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = ICON_SIZE_SLIDER_MAX / 2
     const val DEFAULT_AUTO_REARRANGE_APPS = false
@@ -65,6 +68,11 @@ object LauncherHomeLayoutPreferences {
     private const val PREVIOUS_COMPACT_DEFAULT_HOME_ICON_SIZE_DP = 52
     private const val PREVIOUS_DEFAULT_56_HOME_ICON_SIZE_DP = 56
     private const val PREVIOUS_DEFAULT_57_HOME_ICON_SIZE_DP = 57
+    private const val PREVIOUS_DEFAULT_60_HOME_ICON_SIZE_DP = 60
+    private const val RESPONSIVE_REFERENCE_WIDTH_DP = 390f
+    private const val RESPONSIVE_REFERENCE_HEIGHT_DP = 844f
+    private const val MIN_RESPONSIVE_ICON_SCALE = 0.9f
+    private const val MIN_RESPONSIVE_HOME_ICON_SIZE_DP = 42
     private const val MIN_HORIZONTAL_GAP_DP = 8
 
     fun read(context: Context): LauncherHomeLayoutSettings {
@@ -75,18 +83,26 @@ object LauncherHomeLayoutPreferences {
             prefs.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
         val default60MigrationApplied =
             prefs.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, false)
+        val default58MigrationApplied =
+            prefs.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, false)
         val iconSizeDp = migrateStoredIconSizeDp(
             iconSizeDp = rawIconSizeDp,
             migrationApplied = migrationApplied,
             default56MigrationApplied = default56MigrationApplied,
-            default60MigrationApplied = default60MigrationApplied
+            default60MigrationApplied = default60MigrationApplied,
+            default58MigrationApplied = default58MigrationApplied
         )
-        if (!migrationApplied || !default56MigrationApplied || !default60MigrationApplied) {
+        if (!migrationApplied ||
+            !default56MigrationApplied ||
+            !default60MigrationApplied ||
+            !default58MigrationApplied
+        ) {
             prefs.edit()
                 .putInt(KEY_HOME_ICON_SIZE_DP, iconSizeDp)
                 .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
                 .apply()
         }
         return resolve(
@@ -155,11 +171,29 @@ object LauncherHomeLayoutPreferences {
         }
     }
 
+    fun responsiveIconSizeDp(
+        iconSizeDp: Int,
+        density: Float,
+        availableWidthPx: Int,
+        availableHeightPx: Int
+    ): Int {
+        val safeIconSize = iconSizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+        val scale = responsiveIconScale(
+            density = density,
+            availableWidthPx = availableWidthPx,
+            availableHeightPx = availableHeightPx
+        )
+        return (safeIconSize * scale)
+            .roundToInt()
+            .coerceIn(MIN_RESPONSIVE_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+    }
+
     fun migrateStoredIconSizeDp(
         iconSizeDp: Int,
         migrationApplied: Boolean,
         default56MigrationApplied: Boolean = false,
-        default60MigrationApplied: Boolean = false
+        default60MigrationApplied: Boolean = false,
+        default58MigrationApplied: Boolean = false
     ): Int {
         val compactMigratedSize = if (!migrationApplied) {
             when (iconSizeDp) {
@@ -177,13 +211,20 @@ object LauncherHomeLayoutPreferences {
         } else {
             compactMigratedSize
         }
-        val migratedSize = if (!default60MigrationApplied &&
+        val default60MigratedSize = if (!default60MigrationApplied &&
             (default56MigratedSize == PREVIOUS_DEFAULT_56_HOME_ICON_SIZE_DP ||
                 default56MigratedSize == PREVIOUS_DEFAULT_57_HOME_ICON_SIZE_DP)
         ) {
             DEFAULT_HOME_ICON_SIZE_DP
         } else {
             default56MigratedSize
+        }
+        val migratedSize = if (!default58MigrationApplied &&
+            default60MigratedSize == PREVIOUS_DEFAULT_60_HOME_ICON_SIZE_DP
+        ) {
+            DEFAULT_HOME_ICON_SIZE_DP
+        } else {
+            default60MigratedSize
         }
         return migratedSize.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
     }
@@ -304,7 +345,15 @@ object LauncherHomeLayoutPreferences {
     ): Int {
         val safeDensity = density.takeIf { it > 0f } ?: 1f
         val settings = resolve(preferredIconSizeDp, rows)
-        val preferredIconPx = dp(settings.iconSizeDp, safeDensity)
+        val preferredIconPx = dp(
+            responsiveIconSizeDp(
+                iconSizeDp = settings.iconSizeDp,
+                density = safeDensity,
+                availableWidthPx = availableWidthPx,
+                availableHeightPx = availableHeightPx
+            ),
+            safeDensity
+        )
         val minHorizontalGapPx = dp(MIN_HORIZONTAL_GAP_DP, safeDensity)
         val maxIconByWidth = if (columns > 0) {
             ((availableWidthPx - minHorizontalGapPx * (columns + 1)) / columns).coerceAtLeast(1)
@@ -340,5 +389,18 @@ object LauncherHomeLayoutPreferences {
 
     private fun dp(value: Int, density: Float): Int {
         return (value * density).roundToInt().coerceAtLeast(0)
+    }
+
+    private fun responsiveIconScale(
+        density: Float,
+        availableWidthPx: Int,
+        availableHeightPx: Int
+    ): Float {
+        val safeDensity = density.takeIf { it > 0f } ?: 1f
+        val widthDp = availableWidthPx.takeIf { it > 0 }?.let { it / safeDensity } ?: RESPONSIVE_REFERENCE_WIDTH_DP
+        val heightDp = availableHeightPx.takeIf { it > 0 }?.let { it / safeDensity } ?: RESPONSIVE_REFERENCE_HEIGHT_DP
+        val widthScale = widthDp / RESPONSIVE_REFERENCE_WIDTH_DP
+        val heightScale = heightDp / RESPONSIVE_REFERENCE_HEIGHT_DP
+        return min(widthScale, heightScale).coerceIn(MIN_RESPONSIVE_ICON_SCALE, 1f)
     }
 }
