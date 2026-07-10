@@ -1,6 +1,7 @@
 package com.cloudx.ios17.core.customviews
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -99,6 +100,20 @@ class HorizontalPagerSwipeAnimationPolicyTest {
                 viewportWidth = 1000,
                 pageWidth = 1000,
                 childCount = 6
+            )
+        )
+    }
+
+    @Test
+    fun settlingPager_finishesBeforeChildTouchSoIconTapCanRun() {
+        assertTrue(
+            HorizontalPagerSwipeAnimationPolicy.shouldFinishSettlingBeforeChildTouch(
+                scrollerFinished = false
+            )
+        )
+        assertFalse(
+            HorizontalPagerSwipeAnimationPolicy.shouldFinishSettlingBeforeChildTouch(
+                scrollerFinished = true
             )
         )
     }

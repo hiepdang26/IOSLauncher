@@ -66,9 +66,9 @@ class LauncherHomeLayoutPreferencesTest {
 
     @Test
     fun appLabelTextSize_scalesWithIconSize() {
-        assertEquals(12f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(48), 0.001f)
-        assertEquals(14f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(60), 0.001f)
-        assertEquals(16f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(72), 0.001f)
+        assertEquals(10f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(48), 0.001f)
+        assertEquals(12f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(60), 0.001f)
+        assertEquals(14f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(72), 0.001f)
     }
 
     @Test

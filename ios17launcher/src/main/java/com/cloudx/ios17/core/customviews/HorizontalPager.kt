@@ -252,10 +252,11 @@ class HorizontalPager @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_DOWN -> {
+                finishSettlingBeforeChildTouch()
                 mLastMotionX = x
                 mLastMotionY = y
                 mAllowLongPress = true
-                mTouchState = if (mScroller.isFinished) TOUCH_STATE_REST else TOUCH_STATE_HORIZONTAL_SCROLLING
+                mTouchState = TOUCH_STATE_REST
             }
             MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_UP -> {
                 mTouchState = TOUCH_STATE_REST
@@ -316,12 +317,11 @@ class HorizontalPager @JvmOverloads constructor(
         if (mIsUiCreated) {
             when (action) {
                 MotionEvent.ACTION_DOWN -> {
-                    if (!mScroller.isFinished) {
-                        mScroller.abortAnimation()
-                    }
+                    finishSettlingBeforeChildTouch()
 
                     mLastMotionX = x
                     mLastMotionY = y
+                    mTouchState = TOUCH_STATE_REST
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (mTouchState == TOUCH_STATE_REST) {
@@ -377,6 +377,18 @@ class HorizontalPager @JvmOverloads constructor(
         }
 
         return true
+    }
+
+    private fun finishSettlingBeforeChildTouch() {
+        if (
+            HorizontalPagerSwipeAnimationPolicy.shouldFinishSettlingBeforeChildTouch(
+                scrollerFinished = mScroller.isFinished
+            )
+        ) {
+            mScroller.abortAnimation()
+            scrollTo(getScrollXForPage(currentPage), 0)
+            invalidate()
+        }
     }
 
     private fun snapToDestination() {

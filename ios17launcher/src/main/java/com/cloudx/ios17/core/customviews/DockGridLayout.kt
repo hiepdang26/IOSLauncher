@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.ViewOutlineProvider
@@ -52,7 +51,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
             ) {
                 blurDelegate.draw(canvas)
             }
-            if (DockStylePolicy.drawsStyleAboveBlur(appliedDockStyle)) {
+            if (DockStylePolicy.usesMaterialDrawableAboveBlur(appliedDockStyle)) {
                 aboveBlurStyleDrawable?.setBounds(0, 0, width, height)
                 aboveBlurStyleDrawable?.draw(canvas)
             }
@@ -88,7 +87,8 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         val metrics = DockStylePolicy.layoutMetrics(deviceProfile.hotseatCellHeightPx, safeInsets.bottom)
         lp.height = metrics.heightPx
         val dockStyle = currentDockStyle()
-        val blurEnabled = isDockBlurEnabled()
+        val liquidGlassEnabled = isLiquidGlassEnabled()
+        val blurEnabled = isDockBlurEnabled() || liquidGlassEnabled
         appliedDockStyle = dockStyle
         dockBlurEnabled = blurEnabled
         when (dockStyle) {
@@ -116,16 +116,14 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
                 outlineProvider = blurDelegate.outlineProvider
                 clipToOutline = true
                 background = null
-                aboveBlurStyleDrawable = GradientDrawable(
-                    GradientDrawable.Orientation.LEFT_RIGHT,
-                    LauncherLiquidGlassStylePolicy.dockGradient(
+                aboveBlurStyleDrawable = LauncherLiquidGlassDrawableFactory.create(
+                    context = context,
+                    style = LauncherLiquidGlassStylePolicy.dockMaterial(
                         enabled = blurEnabled,
                         darkMode = isDarkModeEnabled(),
                         liquidGlass = false
                     )
-                ).apply {
-                    cornerRadius = dp(38).toFloat()
-                }
+                )
                 lp.leftMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
                 lp.rightMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)
                 lp.bottomMargin = dp(LauncherHomeLayoutPreferences.DOCK_BOTTOM_MARGIN_DP)
@@ -148,7 +146,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
                     style = LauncherLiquidGlassStylePolicy.dockMaterial(
                         enabled = blurEnabled,
                         darkMode = isDarkModeEnabled(),
-                        liquidGlass = isLiquidGlassEnabled()
+                        liquidGlass = liquidGlassEnabled
                     )
                 )
                 lp.leftMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)

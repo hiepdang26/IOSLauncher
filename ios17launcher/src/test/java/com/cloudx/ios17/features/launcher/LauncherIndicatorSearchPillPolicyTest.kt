@@ -8,7 +8,7 @@ class LauncherIndicatorSearchPillPolicyTest {
     fun visualSpec_matchesCompactReferenceSearchPill() {
         val spec = LauncherIndicatorSearchPillPolicy.visualSpec()
 
-        assertEquals(112, spec.widthDp)
+        assertEquals(104, spec.widthDp)
         assertEquals(36, spec.heightDp)
         assertEquals(18, spec.iconSizeDp)
         assertEquals(4, spec.iconTextGapDp)

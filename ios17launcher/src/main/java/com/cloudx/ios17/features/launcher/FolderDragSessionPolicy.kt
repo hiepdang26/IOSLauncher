@@ -6,6 +6,12 @@ object FolderDragSessionPolicy {
     const val ITEMS_PER_PAGE = FOLDER_COLUMNS * FOLDER_ROWS
     const val FOLDER_PAGE_SCROLL_ANIMATION_MS = 320
 
+    enum class FolderResultAfterRemovingItem {
+        REMOVE_FOLDER,
+        REPLACE_WITH_REMAINING_ITEM,
+        KEEP_FOLDER
+    }
+
     data class FolderPlacement(
         val page: Int,
         val cell: Int
@@ -30,6 +36,13 @@ object FolderDragSessionPolicy {
 
     fun shouldPreviewDropDuringPageScroll(targetPage: Int, pageCount: Int): Boolean =
         targetPage >= pageCount.coerceAtLeast(1)
+
+    fun folderResultAfterRemovingItem(remainingItemCount: Int): FolderResultAfterRemovingItem =
+        when {
+            remainingItemCount <= 0 -> FolderResultAfterRemovingItem.REMOVE_FOLDER
+            remainingItemCount == 1 -> FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM
+            else -> FolderResultAfterRemovingItem.KEEP_FOLDER
+        }
 
     fun firstAvailablePlacement(occupiedCells: Set<Int>, startPage: Int): FolderPlacement {
         var page = startPage.coerceAtLeast(0)

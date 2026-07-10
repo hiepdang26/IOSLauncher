@@ -160,9 +160,9 @@ class GraphicsUtil(private val mContext: Context) {
         }
 
         val style = LauncherLiquidGlassStylePolicy.folderPreview(
-            enabled = folderBlurEnabled && !darkModeEnabled,
+            enabled = liquidGlassEnabled || (folderBlurEnabled && !darkModeEnabled),
             darkMode = darkModeEnabled,
-            liquidGlass = useRealtimeGlass
+            liquidGlass = liquidGlassEnabled
         )
         LauncherLiquidGlassDrawableFactory.create(mContext, style).apply {
             setBounds(0, 0, width, height)

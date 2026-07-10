@@ -37,4 +37,16 @@ class LauncherWorkspaceChromePolicyTest {
             )
         )
     }
+
+    @Test
+    fun dockIsHiddenWhileFolderWindowIsVisible() {
+        assertFalse(
+            LauncherWorkspaceChromePolicy.shouldShowDockForPage(
+                page = 1,
+                firstHomePage = 1,
+                lastHomePage = 3,
+                folderVisible = true
+            )
+        )
+    }
 }

@@ -11,7 +11,7 @@ object LauncherIndicatorSearchPillPolicy {
 
     fun visualSpec(): VisualSpec =
         VisualSpec(
-            widthDp = 112,
+            widthDp = 104,
             heightDp = 36,
             iconSizeDp = 18,
             iconTextGapDp = 4,

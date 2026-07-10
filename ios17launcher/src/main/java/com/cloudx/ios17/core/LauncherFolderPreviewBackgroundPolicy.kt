@@ -14,8 +14,7 @@ object LauncherFolderPreviewBackgroundPolicy {
         folderBlurEnabled: Boolean = true,
         darkModeEnabled: Boolean = false,
         sdkInt: Int = Build.VERSION.SDK_INT
-    ): Boolean = folderBlurEnabled &&
-        !darkModeEnabled &&
+    ): Boolean =
         LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeLiquidGlass(
             liquidGlassEnabled = liquidGlassEnabled,
             sdkInt = sdkInt

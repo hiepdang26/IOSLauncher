@@ -38,7 +38,7 @@ class LauncherFolderPreviewBackgroundPolicyTest {
     }
 
     @Test
-    fun shouldUseRealtimeLiquidGlass_requiresLiquidGlassFolderBlurLightModeAndQmDeveSdk() {
+    fun shouldUseRealtimeLiquidGlass_ignoresFolderBlurAndDarkModeWhenLiquidGlassIsEnabled() {
         assertFalse(
             LauncherFolderPreviewBackgroundPolicy.shouldUseRealtimeLiquidGlass(
                 liquidGlassEnabled = false,
@@ -47,7 +47,7 @@ class LauncherFolderPreviewBackgroundPolicyTest {
                 sdkInt = LauncherRealtimeLiquidGlassPolicy.QMDEVE_MIN_SDK
             )
         )
-        assertFalse(
+        assertTrue(
             LauncherFolderPreviewBackgroundPolicy.shouldUseRealtimeLiquidGlass(
                 liquidGlassEnabled = true,
                 folderBlurEnabled = false,
@@ -55,7 +55,7 @@ class LauncherFolderPreviewBackgroundPolicyTest {
                 sdkInt = LauncherRealtimeLiquidGlassPolicy.QMDEVE_MIN_SDK
             )
         )
-        assertFalse(
+        assertTrue(
             LauncherFolderPreviewBackgroundPolicy.shouldUseRealtimeLiquidGlass(
                 liquidGlassEnabled = true,
                 folderBlurEnabled = true,

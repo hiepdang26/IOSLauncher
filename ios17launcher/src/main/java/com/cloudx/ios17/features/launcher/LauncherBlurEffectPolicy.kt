@@ -13,8 +13,10 @@ object LauncherBlurEffectPolicy {
     fun overlayAlpha(
         masterEnabled: Boolean,
         targetEnabled: Boolean,
-        darkModeEnabled: Boolean = false
+        darkModeEnabled: Boolean = false,
+        liquidGlassEnabled: Boolean = false
     ): Float {
+        if (liquidGlassEnabled) return 0f
         return if (lightModeTargetBlurEnabled(masterEnabled, targetEnabled, darkModeEnabled)) 1f else 0f
     }
 
@@ -24,6 +26,7 @@ object LauncherBlurEffectPolicy {
         liquidGlassEnabled: Boolean,
         darkModeEnabled: Boolean = false
     ): Float {
+        if (liquidGlassEnabled) return 0f
         return overlayAlpha(
             masterEnabled = masterEnabled,
             targetEnabled = folderEnabled,
@@ -36,34 +39,19 @@ object LauncherBlurEffectPolicy {
         folderEnabled: Boolean,
         liquidGlassEnabled: Boolean = false,
         darkModeEnabled: Boolean = false
-    ): Float {
-        return if (lightModeTargetBlurEnabled(masterEnabled, folderEnabled, darkModeEnabled)) {
-            FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
-        } else {
-            1f
-        }
-    }
+    ): Float = FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
 
     fun searchBackgroundContentAlpha(masterEnabled: Boolean, searchEnabled: Boolean): Float {
         return SEARCH_BACKGROUND_CONTENT_ALPHA
     }
 
-    fun searchChromeStyleEnabled(
-        searchBlurEnabled: Boolean,
-        darkModeEnabled: Boolean = false
-    ): Boolean {
-        return if (darkModeEnabled) {
-            searchBlurEnabled
-        } else {
-            !searchBlurEnabled
-        }
-    }
-
     fun searchTouchBlockerAlpha(
         masterEnabled: Boolean,
         searchEnabled: Boolean,
-        darkModeEnabled: Boolean = false
+        darkModeEnabled: Boolean = false,
+        liquidGlassEnabled: Boolean = false
     ): Float {
+        if (liquidGlassEnabled) return 0f
         return if (lightModeTargetBlurEnabled(masterEnabled, searchEnabled, darkModeEnabled)) {
             SEARCH_TOUCH_BLOCKER_ALPHA
         } else {

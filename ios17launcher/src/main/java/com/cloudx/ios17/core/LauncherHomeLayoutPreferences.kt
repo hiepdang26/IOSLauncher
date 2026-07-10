@@ -49,6 +49,8 @@ object LauncherHomeLayoutPreferences {
     const val DEFAULT_DARK_MODE = false
     const val DEFAULT_BLUR_EFFECT_ENABLED = true
     const val DEFAULT_BLUR_TARGET_ENABLED = true
+    private const val MIN_APP_LABEL_TEXT_SIZE_SP = 10f
+    private const val MAX_APP_LABEL_TEXT_SIZE_SP = 14f
 
     const val HOME_PAGE_TOP_PADDING_DP = 40
     const val EDIT_HOME_PAGE_TOP_PADDING_DP = HOME_PAGE_TOP_PADDING_DP
@@ -143,11 +145,13 @@ object LauncherHomeLayoutPreferences {
         return if (safeSize <= DEFAULT_HOME_ICON_SIZE_DP) {
             val progress = (safeSize - MIN_HOME_ICON_SIZE_DP).toFloat() /
                 (DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP)
-            12f + progress * 2f
+            MIN_APP_LABEL_TEXT_SIZE_SP +
+                progress * (LauncherAppLabelStylePolicy.TEXT_SIZE_SP - MIN_APP_LABEL_TEXT_SIZE_SP)
         } else {
             val progress = (safeSize - DEFAULT_HOME_ICON_SIZE_DP).toFloat() /
                 (MAX_HOME_ICON_SIZE_DP - DEFAULT_HOME_ICON_SIZE_DP)
-            14f + progress * 2f
+            LauncherAppLabelStylePolicy.TEXT_SIZE_SP +
+                progress * (MAX_APP_LABEL_TEXT_SIZE_SP - LauncherAppLabelStylePolicy.TEXT_SIZE_SP)
         }
     }
 

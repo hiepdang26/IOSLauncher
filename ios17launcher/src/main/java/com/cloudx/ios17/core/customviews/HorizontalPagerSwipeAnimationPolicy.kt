@@ -43,4 +43,8 @@ internal object HorizontalPagerSwipeAnimationPolicy {
         val lastDrawn = min(childCount - 1, lastVisible + 1)
         return firstDrawn..lastDrawn
     }
+
+    fun shouldFinishSettlingBeforeChildTouch(scrollerFinished: Boolean): Boolean {
+        return !scrollerFinished
+    }
 }

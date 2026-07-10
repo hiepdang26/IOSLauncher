@@ -97,9 +97,9 @@ object LauncherRealtimeLiquidGlassPolicy {
 
             Surface.APP_LIBRARY_FOLDER -> appLibraryFolderProfile(radiusDp)
 
-            Surface.FOLDER_PREVIEW -> homeChromeProfile(radiusDp)
+            Surface.FOLDER_PREVIEW -> appLibraryFolderProfile(radiusDp)
 
-            Surface.FOLDER_PANEL -> homeChromeProfile(radiusDp)
+            Surface.FOLDER_PANEL -> appLibraryFolderProfile(radiusDp)
 
             Surface.DOCK -> homeChromeProfile(radiusDp)
         }

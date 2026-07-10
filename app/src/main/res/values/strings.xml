@@ -55,6 +55,8 @@
     <string name="launcher_installed_apps_count_a11y">Installed launchable apps: %1$d</string>
     <string name="launcher_default_already">iOS Style Launcher đã là trình khởi chạy mặc định.</string>
     <string name="launcher_default_prompt_failed">Không mở được màn chọn launcher mặc định.</string>
+    <string name="launcher_uninstall_failed">Kh&#244;ng th&#7875; g&#7905; c&#224;i &#273;&#7863;t &#7913;ng d&#7909;ng n&#224;y.</string>
+    <string name="launcher_uninstall_success">&#272;&#227; g&#7905; c&#224;i &#273;&#7863;t &#7913;ng d&#7909;ng.</string>
     <string name="default_launcher_prompt_title">iOS Launcher</string>
     <string name="default_launcher_prompt_message">Đặt iOS Launcher là Trình khởi chạy mặc định</string>
     <string name="default_launcher_welcome_title">Chào mừng</string>

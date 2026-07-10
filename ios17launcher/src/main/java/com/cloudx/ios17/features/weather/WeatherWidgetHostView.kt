@@ -6,7 +6,10 @@ import android.widget.RemoteViews
 import com.cloudx.ios17.R
 import com.cloudx.ios17.core.customviews.RoundedWidgetView
 
-class WeatherWidgetHostView(context: Context) : RoundedWidgetView(context, true) {
+class WeatherWidgetHostView(
+    context: Context,
+    blurBackground: Boolean = true
+) : RoundedWidgetView(context, blurBackground) {
     init {
         LayoutInflater.from(context).inflate(R.layout.layout_weather_info, this)
     }

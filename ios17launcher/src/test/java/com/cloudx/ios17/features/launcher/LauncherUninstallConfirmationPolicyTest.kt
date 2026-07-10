@@ -6,9 +6,9 @@ import org.junit.Test
 
 class LauncherUninstallConfirmationPolicyTest {
     @Test
-    fun userInstalledAppsRequireConfirmationBeforeUninstall() {
+    fun userInstalledAppsUseSystemUninstallConfirmationOnly() {
         assertTrue(
-            LauncherUninstallConfirmationPolicy.shouldConfirmBeforeUninstall(
+            LauncherUninstallConfirmationPolicy.shouldRequestSystemUninstall(
                 isApplication = true,
                 canUninstall = true
             )
@@ -16,15 +16,15 @@ class LauncherUninstallConfirmationPolicyTest {
     }
 
     @Test
-    fun foldersAndLockedAppsDoNotUseAppUninstallConfirmation() {
+    fun foldersAndLockedAppsDoNotStartSystemUninstall() {
         assertFalse(
-            LauncherUninstallConfirmationPolicy.shouldConfirmBeforeUninstall(
+            LauncherUninstallConfirmationPolicy.shouldRequestSystemUninstall(
                 isApplication = false,
                 canUninstall = true
             )
         )
         assertFalse(
-            LauncherUninstallConfirmationPolicy.shouldConfirmBeforeUninstall(
+            LauncherUninstallConfirmationPolicy.shouldRequestSystemUninstall(
                 isApplication = true,
                 canUninstall = false
             )
@@ -32,8 +32,14 @@ class LauncherUninstallConfirmationPolicyTest {
     }
 
     @Test
-    fun removesFromHomeOnlyAfterUninstallIntentStarts() {
-        assertTrue(LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallRequest(true))
+    fun doesNotRemoveFromHomeUntilSystemConfirmsPackageRemoved() {
+        assertFalse(LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallRequest(true))
         assertFalse(LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallRequest(false))
+    }
+
+    @Test
+    fun removesFromHomeAfterSystemUninstallReturnsOk() {
+        assertTrue(LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallResult(true))
+        assertFalse(LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallResult(false))
     }
 }

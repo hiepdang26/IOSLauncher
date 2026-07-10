@@ -210,7 +210,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun homeChromeProfilesUseSofterBlurThanAppLibraryFolderGlass() {
+    fun dockAndPageIndicatorProfilesKeepHomeChromeLiquidGlassTuning() {
         val appLibrary = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
             radiusDp = 20,
@@ -225,16 +225,6 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             LauncherRealtimeLiquidGlassPolicy.profileFor(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
                 radiusDp = 17,
-                darkMode = false
-            ),
-            LauncherRealtimeLiquidGlassPolicy.profileFor(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-                radiusDp = 16,
-                darkMode = false
-            ),
-            LauncherRealtimeLiquidGlassPolicy.profileFor(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
-                radiusDp = 42,
                 darkMode = false
             )
         )
@@ -251,8 +241,38 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         }
         assertEquals(38, homeProfiles[0].radiusDp)
         assertEquals(17, homeProfiles[1].radiusDp)
-        assertEquals(16, homeProfiles[2].radiusDp)
-        assertEquals(42, homeProfiles[3].radiusDp)
+    }
+
+    @Test
+    fun folderLiquidGlassProfilesMatchAppLibraryFolderTuning() {
+        val appLibrary = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+            radiusDp = 20,
+            darkMode = false
+        )
+        val folderPreview = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+            radiusDp = 16,
+            darkMode = false
+        )
+        val folderPanel = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
+            radiusDp = 42,
+            darkMode = false
+        )
+
+        listOf(folderPreview, folderPanel).forEach { profile ->
+            assertEquals(appLibrary.blurRadiusDp, profile.blurRadiusDp, 0.001f)
+            assertEquals(appLibrary.refractionHeightDp, profile.refractionHeightDp, 0.01f)
+            assertEquals(appLibrary.refractionOffsetDp, profile.refractionOffsetDp, 0.01f)
+            assertEquals(appLibrary.dispersion, profile.dispersion, 0.01f)
+            assertEquals(appLibrary.tintRed, profile.tintRed, 0.01f)
+            assertEquals(appLibrary.tintGreen, profile.tintGreen, 0.01f)
+            assertEquals(appLibrary.tintBlue, profile.tintBlue, 0.01f)
+            assertEquals(appLibrary.tintAlpha, profile.tintAlpha, 0.01f)
+        }
+        assertEquals(16, folderPreview.radiusDp)
+        assertEquals(42, folderPanel.radiusDp)
     }
 
     @Test

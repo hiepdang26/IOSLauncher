@@ -244,6 +244,11 @@ class LauncherActivity : AppCompatActivity(),
         val widgetEntry: TodayWidgetEntry? = null
     )
 
+    private data class PendingApplicationUninstall(
+        val packageName: String,
+        val userHandle: UserHandle
+    )
+
     private data class TodayWidgetProvider(
         val providerInfo: AppWidgetProviderInfo,
         val label: CharSequence,
@@ -295,6 +300,7 @@ class LauncherActivity : AppCompatActivity(),
         private const val REQUEST_HOME_WIDGET_PHOTO_PICK = 723
         private const val REQUEST_HOME_BIND_APPWIDGET = 724
         private const val REQUEST_HOME_CREATE_APPWIDGET = 725
+        private const val REQUEST_UNINSTALL_APP = 726
         private const val PAGE_INDICATOR_VISIBLE_MS = 2000L
         private const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
         private const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
@@ -375,6 +381,7 @@ class LauncherActivity : AppCompatActivity(),
     private var weatherDetailPanel: View? = null
     private var photoWidgetCropPanel: View? = null
     private var pendingPhotoWidgetId: String? = null
+    private var pendingApplicationUninstall: PendingApplicationUninstall? = null
     private var pendingPhotoWidgetSize: HomeWidgetPlacementPolicy.WidgetSize = HomeWidgetPlacementPolicy.WidgetSize.SMALL
     private var hiddenAppsChanged = false
     private val indicatorHandler = Handler(Looper.getMainLooper())
@@ -891,6 +898,7 @@ class LauncherActivity : AppCompatActivity(),
             mDock.refreshStyle()
         }
         refreshLiquidGlassAppearanceIfNeeded()
+        verifyPendingApplicationUninstall()
 
         mDepthManager?.updateDepth()
 
@@ -1014,52 +1022,64 @@ class LauncherActivity : AppCompatActivity(),
         if (::mLauncherView.isInitialized) {
             applyFolderLiquidGlassAppearance(bindRealtime = isFolderWindowActive())
         }
-        if (::swipeSearchContainer.isInitialized) {
-            val searchInput = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
-            val searchInputPanel = searchInput?.parent as? View
-            val searchPillStyle = LauncherLiquidGlassStylePolicy.searchPill(
-                enabled = searchChromeStyleEnabled(),
-                darkMode = darkModeEnabled,
-                liquidGlass = liquidGlassEnabled
-            )
-            val searchGlassContainer = searchInputPanel?.parent as? LauncherRealtimeLiquidGlassLayout
-            val searchRealtimeGlass = applyRealtimeLiquidGlass(
-                container = searchGlassContainer,
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
-                style = searchPillStyle
-            )
-            searchGlassContainer?.setLiquidMaterial(
-                if (searchRealtimeGlass) roundedRectangle(searchPillStyle) else null
-            )
-            searchInputPanel?.background = if (searchRealtimeGlass) {
-                ColorDrawable(Color.TRANSPARENT)
-            } else {
-                roundedRectangle(searchPillStyle)
-            }
-            val suggestions = swipeSearchContainer.findViewById<RecyclerView>(R.id.suggestionRecyclerView)
-            val suggestionsPanel = suggestions?.parent as? View
-            val suggestionsStyle = LauncherLiquidGlassStylePolicy.searchResultsPanel(
-                enabled = liquidGlassEnabled,
-                darkMode = darkModeEnabled,
-                liquidGlass = liquidGlassEnabled
-            )
-            val suggestionsGlassContainer = suggestionsPanel?.parent as? LauncherRealtimeLiquidGlassLayout
-            val suggestionsRealtimeGlass = applyRealtimeLiquidGlass(
-                container = suggestionsGlassContainer,
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
-                style = suggestionsStyle
-            )
-            suggestionsGlassContainer?.setLiquidMaterial(
-                if (suggestionsRealtimeGlass) roundedRectangle(suggestionsStyle) else null
-            )
-            suggestionsPanel?.background = if (suggestionsRealtimeGlass) {
-                ColorDrawable(Color.TRANSPARENT)
-            } else {
-                roundedRectangle(suggestionsStyle)
-            }
-        }
+        applySwipeSearchChromeAppearance()
         if (::darkBlurLayer.isInitialized) {
             darkBlurLayer.alpha = darkBlurAlphaFor(blurLayer.alpha)
+        }
+    }
+
+    private fun applySearchBlurAppearance() {
+        if (::mIndicator.isInitialized) {
+            applyIndicatorRealtimeLiquidGlass()
+        }
+        applySwipeSearchChromeAppearance()
+        refreshAppLibraryPage()
+    }
+
+    private fun applySwipeSearchChromeAppearance() {
+        if (!::swipeSearchContainer.isInitialized) return
+
+        val searchInput = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
+        val searchInputPanel = searchInput?.parent as? View
+        val searchPillStyle = LauncherLiquidGlassStylePolicy.searchField(
+            enabled = false,
+            darkMode = darkModeEnabled,
+            liquidGlass = liquidGlassEnabled
+        )
+        val searchGlassContainer = searchInputPanel?.parent as? LauncherRealtimeLiquidGlassLayout
+        val searchRealtimeGlass = applyRealtimeLiquidGlass(
+            container = searchGlassContainer,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+            style = searchPillStyle
+        )
+        searchGlassContainer?.setLiquidMaterial(
+            if (searchRealtimeGlass) roundedRectangle(searchPillStyle) else null
+        )
+        searchInputPanel?.background = if (searchRealtimeGlass) {
+            ColorDrawable(Color.TRANSPARENT)
+        } else {
+            roundedRectangle(searchPillStyle)
+        }
+        val suggestions = swipeSearchContainer.findViewById<RecyclerView>(R.id.suggestionRecyclerView)
+        val suggestionsPanel = suggestions?.parent as? View
+        val suggestionsStyle = LauncherLiquidGlassStylePolicy.searchResultsPanel(
+            enabled = liquidGlassEnabled,
+            darkMode = darkModeEnabled,
+            liquidGlass = liquidGlassEnabled
+        )
+        val suggestionsGlassContainer = suggestionsPanel?.parent as? LauncherRealtimeLiquidGlassLayout
+        val suggestionsRealtimeGlass = applyRealtimeLiquidGlass(
+            container = suggestionsGlassContainer,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+            style = suggestionsStyle
+        )
+        suggestionsGlassContainer?.setLiquidMaterial(
+            if (suggestionsRealtimeGlass) roundedRectangle(suggestionsStyle) else null
+        )
+        suggestionsPanel?.background = if (suggestionsRealtimeGlass) {
+            ColorDrawable(Color.TRANSPARENT)
+        } else {
+            roundedRectangle(suggestionsStyle)
         }
     }
 
@@ -1074,20 +1094,22 @@ class LauncherActivity : AppCompatActivity(),
         }
 
         val folderBlurEnabled = lightModeFolderBlurEnabled()
-        val useLiquidGlassFolderStyle = shouldUseRealtimeLiquidGlass() && folderBlurEnabled
+        val useLiquidGlassFolderStyle = liquidGlassEnabled
+        val folderChromeEnabled = folderBlurEnabled || useLiquidGlassFolderStyle
         val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
-            enabled = folderBlurEnabled,
+            enabled = folderChromeEnabled,
             darkMode = darkModeEnabled,
             liquidGlass = useLiquidGlassFolderStyle
         )
         val folderGlass = mLauncherView.findViewById<LauncherRealtimeLiquidGlassLayout>(R.id.folder_bg_blur)
-        val useRealtimeMaterial = useLiquidGlassFolderStyle && folderGlass != null
+        val realtimeLiquidGlassEnabled = shouldUseRealtimeLiquidGlass() && useLiquidGlassFolderStyle
+        val useRealtimeMaterial = realtimeLiquidGlassEnabled && folderGlass != null
         val folderRealtimeGlass = if (bindRealtime) {
             applyRealtimeLiquidGlass(
                 container = folderGlass,
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
                 style = folderStyle,
-                realtimeEnabled = useLiquidGlassFolderStyle
+                realtimeEnabled = realtimeLiquidGlassEnabled
             )
         } else {
             folderGlass?.blurCornerRadius = dp(folderStyle.radiusDp).toFloat()
@@ -1132,7 +1154,7 @@ class LauncherActivity : AppCompatActivity(),
             R.id.dock_liquid_glass_background
         )
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = dockBlurEnabled()
+        val dockBlurEnabled = dockBlurEnabled() || liquidGlassEnabled
         val useRealtimeDock = DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1194,7 +1216,7 @@ class LauncherActivity : AppCompatActivity(),
     private fun shouldUseRealtimeDockGlass(): Boolean {
         if (!::mLauncherView.isInitialized || !::mDock.isInitialized) return false
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = dockBlurEnabled()
+        val dockBlurEnabled = dockBlurEnabled() || liquidGlassEnabled
         return DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1209,11 +1231,15 @@ class LauncherActivity : AppCompatActivity(),
             null
         }
 
-    private fun shouldShowDockForPage(page: Int): Boolean =
+    private fun shouldShowDockForPage(
+        page: Int,
+        folderVisible: Boolean = isFolderWindowActive()
+    ): Boolean =
         LauncherWorkspaceChromePolicy.shouldShowDockForPage(
             page = page,
             firstHomePage = 1,
-            lastHomePage = pages.size
+            lastHomePage = pages.size,
+            folderVisible = folderVisible
         )
 
     private fun setDockChromeVisibility(visible: Boolean) {
@@ -1333,14 +1359,8 @@ class LauncherActivity : AppCompatActivity(),
     private fun lightModeSearchBlurEnabled(): Boolean =
         LauncherHomeLayoutPreferences.isSearchBlurEnabled(this) && !darkModeEnabled
 
-    private fun searchChromeStyleEnabled(): Boolean =
-        LauncherBlurEffectPolicy.searchChromeStyleEnabled(
-            searchBlurEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
-            darkModeEnabled = darkModeEnabled
-        )
-
     private fun shouldUseRealtimeIndicatorGlass(): Boolean =
-        shouldUseRealtimeLiquidGlass() && lightModeSearchBlurEnabled()
+        shouldUseRealtimeLiquidGlass()
 
     private fun styleDarkModeForLiquidGlass(): Boolean =
         darkModeEnabled
@@ -1358,7 +1378,8 @@ class LauncherActivity : AppCompatActivity(),
         LauncherBlurEffectPolicy.overlayAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
             targetEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
-            darkModeEnabled = darkModeEnabled
+            darkModeEnabled = darkModeEnabled,
+            liquidGlassEnabled = liquidGlassEnabled
         )
 
     private fun folderOverlayBlurAlpha(): Float =
@@ -1387,7 +1408,8 @@ class LauncherActivity : AppCompatActivity(),
         LauncherBlurEffectPolicy.searchTouchBlockerAlpha(
             masterEnabled = overlayBlurMasterEnabled(),
             searchEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
-            darkModeEnabled = darkModeEnabled
+            darkModeEnabled = darkModeEnabled,
+            liquidGlassEnabled = liquidGlassEnabled
         )
 
     private fun setBlurLayersAlpha(alpha: Float) {
@@ -7831,7 +7853,9 @@ class LauncherActivity : AppCompatActivity(),
 
     fun onAppRemoveEvent(appRemoveEvent: AppRemoveEvent) {
         forceRefreshSuggestedApps = true
-        removePackageFromLauncher(appRemoveEvent.packageName, appRemoveEvent.userHandle)
+        if (!completePendingApplicationUninstallIfMatches(appRemoveEvent.packageName, appRemoveEvent.userHandle)) {
+            removePackageFromLauncher(appRemoveEvent.packageName, appRemoveEvent.userHandle)
+        }
         DatabaseManager.getManager(this).saveLayouts(pages, mDock)
         rebindAllWidgets()
     }
@@ -8178,33 +8202,91 @@ class LauncherActivity : AppCompatActivity(),
         return true
     }
 
+    private fun removeFolderView(folder: FolderItem, folderView: BlissFrameLayout) {
+        folderView.clearAnimation()
+        removeUninstallIcon(folderView)
+        (folderView.parent as? ViewGroup)?.removeView(folderView)
+        DatabaseManager.getManager(this).removeLauncherItem(folder.id)
+    }
+
+    private fun replaceFolderWithRemainingItem(
+        folder: FolderItem,
+        folderView: BlissFrameLayout,
+        remainingItem: LauncherItem,
+        folderWasFromDock: Boolean,
+        shouldWobble: Boolean = false
+    ): BlissFrameLayout? {
+        val parent = folderView.parent as? ViewGroup ?: return null
+        val index = parent.indexOfChild(folderView)
+        val fromDock = folderWasFromDock || parent === mDock
+        val pageIndex = (parent as? GridLayout)
+            ?.let { pages.indexOf(it) }
+            ?.takeIf { it >= 0 }
+            ?: getCurrentAppsPageNumber()
+
+        remainingItem.container = if (fromDock) {
+            Constants.CONTAINER_HOTSEAT.toLong()
+        } else {
+            Constants.CONTAINER_DESKTOP.toLong()
+        }
+        remainingItem.screenId = if (fromDock) -1 else pageIndex.toLong()
+        remainingItem.cell = if (fromDock) {
+            index.takeIf { it != LauncherItem.INVALID_CELL } ?: folder.cell
+        } else {
+            folder.cell.takeIf { it != LauncherItem.INVALID_CELL } ?: index
+        }
+
+        val replacementView = prepareLauncherItem(remainingItem)
+        folderView.clearAnimation()
+        removeUninstallIcon(folderView)
+        parent.removeView(folderView)
+        if (parent === mDock) {
+            addAppToDock(replacementView, index)
+        } else if (parent is GridLayout) {
+            addAppToGrid(parent, replacementView, index)
+            relayoutHomePageCells(parent)
+        }
+        if (shouldWobble) {
+            makeAppWobble(replacementView, true, parent.indexOfChild(replacementView))
+        }
+        DatabaseManager.getManager(this).removeLauncherItem(folder.id)
+        return replacementView
+    }
+
+    private fun collapseFolderToRemainingItem(
+        folder: FolderItem,
+        folderView: BlissFrameLayout,
+        folderWasFromDock: Boolean,
+        shouldWobble: Boolean = false
+    ): BlissFrameLayout? {
+        val items = mutableFolderItems(folder)
+        val remainingItem = items.firstOrNull() ?: return null
+        items.remove(remainingItem)
+        mFolderAppsViewPager.adapter?.notifyDataSetChanged()
+        return replaceFolderWithRemainingItem(
+            folder = folder,
+            folderView = folderView,
+            remainingItem = remainingItem,
+            folderWasFromDock = folderWasFromDock,
+            shouldWobble = shouldWobble
+        )
+    }
+
     private fun updateFolder() {
         mFolderAppsViewPager.adapter?.notifyDataSetChanged()
         val folder = activeFolder ?: return
         val folderView = activeFolderView ?: return
         val items = folder.items!!
-        when (items.size) {
-            0 -> {
-                (folderView.parent as? ViewGroup)?.removeView(folderView)
+        when (FolderDragSessionPolicy.folderResultAfterRemovingItem(items.size)) {
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REMOVE_FOLDER -> {
+                removeFolderView(folder, folderView)
                 hideFolderWindowContainer()
             }
-            1 -> {
-                val item = items[0]
-                items.remove(item)
-                mFolderAppsViewPager.adapter?.notifyDataSetChanged()
-                val view = prepareLauncherItem(item)
-
-                if (folderFromDock) {
-                    addAppToDock(view, mDock.indexOfChild(folderView))
-                } else {
-                    val gridLayout = pages[getCurrentAppsPageNumber()]
-                    addAppToGrid(gridLayout, view, gridLayout.indexOfChild(folderView))
-                }
-
-                (folderView.parent as? ViewGroup)?.removeView(folderView)
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM -> {
+                collapseFolderToRemainingItem(folder, folderView, folderFromDock)
                 hideFolderWindowContainer()
             }
-            else -> {
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.KEEP_FOLDER -> {
                 updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
                 hideFolderWindowContainer()
             }
@@ -8212,16 +8294,32 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun updateFolderInGrid(grid: GridLayout, folderItem: FolderItem, folderIndex: Int) {
-        if (folderItem.items!!.isEmpty()) {
-            grid.removeViewAt(folderIndex)
-        } else {
-            folderItem.icon = GraphicsUtil(this).generateFolderIcon(this, folderItem)
-            val blissFrameLayout = prepareLauncherItem(folderItem)
-            grid.removeViewAt(folderIndex)
-            if (grid is DockGridLayout) {
-                addAppToDock(blissFrameLayout, folderIndex)
-            } else {
-                addAppToGrid(grid, blissFrameLayout, folderIndex)
+        if (folderIndex !in 0 until grid.childCount) {
+            return
+        }
+        when (FolderDragSessionPolicy.folderResultAfterRemovingItem(folderItem.items!!.size)) {
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REMOVE_FOLDER -> {
+                grid.removeViewAt(folderIndex)
+                DatabaseManager.getManager(this).removeLauncherItem(folderItem.id)
+            }
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM -> {
+                val folderView = grid.getChildAt(folderIndex) as? BlissFrameLayout
+                if (folderView == null) {
+                    grid.removeViewAt(folderIndex)
+                    DatabaseManager.getManager(this).removeLauncherItem(folderItem.id)
+                    return
+                }
+                collapseFolderToRemainingItem(folderItem, folderView, grid is DockGridLayout)
+            }
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.KEEP_FOLDER -> {
+                folderItem.icon = GraphicsUtil(this).generateFolderIcon(this, folderItem)
+                val blissFrameLayout = prepareLauncherItem(folderItem)
+                grid.removeViewAt(folderIndex)
+                if (grid is DockGridLayout) {
+                    addAppToDock(blissFrameLayout, folderIndex)
+                } else {
+                    addAppToGrid(grid, blissFrameLayout, folderIndex)
+                }
             }
         }
     }
@@ -8966,8 +9064,8 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createAppLibrarySearchPill(): View {
-        val searchStyle = LauncherLiquidGlassStylePolicy.searchPill(
-            enabled = searchChromeStyleEnabled(),
+        val searchStyle = LauncherLiquidGlassStylePolicy.searchField(
+            enabled = false,
             darkMode = styleDarkModeForLiquidGlass(),
             liquidGlass = liquidGlassEnabled
         )
@@ -10250,6 +10348,8 @@ class LauncherActivity : AppCompatActivity(),
             } else {
                 pendingPhotoWidgetId = null
             }
+        } else if (requestCode == REQUEST_UNINSTALL_APP) {
+            handleApplicationUninstallResult(resultCode)
         } else {
             super.onActivityResult(requestCode, resultCode, data)
         }
@@ -10858,7 +10958,7 @@ class LauncherActivity : AppCompatActivity(),
                 rowColor = palette.rowColor,
                 dividerColor = palette.dividerColor
             ) { enabled ->
-                saveDockBlurSetting(enabled)
+                saveBlurSetting(LauncherBlurSettingsRefreshPolicy.Target.DOCK, enabled)
             }
         )
         content.addView(
@@ -10869,7 +10969,7 @@ class LauncherActivity : AppCompatActivity(),
                 rowColor = palette.rowColor,
                 dividerColor = palette.dividerColor
             ) { enabled ->
-                LauncherHomeLayoutPreferences.setFolderBlur(this, enabled)
+                saveBlurSetting(LauncherBlurSettingsRefreshPolicy.Target.FOLDER, enabled)
             }
         )
         content.addView(
@@ -10880,7 +10980,7 @@ class LauncherActivity : AppCompatActivity(),
                 rowColor = palette.rowColor,
                 dividerColor = palette.dividerColor
             ) { enabled ->
-                LauncherHomeLayoutPreferences.setWidgetBlur(this, enabled)
+                saveBlurSetting(LauncherBlurSettingsRefreshPolicy.Target.WIDGET, enabled)
             }
         )
         content.addView(
@@ -10891,7 +10991,7 @@ class LauncherActivity : AppCompatActivity(),
                 rowColor = palette.rowColor,
                 dividerColor = palette.dividerColor
             ) { enabled ->
-                LauncherHomeLayoutPreferences.setSearchBlur(this, enabled)
+                saveBlurSetting(LauncherBlurSettingsRefreshPolicy.Target.SEARCH, enabled)
             }
         )
 
@@ -10983,13 +11083,61 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun saveDockBlurSetting(enabled: Boolean) {
-        if (enabled == LauncherHomeLayoutPreferences.isDockBlurEnabled(this)) return
+    private fun saveBlurSetting(
+        target: LauncherBlurSettingsRefreshPolicy.Target,
+        enabled: Boolean
+    ) {
+        if (enabled == currentBlurSetting(target)) return
 
-        LauncherHomeLayoutPreferences.setDockBlur(this, enabled)
-        if (::mDock.isInitialized) {
+        setBlurSetting(target, enabled)
+        applyBlurSettingRefresh(LauncherBlurSettingsRefreshPolicy.actionsFor(target))
+    }
+
+    private fun currentBlurSetting(target: LauncherBlurSettingsRefreshPolicy.Target): Boolean =
+        when (target) {
+            LauncherBlurSettingsRefreshPolicy.Target.DOCK ->
+                LauncherHomeLayoutPreferences.isDockBlurEnabled(this)
+            LauncherBlurSettingsRefreshPolicy.Target.FOLDER ->
+                LauncherHomeLayoutPreferences.isFolderBlurEnabled(this)
+            LauncherBlurSettingsRefreshPolicy.Target.WIDGET ->
+                LauncherHomeLayoutPreferences.isWidgetBlurEnabled(this)
+            LauncherBlurSettingsRefreshPolicy.Target.SEARCH ->
+                LauncherHomeLayoutPreferences.isSearchBlurEnabled(this)
+        }
+
+    private fun setBlurSetting(
+        target: LauncherBlurSettingsRefreshPolicy.Target,
+        enabled: Boolean
+    ) {
+        when (target) {
+            LauncherBlurSettingsRefreshPolicy.Target.DOCK ->
+                LauncherHomeLayoutPreferences.setDockBlur(this, enabled)
+            LauncherBlurSettingsRefreshPolicy.Target.FOLDER ->
+                LauncherHomeLayoutPreferences.setFolderBlur(this, enabled)
+            LauncherBlurSettingsRefreshPolicy.Target.WIDGET ->
+                LauncherHomeLayoutPreferences.setWidgetBlur(this, enabled)
+            LauncherBlurSettingsRefreshPolicy.Target.SEARCH ->
+                LauncherHomeLayoutPreferences.setSearchBlur(this, enabled)
+        }
+    }
+
+    private fun applyBlurSettingRefresh(actions: LauncherBlurSettingsRefreshPolicy.RefreshActions) {
+        if (actions.refreshDock && ::mDock.isInitialized) {
             mDock.refreshStyle()
             applyDockRealtimeLiquidGlass()
+        }
+        if (actions.refreshFolderPreviews) {
+            refreshVisibleFolderPreviewIcons()
+        }
+        if (actions.refreshFolderChrome && ::mLauncherView.isInitialized) {
+            applyFolderLiquidGlassAppearance(bindRealtime = isFolderWindowActive())
+        }
+        if (actions.refreshWidgets) {
+            renderHomeWidgets()
+            rebindAllWidgets()
+        }
+        if (actions.refreshSearchChrome) {
+            applySearchBlurAppearance()
         }
     }
 
@@ -12018,12 +12166,17 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun uninstallLauncherItem(launcherItem: LauncherItem, blissFrameLayout: BlissFrameLayout) {
         if (launcherItem.itemType == Constants.ITEM_TYPE_APPLICATION) {
-            if (LauncherUninstallConfirmationPolicy.shouldConfirmBeforeUninstall(
+            if (LauncherUninstallConfirmationPolicy.shouldRequestSystemUninstall(
                     isApplication = true,
                     canUninstall = canShowUninstallOption(launcherItem)
                 )
             ) {
-                showApplicationUninstallConfirmationSheet(launcherItem)
+                val componentName = launcherItem.getTargetComponent()
+                if (componentName == null) {
+                    Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show()
+                    return
+                }
+                requestApplicationUninstall(componentName, launcherItem)
             } else {
                 Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show()
             }
@@ -12055,143 +12208,79 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun showApplicationUninstallConfirmationSheet(launcherItem: LauncherItem) {
-        val componentName = launcherItem.getTargetComponent()
-        if (componentName == null) {
-            Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val dialog = Dialog(this)
-        val titleColor = if (darkModeEnabled) Color.WHITE else 0xFF1C1C1E.toInt()
-        val messageColor = if (darkModeEnabled) 0xFFE5E5EA.toInt() else 0xFF2C2C2E.toInt()
-        val sheetColor = if (darkModeEnabled) 0xF21C1C1E.toInt() else 0xFFF2F6FF.toInt()
-        val actionColor = if (darkModeEnabled) 0xFF8EA7C8.toInt() else 0xFF3E5777.toInt()
-
-        val sheet = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = roundedRectangle(
-                sheetColor,
-                LauncherUninstallConfirmationPolicy.SHEET_CORNER_RADIUS_DP
-            )
-            setPadding(
-                dp(LauncherUninstallConfirmationPolicy.SHEET_HORIZONTAL_PADDING_DP),
-                dp(LauncherUninstallConfirmationPolicy.SHEET_TOP_PADDING_DP),
-                dp(LauncherUninstallConfirmationPolicy.SHEET_HORIZONTAL_PADDING_DP),
-                dp(LauncherUninstallConfirmationPolicy.SHEET_BOTTOM_PADDING_DP)
-            )
-            addView(
-                TextView(context).apply {
-                    text = launcherItem.title?.toString()?.takeIf { title -> title.isNotBlank() }
-                        ?: componentName.packageName
-                    setTextColor(titleColor)
-                    textSize = 22f
-                    typeface = Typeface.DEFAULT_BOLD
-                    includeFontPadding = false
-                },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(R.string.uninstall_app_confirm_message)
-                    setTextColor(messageColor)
-                    textSize = 18f
-                    includeFontPadding = false
-                },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    topMargin = dp(LauncherUninstallConfirmationPolicy.MESSAGE_TOP_MARGIN_DP)
-                }
-            )
-            addView(
-                LinearLayout(context).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.END or Gravity.CENTER_VERTICAL
-
-                    fun createAction(label: String, onClick: () -> Unit): TextView {
-                        return TextView(context).apply {
-                            text = label
-                            setTextColor(actionColor)
-                            textSize = 16f
-                            typeface = Typeface.DEFAULT_BOLD
-                            gravity = Gravity.CENTER
-                            includeFontPadding = false
-                            isClickable = true
-                            isFocusable = true
-                            setOnClickListener { onClick() }
-                        }
-                    }
-
-                    addView(
-                        createAction(getString(R.string.dialog_cancel)) { dialog.dismiss() },
-                        LinearLayout.LayoutParams(
-                            dp(LauncherUninstallConfirmationPolicy.ACTION_WIDTH_DP),
-                            dp(LauncherUninstallConfirmationPolicy.ACTION_HEIGHT_DP)
-                        )
-                    )
-                    addView(
-                        createAction(getString(R.string.dialog_ok)) {
-                            dialog.dismiss()
-                            requestApplicationUninstall(componentName, launcherItem)
-                        },
-                        LinearLayout.LayoutParams(
-                            dp(LauncherUninstallConfirmationPolicy.ACTION_WIDTH_DP),
-                            dp(LauncherUninstallConfirmationPolicy.ACTION_HEIGHT_DP)
-                        )
-                    )
-                },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(LauncherUninstallConfirmationPolicy.ACTION_HEIGHT_DP)
-                ).apply {
-                    topMargin = dp(LauncherUninstallConfirmationPolicy.ACTION_ROW_TOP_MARGIN_DP)
-                }
-            )
-        }
-
-        dialog.setContentView(sheet)
-        dialog.setCanceledOnTouchOutside(true)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.setOnShowListener {
-            dialog.window?.apply {
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                setGravity(Gravity.BOTTOM)
-                setDimAmount(LauncherUninstallConfirmationPolicy.DIM_AMOUNT)
-                addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            }
-        }
-        dialog.show()
-    }
-
     private fun requestApplicationUninstall(componentName: ComponentName, launcherItem: LauncherItem) {
         val packageUri = Uri.fromParts("package", componentName.packageName, null)
-        val intent = Intent(Intent.ACTION_DELETE, packageUri)
-        launcherItem.user?.getRealHandle()?.let { user -> intent.putExtra(Intent.EXTRA_USER, user) }
+        val userHandle = launcherItem.user ?: UserHandle()
+        fun Intent.withLauncherItemUser(): Intent = apply {
+            putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            putExtra(Intent.EXTRA_USER, userHandle.getRealHandle())
+        }
+        val intent = Intent(Intent.ACTION_DELETE, packageUri).withLauncherItemUser()
+        pendingApplicationUninstall = PendingApplicationUninstall(componentName.packageName, userHandle)
         val requestStarted = runCatching {
-            startActivity(intent)
+            startActivityForResult(intent, REQUEST_UNINSTALL_APP)
         }.onFailure {
-                val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
-                runCatching { startActivity(fallbackIntent) }
-                    .onFailure {
-                        Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show()
-                    }
-            }.isSuccess
+            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+            runCatching { startActivity(fallbackIntent) }
+                .onFailure {
+                    pendingApplicationUninstall = null
+                    Toast.makeText(this, getString(R.string.toast_cannot_uninstall), Toast.LENGTH_SHORT).show()
+                }
+        }.isSuccess
 
         if (LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallRequest(requestStarted)) {
-            removeLauncherPackageFromHome(componentName.packageName, launcherItem)
+            removeLauncherPackageFromHome(componentName.packageName, userHandle)
         }
     }
 
-    private fun removeLauncherPackageFromHome(packageName: String, launcherItem: LauncherItem) {
-        val userHandle = launcherItem.user ?: UserHandle()
+    private fun removeLauncherPackageFromHome(packageName: String, userHandle: UserHandle) {
         removePackageFromLauncher(packageName, userHandle)
     }
+
+    private fun handleApplicationUninstallResult(resultCode: Int) {
+        val pending = pendingApplicationUninstall ?: return
+        val packageRemoved = !isLauncherPackageAvailable(pending.packageName, pending.userHandle)
+        if (
+            packageRemoved ||
+            LauncherUninstallConfirmationPolicy.shouldRemoveFromHomeAfterUninstallResult(resultCode == RESULT_OK)
+        ) {
+            completePendingApplicationUninstall(pending)
+        } else {
+            pendingApplicationUninstall = null
+        }
+    }
+
+    private fun verifyPendingApplicationUninstall() {
+        val pending = pendingApplicationUninstall ?: return
+        if (!isLauncherPackageAvailable(pending.packageName, pending.userHandle)) {
+            completePendingApplicationUninstall(pending)
+        }
+    }
+
+    private fun completePendingApplicationUninstallIfMatches(
+        packageName: String,
+        userHandle: UserHandle
+    ): Boolean {
+        val pending = pendingApplicationUninstall ?: return false
+        if (pending.packageName != packageName || !pending.userHandle.isSameUser(userHandle)) {
+            return false
+        }
+        completePendingApplicationUninstall(pending)
+        return true
+    }
+
+    private fun completePendingApplicationUninstall(pending: PendingApplicationUninstall) {
+        removeLauncherPackageFromHome(pending.packageName, pending.userHandle)
+        pendingApplicationUninstall = null
+        Toast.makeText(this, getString(R.string.toast_uninstall_success), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun isLauncherPackageAvailable(packageName: String, userHandle: UserHandle): Boolean =
+        runCatching {
+            (getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps)
+                .getActivityList(packageName, userHandle.getRealHandle())
+                .isNotEmpty()
+        }.getOrDefault(true)
 
     fun prepareSuggestedApp(launcherItem: LauncherItem): BlissFrameLayout {
         val view = layoutInflater.inflate(R.layout.app_view, null) as BlissFrameLayout
@@ -12547,27 +12636,19 @@ class LauncherActivity : AppCompatActivity(),
             mFolderAppsViewPager.adapter?.notifyDataSetChanged()
             blissFrameLayout.clearAnimation()
             (blissFrameLayout.parent as ViewGroup).removeView(blissFrameLayout)
-            if (folder.items!!.isEmpty()) {
-                (folderView.parent as ViewGroup).removeView(folderView)
-                hideFolderWindowContainer()
-            } else if (folder.items!!.size == 1) {
-                val item = folder.items!![0]
-                folder.items!!.remove(item)
-                mFolderAppsViewPager.adapter?.notifyDataSetChanged()
-                val view = prepareLauncherItem(item)
-
-                if (folderFromDock) {
-                    addAppToDock(view, mDock.indexOfChild(folderView))
-                } else {
-                    val gridLayout = pages[getCurrentAppsPageNumber()]
-                    addAppToGrid(gridLayout, view, gridLayout.indexOfChild(folderView))
+            when (FolderDragSessionPolicy.folderResultAfterRemovingItem(folder.items!!.size)) {
+                FolderDragSessionPolicy.FolderResultAfterRemovingItem.REMOVE_FOLDER -> {
+                    removeFolderView(folder, folderView)
+                    hideFolderWindowContainer()
                 }
-                folderView.clearAnimation()
-                (folderView.parent as ViewGroup).removeView(folderView)
-                hideFolderWindowContainer()
-            } else {
-                updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
-                hideFolderWindowContainer()
+                FolderDragSessionPolicy.FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM -> {
+                    collapseFolderToRemainingItem(folder, folderView, folderFromDock)
+                    hideFolderWindowContainer()
+                }
+                FolderDragSessionPolicy.FolderResultAfterRemovingItem.KEEP_FOLDER -> {
+                    updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
+                    hideFolderWindowContainer()
+                }
             }
         } else {
             blissFrameLayout.clearAnimation()
@@ -13823,37 +13904,19 @@ class LauncherActivity : AppCompatActivity(),
         val folder = session.folder
         val folderView = session.folderView
         val items = mutableFolderItems(folder)
-        val folderParent = folderView.parent as? ViewGroup
-        val folderIndex = folderParent?.indexOfChild(folderView) ?: LauncherItem.INVALID_CELL
         val folderFromDock = session.folderWasFromDock
 
-        when (items.size) {
-            0 -> {
-                folderParent?.removeView(folderView)
-                DatabaseManager.getManager(this).removeLauncherItem(folder.id)
+        when (FolderDragSessionPolicy.folderResultAfterRemovingItem(items.size)) {
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REMOVE_FOLDER -> {
+                removeFolderView(folder, folderView)
             }
 
-            1 -> {
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM -> {
                 val remainingItem = items.removeAt(0)
-                remainingItem.container = if (folderFromDock) {
-                    Constants.CONTAINER_HOTSEAT.toLong()
-                } else {
-                    Constants.CONTAINER_DESKTOP.toLong()
-                }
-                remainingItem.screenId = if (folderFromDock) -1 else getCurrentAppsPageNumber().toLong()
-                remainingItem.cell = folder.cell
-                val replacementView = prepareLauncherItem(remainingItem)
-                folderParent?.removeView(folderView)
-                if (folderParent === mDock) {
-                    addAppToDock(replacementView, folderIndex)
-                } else if (folderParent is GridLayout) {
-                    addAppToGrid(folderParent, replacementView, folderIndex)
-                    relayoutHomePageCells(folderParent)
-                }
-                DatabaseManager.getManager(this).removeLauncherItem(folder.id)
+                replaceFolderWithRemainingItem(folder, folderView, remainingItem, folderFromDock)
             }
 
-            else -> {
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.KEEP_FOLDER -> {
                 updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
                 folderView.applyBadge(checkHasApp(folder, mAppsWithNotifications), !folderFromDock)
             }
@@ -13881,60 +13944,24 @@ class LauncherActivity : AppCompatActivity(),
             app.container = if (folderFromDock) Constants.CONTAINER_HOTSEAT.toLong() else Constants.CONTAINER_DESKTOP.toLong()
             app.screenId = if (folderFromDock) -1 else currentPageNumber.toLong()
 
-            if (folder.items!!.isEmpty()) {
-                val view = prepareLauncherItem(app)
-                if (folderFromDock) {
-                    val index = mDock.indexOfChild(folderView)
-                    removeUninstallIcon(folderView)
-                    mDock.removeView(folderView)
-                    addAppToDock(view, index)
-                    makeAppWobble(view, true, index)
-                } else {
-                    val gridLayout = pages[getCurrentAppsPageNumber()]
-                    val index = gridLayout.indexOfChild(folderView)
-                    folderView.clearAnimation()
-                    removeUninstallIcon(folderView)
-                    gridLayout.removeView(folderView)
-                    addAppToGrid(gridLayout, view, index)
-                    makeAppWobble(view, true, index)
+            when (FolderDragSessionPolicy.folderResultAfterRemovingItem(folder.items!!.size)) {
+                FolderDragSessionPolicy.FolderResultAfterRemovingItem.REMOVE_FOLDER -> {
+                    removeFolderView(folder, folderView)
                 }
-                DatabaseManager.getManager(this).removeLauncherItem(folder.id)
-            } else {
-                if (folder.items!!.size == 1) {
-                    val item = folder.items!![0]
-                    folder.items!!.remove(item)
-                    mFolderAppsViewPager.adapter?.notifyDataSetChanged()
-                    item.container = if (folderFromDock) Constants.CONTAINER_HOTSEAT.toLong() else Constants.CONTAINER_DESKTOP.toLong()
-                    item.screenId = if (folderFromDock) -1 else currentPageNumber.toLong()
-                    val view = prepareLauncherItem(item)
-                    if (folderFromDock) {
-                        val index = mDock.indexOfChild(folderView)
-                        folderView.clearAnimation()
-                        removeUninstallIcon(folderView)
-                        mDock.removeView(folderView)
-                        addAppToDock(view, index)
-                        makeAppWobble(view, true, index)
-                    } else {
-                        val gridLayout = pages[getCurrentAppsPageNumber()]
-                        val index = gridLayout.indexOfChild(folderView)
-                        folderView.clearAnimation()
-                        removeUninstallIcon(folderView)
-                        gridLayout.removeView(folderView)
-                        addAppToGrid(gridLayout, view, index)
-                        makeAppWobble(view, true, index)
-                    }
-                    DatabaseManager.getManager(this).removeLauncherItem(folder.id)
-                } else {
+                FolderDragSessionPolicy.FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM -> {
+                    collapseFolderToRemainingItem(folder, folderView, folderFromDock, shouldWobble = true)
+                }
+                FolderDragSessionPolicy.FolderResultAfterRemovingItem.KEEP_FOLDER -> {
                     updateIcon(folderView, folder, GraphicsUtil(this).generateFolderIcon(this, folder), folderFromDock)
                     folderView.applyBadge(checkHasApp(folder, mAppsWithNotifications), !folderFromDock)
                 }
-                if (moving.parent != null) {
-                    (moving.parent as ViewGroup).removeView(moving)
-                }
-                val current = getCurrentAppsPageNumber()
-                addAppToGrid(pages[current], moving)
-                makeAppWobble(moving, true, pages[current].childCount - 1)
             }
+            if (moving.parent != null) {
+                (moving.parent as ViewGroup).removeView(moving)
+            }
+            val current = getCurrentAppsPageNumber()
+            addAppToGrid(pages[current], moving)
+            makeAppWobble(moving, true, pages[current].childCount - 1)
 
             hideFolderWindowContainer()
             moving.visibility = VISIBLE
@@ -14511,6 +14538,7 @@ class LauncherActivity : AppCompatActivity(),
             return
         }
         if (isFolderWindowActive()) {
+            setDockChromeVisibility(false)
             hideHomeIndicatorForFolder()
             return
         }
@@ -14615,14 +14643,16 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun indicatorBackgroundStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle =
         if (indicatorMode == IndicatorMode.SEARCH) {
-            LauncherLiquidGlassStylePolicy.searchPill(
-                enabled = searchChromeStyleEnabled(),
-                darkMode = darkModeEnabled
+            LauncherLiquidGlassStylePolicy.searchIndicator(
+                enabled = lightModeSearchBlurEnabled(),
+                darkMode = darkModeEnabled,
+                liquidGlass = liquidGlassEnabled
             )
         } else {
             LauncherLiquidGlassStylePolicy.pageIndicator(
                 enabled = lightModeSearchBlurEnabled(),
-                darkMode = darkModeEnabled
+                darkMode = darkModeEnabled,
+                liquidGlass = liquidGlassEnabled
             )
         }
 
@@ -14821,6 +14851,7 @@ class LauncherActivity : AppCompatActivity(),
                 mFolderWindowContainer.bringToFront()
                 mFolderWindowContainer.pivotX = 0f
                 mFolderWindowContainer.pivotY = 0f
+                setDockChromeVisibility(false)
                 hideHomeIndicatorForFolder()
             }
 
@@ -14831,6 +14862,7 @@ class LauncherActivity : AppCompatActivity(),
                 currentAnimator = null
                 setBlurLayersAlpha(targetBlurAlpha)
                 mHorizontalPager.alpha = backgroundContentAlpha
+                setDockChromeVisibility(false)
                 hideHomeIndicatorForFolder()
                 mDock.alpha = backgroundContentAlpha
                 if (deferContentBinding) {
@@ -14850,6 +14882,7 @@ class LauncherActivity : AppCompatActivity(),
                 mIndicator.alpha = 1f
                 setIndicatorChromeVisibility(true)
                 mDock.alpha = 1f
+                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber, folderVisible = false))
             }
         })
         set.start()
@@ -15011,7 +15044,7 @@ class LauncherActivity : AppCompatActivity(),
         set.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationStart(animation: Animator) {
                 mHorizontalPager.visibility = VISIBLE
-                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber))
+                setDockChromeVisibility(shouldShowDockForPage(currentPageNumber, folderVisible = false))
                 setIndicatorChromeVisibility(true)
             }
 

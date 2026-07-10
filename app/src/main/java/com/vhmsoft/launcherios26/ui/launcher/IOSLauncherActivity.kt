@@ -278,6 +278,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private var homeEdgePageSwitching = false
     private var homeDockDragActive = false
     private var homeDockDraggedApp: LauncherIconUiModel? = null
+    private var pendingRemoveAppPackageName: String? = null
     private var pendingIconChangeApp: LauncherApp? = null
     private var changeIconPanel: View? = null
     private var changeIconPickerLoadToken: Any? = null
@@ -298,6 +299,17 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK && ::presenter.isInitialized) {
             refreshWorkspaceDataIfEnabled()
+        }
+    }
+    private val removeAppUninstallLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val packageName = pendingRemoveAppPackageName ?: return@registerForActivityResult
+        val packageRemoved = !isPackageInstalled(packageName)
+        pendingRemoveAppPackageName = null
+        if (result.resultCode == android.app.Activity.RESULT_OK || packageRemoved) {
+            refreshWorkspaceDataIfEnabled()
+            showError(getString(R.string.launcher_uninstall_success))
         }
     }
     private val customIconImageLauncher = registerForActivityResult(
@@ -372,7 +384,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         visualEffectsController.setBlurSettings(currentBlurSettings())
         removeAppController = LauncherRemoveAppController(
             activity = this,
-            showError = { message -> showError(message) }
+            showError = { message -> showError(message) },
+            launchUninstall = { uninstallIntent, app -> launchRemoveAppUninstall(uninstallIntent, app) }
         )
         appOptionsController = LauncherAppOptionsController(
             activity = this,
@@ -446,6 +459,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         } else if (::presenter.isInitialized) {
             refreshWorkspaceDataIfEnabled()
         }
+        verifyPendingRemoveAppUninstall()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -7152,6 +7166,42 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun showRemoveAppDialog(app: LauncherApp) {
         removeAppController.showRemoveAppDialog(app)
     }
+
+    private fun launchRemoveAppUninstall(uninstallIntent: Intent, app: LauncherApp) {
+        pendingRemoveAppPackageName = app.packageName
+        runCatching {
+            removeAppUninstallLauncher.launch(uninstallIntent)
+        }.onFailure {
+            pendingRemoveAppPackageName = null
+            val packageUri = Uri.fromParts("package", app.packageName, null)
+            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
+            runCatching { startActivity(fallbackIntent) }.onFailure {
+                showError(getString(R.string.launcher_uninstall_failed))
+            }
+        }
+    }
+
+    private fun verifyPendingRemoveAppUninstall() {
+        val packageName = pendingRemoveAppPackageName ?: return
+        if (!isPackageInstalled(packageName)) {
+            pendingRemoveAppPackageName = null
+            refreshWorkspaceDataIfEnabled()
+            showError(getString(R.string.launcher_uninstall_success))
+        }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+            true
+        }.getOrDefault(false)
+    }
+
     private fun showSearchOverlay() {
         searchController.showSearchOverlay()
     }

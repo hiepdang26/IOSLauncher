@@ -32,6 +32,10 @@ object DockStylePolicy {
         return style == Style.ROUNDED || style == Style.LIQUID_GLASS
     }
 
+    fun usesMaterialDrawableAboveBlur(style: Style): Boolean {
+        return style == Style.ROUNDED || style == Style.LIQUID_GLASS
+    }
+
     fun drawsWallpaperBlur(
         style: Style,
         dockBlurEnabled: Boolean,
@@ -39,16 +43,16 @@ object DockStylePolicy {
     ): Boolean {
         return dockBlurEnabled &&
             !externalRealtimeLiquidGlassEnabled &&
-            style != Style.CURRENT
+            style == Style.LIQUID_GLASS
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun usesExternalRealtimeLiquidGlass(
         style: Style,
         realtimeLiquidGlassAvailable: Boolean,
         dockBlurEnabled: Boolean
     ): Boolean {
         return realtimeLiquidGlassAvailable &&
-            dockBlurEnabled &&
             style == Style.LIQUID_GLASS
     }
 

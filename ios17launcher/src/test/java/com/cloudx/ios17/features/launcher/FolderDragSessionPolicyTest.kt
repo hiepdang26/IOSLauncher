@@ -236,4 +236,20 @@ class FolderDragSessionPolicyTest {
             )
         )
     }
+
+    @Test
+    fun folderResultAfterRemovingItem_replacesFolderWhenOneItemRemains() {
+        assertEquals(
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REMOVE_FOLDER,
+            FolderDragSessionPolicy.folderResultAfterRemovingItem(remainingItemCount = 0)
+        )
+        assertEquals(
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.REPLACE_WITH_REMAINING_ITEM,
+            FolderDragSessionPolicy.folderResultAfterRemovingItem(remainingItemCount = 1)
+        )
+        assertEquals(
+            FolderDragSessionPolicy.FolderResultAfterRemovingItem.KEEP_FOLDER,
+            FolderDragSessionPolicy.folderResultAfterRemovingItem(remainingItemCount = 2)
+        )
+    }
 }

@@ -24,6 +24,31 @@ object LauncherLiquidGlassStylePolicy {
             edgeShadeColor = 0x0C001E3A
         )
 
+    private fun appLibraryLiquidGlassMaterial(radiusDp: Int, empty: Boolean = false): BackgroundStyle =
+        BackgroundStyle(
+            color = if (empty) 0x16FFFFFF else 0x26FFFFFF,
+            radiusDp = radiusDp,
+            strokeColor = null,
+            topHighlightColor = 0x4AFFFFFF,
+            bottomShadeColor = 0x18001F35,
+            sideHighlightColor = 0x20D8F9FF,
+            edgeShadeColor = 0x14001E3A
+        )
+
+    private fun enabledLightFrameMaterial(radiusDp: Int): BackgroundStyle =
+        BackgroundStyle(
+            color = 0x84EEF8FF.toInt(),
+            radiusDp = radiusDp,
+            strokeColor = null
+        )
+
+    private fun disabledLightFrameMaterial(radiusDp: Int): BackgroundStyle =
+        BackgroundStyle(
+            color = 0x70EEF8FF,
+            radiusDp = radiusDp,
+            strokeColor = null
+        )
+
     private fun brightHomeGlassMaterial(radiusDp: Int, color: Int): BackgroundStyle =
         BackgroundStyle(
             color = color,
@@ -35,24 +60,13 @@ object LauncherLiquidGlassStylePolicy {
             edgeShadeColor = 0x08CFFCEF
         )
 
-    private fun dimFolderPreviewGlassMaterial(radiusDp: Int, color: Int): BackgroundStyle =
-        BackgroundStyle(
-            color = color,
-            radiusDp = radiusDp,
-            strokeColor = null,
-            topHighlightColor = 0x2AFFFFFF,
-            bottomShadeColor = 0x16001224,
-            sideHighlightColor = 0x20D8F9FF,
-            edgeShadeColor = 0x18004A99
-        )
-
     fun folderPreview(
         enabled: Boolean,
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        if (enabled && liquidGlass) {
-            return dimFolderPreviewGlassMaterial(radiusDp = 16, color = 0x76566FA8)
+        if (liquidGlass) {
+            return appLibraryLiquidGlassMaterial(radiusDp = 16)
         }
         if (darkMode) {
             return BackgroundStyle(
@@ -61,12 +75,9 @@ object LauncherLiquidGlassStylePolicy {
             )
         }
         if (enabled) {
-            return dimFolderPreviewGlassMaterial(radiusDp = 13, color = 0x786F88C9)
+            return enabledLightFrameMaterial(radiusDp = 13)
         }
-        return BackgroundStyle(
-            color = 0xC06F88C9.toInt(),
-            radiusDp = 13
-        )
+        return disabledLightFrameMaterial(radiusDp = 13)
     }
 
     fun folderPanel(
@@ -74,16 +85,8 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        if (enabled && liquidGlass) {
-            return BackgroundStyle(
-                color = 0x72FFFFFF,
-                radiusDp = 42,
-                strokeColor = null,
-                topHighlightColor = 0x40FFFFFF,
-                bottomShadeColor = 0x10005098,
-                sideHighlightColor = 0x1EE5FBFF,
-                edgeShadeColor = 0x0E004A80
-            )
+        if (liquidGlass) {
+            return appLibraryLiquidGlassMaterial(radiusDp = 42)
         }
         if (darkMode) {
             return BackgroundStyle(
@@ -108,7 +111,7 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        return if (enabled && liquidGlass) {
+        return if (liquidGlass) {
             BackgroundStyle(
                 color = 0x70DDF7FF,
                 radiusDp = 22,
@@ -138,14 +141,32 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle =
-        searchPill(enabled, darkMode, liquidGlass)
+        if (liquidGlass) {
+            searchPill(enabled = true, liquidGlass = true)
+        } else {
+            searchPill(enabled = false, darkMode = darkMode)
+        }
+
+    fun searchIndicator(
+        enabled: Boolean,
+        darkMode: Boolean = false,
+        liquidGlass: Boolean = false
+    ): BackgroundStyle {
+        if (liquidGlass) {
+            return searchPill(enabled = true, liquidGlass = true)
+        }
+        if (darkMode) {
+            return searchPill(enabled = enabled, darkMode = true)
+        }
+        return folderPreview(enabled = enabled).copy(radiusDp = 22)
+    }
 
     fun searchResultsPanel(
         enabled: Boolean,
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        if (enabled && liquidGlass) {
+        if (liquidGlass) {
             return BackgroundStyle(
                 color = 0x24FFFFFF,
                 radiusDp = 16,
@@ -175,16 +196,8 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        if (enabled && liquidGlass) {
-            return BackgroundStyle(
-                color = if (empty) 0x16FFFFFF else 0x26FFFFFF,
-                radiusDp = 20,
-                strokeColor = null,
-                topHighlightColor = 0x4AFFFFFF,
-                bottomShadeColor = 0x18001F35,
-                sideHighlightColor = 0x20D8F9FF,
-                edgeShadeColor = 0x14001E3A
-            )
+        if (liquidGlass) {
+            return appLibraryLiquidGlassMaterial(radiusDp = 20, empty = empty)
         }
         if (darkMode) {
             return BackgroundStyle(
@@ -206,14 +219,8 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        if (enabled && liquidGlass) {
-            return BackgroundStyle(
-                color = 0x70485F63,
-                radiusDp = 17,
-                strokeColor = null,
-                topHighlightColor = 0x22FFFFFF,
-                bottomShadeColor = 0x18001224
-            )
+        if (liquidGlass) {
+            return searchPill(enabled = true, liquidGlass = true).copy(radiusDp = 17)
         }
         if (darkMode) {
             return BackgroundStyle(
@@ -221,13 +228,7 @@ object LauncherLiquidGlassStylePolicy {
                 radiusDp = 17
             )
         }
-        if (enabled) {
-            return libraryGlassMaterial(radiusDp = 17)
-        }
-        return BackgroundStyle(
-            color = 0x78D8F9FF,
-            radiusDp = 17
-        )
+        return folderPreview(enabled = enabled).copy(radiusDp = 17)
     }
 
     fun dockGradient(
@@ -235,7 +236,7 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): IntArray {
-        if (enabled && liquidGlass) {
+        if (liquidGlass) {
             return intArrayOf(
                 0x70E7FBFF,
                 0x62BDEEFF,
@@ -243,11 +244,8 @@ object LauncherLiquidGlassStylePolicy {
             )
         }
         if (enabled && !darkMode) {
-            return intArrayOf(
-                0x78FFFFFF,
-                0x6CEFFFF8,
-                0x5EE6FFF5
-            )
+            val color = enabledLightFrameMaterial(radiusDp = 38).color
+            return intArrayOf(color, color, color)
         }
         if (enabled && darkMode && !liquidGlass) {
             return intArrayOf(
@@ -256,11 +254,8 @@ object LauncherLiquidGlassStylePolicy {
                 0xD6213138.toInt()
             )
         }
-        return intArrayOf(
-            0x26FFFFFF,
-            0x22EFFFF8,
-            0x1EE6FFF5
-        )
+        val color = disabledLightFrameMaterial(radiusDp = 38).color
+        return intArrayOf(color, color, color)
     }
 
     fun dockMaterial(
@@ -268,7 +263,7 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
-        if (enabled && liquidGlass) {
+        if (liquidGlass) {
             return BackgroundStyle(
                 color = 0x327EDBFF,
                 radiusDp = 38,
@@ -302,24 +297,8 @@ object LauncherLiquidGlassStylePolicy {
             )
         }
         if (enabled) {
-            return BackgroundStyle(
-                color = 0x68EFFFF8,
-                radiusDp = 38,
-                strokeColor = 0x3AFFFFFF,
-                topHighlightColor = 0x50FFFFFF,
-                bottomShadeColor = 0x08FFFFFF,
-                sideHighlightColor = 0x38FFFFFF,
-                edgeShadeColor = 0x08CFFCEF
-            )
+            return enabledLightFrameMaterial(radiusDp = 38)
         }
-        return BackgroundStyle(
-            color = 0x24EFFFF8,
-            radiusDp = 38,
-            strokeColor = 0x12FFFFFF,
-            topHighlightColor = 0x18FFFFFF,
-            bottomShadeColor = 0x02FFFFFF,
-            sideHighlightColor = 0x14FFFFFF,
-            edgeShadeColor = 0x02CFFCEF
-        )
+        return disabledLightFrameMaterial(radiusDp = 38)
     }
 }

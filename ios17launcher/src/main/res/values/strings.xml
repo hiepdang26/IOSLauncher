@@ -253,6 +253,7 @@
     <string name="toast_recreating_launcher">Recreating Launcher</string>
     <string name="toast_package_unavailable">Package not available or disabled</string>
     <string name="toast_cannot_uninstall">Can not uninstall this app</string>
+    <string name="toast_uninstall_success">&#272;&#227; g&#7905; c&#224;i &#273;&#7863;t &#7913;ng d&#7909;ng.</string>
     <string name="toast_dock_full">Dock is already full</string>
     <string name="toast_no_room">No more room in page</string>
     <string name="app_name_maps">Maps</string>

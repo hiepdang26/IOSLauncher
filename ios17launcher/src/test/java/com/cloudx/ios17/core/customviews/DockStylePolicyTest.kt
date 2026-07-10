@@ -73,8 +73,15 @@ class DockStylePolicyTest {
     }
 
     @Test
-    fun wallpaperBlurDrawsOnlyForModernDockWhenDockBlurIsEnabled() {
-        assertTrue(
+    fun roundedAndLiquidGlassUseMaterialDrawableAboveBlur() {
+        assertTrue(DockStylePolicy.usesMaterialDrawableAboveBlur(DockStylePolicy.Style.LIQUID_GLASS))
+        assertTrue(DockStylePolicy.usesMaterialDrawableAboveBlur(DockStylePolicy.Style.ROUNDED))
+        assertFalse(DockStylePolicy.usesMaterialDrawableAboveBlur(DockStylePolicy.Style.CURRENT))
+    }
+
+    @Test
+    fun wallpaperBlurDrawsOnlyForLiquidGlassDockWhenDockBlurIsEnabled() {
+        assertFalse(
             DockStylePolicy.drawsWallpaperBlur(
                 style = DockStylePolicy.Style.ROUNDED,
                 dockBlurEnabled = true,
@@ -112,7 +119,7 @@ class DockStylePolicyTest {
     }
 
     @Test
-    fun realtimeLiquidGlassDockRequiresLiquidGlassStyleAndDockBlurEnabled() {
+    fun realtimeLiquidGlassDockRequiresLiquidGlassStyleAndRealtimeAvailabilityOnly() {
         assertTrue(
             DockStylePolicy.usesExternalRealtimeLiquidGlass(
                 style = DockStylePolicy.Style.LIQUID_GLASS,
@@ -120,7 +127,7 @@ class DockStylePolicyTest {
                 dockBlurEnabled = true
             )
         )
-        assertFalse(
+        assertTrue(
             DockStylePolicy.usesExternalRealtimeLiquidGlass(
                 style = DockStylePolicy.Style.LIQUID_GLASS,
                 realtimeLiquidGlassAvailable = true,
