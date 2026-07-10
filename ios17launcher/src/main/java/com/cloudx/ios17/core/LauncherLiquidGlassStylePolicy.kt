@@ -35,18 +35,24 @@ object LauncherLiquidGlassStylePolicy {
             edgeShadeColor = 0x08CFFCEF
         )
 
+    private fun dimFolderPreviewGlassMaterial(radiusDp: Int, color: Int): BackgroundStyle =
+        BackgroundStyle(
+            color = color,
+            radiusDp = radiusDp,
+            strokeColor = null,
+            topHighlightColor = 0x2AFFFFFF,
+            bottomShadeColor = 0x16001224,
+            sideHighlightColor = 0x20D8F9FF,
+            edgeShadeColor = 0x18004A99
+        )
+
     fun folderPreview(
         enabled: Boolean,
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle {
         if (enabled && liquidGlass) {
-            return BackgroundStyle(
-                color = 0xB07088C0.toInt(),
-                radiusDp = 16,
-                strokeColor = null,
-                topHighlightColor = 0x42FFFFFF
-            )
+            return dimFolderPreviewGlassMaterial(radiusDp = 16, color = 0x76566FA8)
         }
         if (darkMode) {
             return BackgroundStyle(
@@ -55,7 +61,7 @@ object LauncherLiquidGlassStylePolicy {
             )
         }
         if (enabled) {
-            return brightHomeGlassMaterial(radiusDp = 13, color = 0x5EEFFFF8)
+            return dimFolderPreviewGlassMaterial(radiusDp = 13, color = 0x786F88C9)
         }
         return BackgroundStyle(
             color = 0xC06F88C9.toInt(),
@@ -251,9 +257,9 @@ object LauncherLiquidGlassStylePolicy {
             )
         }
         return intArrayOf(
-            0x526C90B8,
-            0x486184A8,
-            0x54486AB0
+            0x26FFFFFF,
+            0x22EFFFF8,
+            0x1EE6FFF5
         )
     }
 
@@ -273,7 +279,7 @@ object LauncherLiquidGlassStylePolicy {
                 edgeShadeColor = 0x38105BB6
             )
         }
-        if (darkMode) {
+        if (enabled && darkMode) {
             return BackgroundStyle(
                 color = 0x9A14242C.toInt(),
                 radiusDp = 38,
@@ -282,6 +288,17 @@ object LauncherLiquidGlassStylePolicy {
                 bottomShadeColor = 0x56000B16,
                 sideHighlightColor = 0x1800B8D9,
                 edgeShadeColor = 0x3600030A
+            )
+        }
+        if (darkMode) {
+            return BackgroundStyle(
+                color = 0x5214242C,
+                radiusDp = 38,
+                strokeColor = 0x24FFFFFF,
+                topHighlightColor = 0x12FFFFFF,
+                bottomShadeColor = 0x28000B16,
+                sideHighlightColor = 0x0C00B8D9,
+                edgeShadeColor = 0x1A00030A
             )
         }
         if (enabled) {
@@ -296,13 +313,13 @@ object LauncherLiquidGlassStylePolicy {
             )
         }
         return BackgroundStyle(
-            color = 0x566C90B8,
+            color = 0x24EFFFF8,
             radiusDp = 38,
-            strokeColor = 0x24FFFFFF,
-            topHighlightColor = 0x1CFFFFFF,
-            bottomShadeColor = 0x24013D78,
-            sideHighlightColor = 0x1675C6E8,
-            edgeShadeColor = 0x1A0A2A62
+            strokeColor = 0x12FFFFFF,
+            topHighlightColor = 0x18FFFFFF,
+            bottomShadeColor = 0x02FFFFFF,
+            sideHighlightColor = 0x14FFFFFF,
+            edgeShadeColor = 0x02CFFCEF
         )
     }
 }

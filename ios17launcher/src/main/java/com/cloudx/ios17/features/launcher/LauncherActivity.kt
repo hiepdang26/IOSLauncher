@@ -1018,7 +1018,7 @@ class LauncherActivity : AppCompatActivity(),
             val searchInput = swipeSearchContainer.findViewById<BlissInput>(R.id.search_input)
             val searchInputPanel = searchInput?.parent as? View
             val searchPillStyle = LauncherLiquidGlassStylePolicy.searchPill(
-                enabled = liquidGlassEnabled,
+                enabled = searchChromeStyleEnabled(),
                 darkMode = darkModeEnabled,
                 liquidGlass = liquidGlassEnabled
             )
@@ -1132,7 +1132,7 @@ class LauncherActivity : AppCompatActivity(),
             R.id.dock_liquid_glass_background
         )
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = lightModeDockBlurEnabled()
+        val dockBlurEnabled = dockBlurEnabled()
         val useRealtimeDock = DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1194,7 +1194,7 @@ class LauncherActivity : AppCompatActivity(),
     private fun shouldUseRealtimeDockGlass(): Boolean {
         if (!::mLauncherView.isInitialized || !::mDock.isInitialized) return false
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = lightModeDockBlurEnabled()
+        val dockBlurEnabled = dockBlurEnabled()
         return DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1324,14 +1324,20 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun lightModeDockBlurEnabled(): Boolean =
-        LauncherHomeLayoutPreferences.isDockBlurEnabled(this) && !darkModeEnabled
+    private fun dockBlurEnabled(): Boolean =
+        LauncherHomeLayoutPreferences.isDockBlurEnabled(this)
 
     private fun lightModeFolderBlurEnabled(): Boolean =
         LauncherHomeLayoutPreferences.isFolderBlurEnabled(this) && !darkModeEnabled
 
     private fun lightModeSearchBlurEnabled(): Boolean =
         LauncherHomeLayoutPreferences.isSearchBlurEnabled(this) && !darkModeEnabled
+
+    private fun searchChromeStyleEnabled(): Boolean =
+        LauncherBlurEffectPolicy.searchChromeStyleEnabled(
+            searchBlurEnabled = LauncherHomeLayoutPreferences.isSearchBlurEnabled(this),
+            darkModeEnabled = darkModeEnabled
+        )
 
     private fun shouldUseRealtimeIndicatorGlass(): Boolean =
         shouldUseRealtimeLiquidGlass() && lightModeSearchBlurEnabled()
@@ -8961,7 +8967,7 @@ class LauncherActivity : AppCompatActivity(),
 
     private fun createAppLibrarySearchPill(): View {
         val searchStyle = LauncherLiquidGlassStylePolicy.searchPill(
-            enabled = liquidGlassEnabled,
+            enabled = searchChromeStyleEnabled(),
             darkMode = styleDarkModeForLiquidGlass(),
             liquidGlass = liquidGlassEnabled
         )
@@ -14610,7 +14616,7 @@ class LauncherActivity : AppCompatActivity(),
     private fun indicatorBackgroundStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle =
         if (indicatorMode == IndicatorMode.SEARCH) {
             LauncherLiquidGlassStylePolicy.searchPill(
-                enabled = lightModeSearchBlurEnabled(),
+                enabled = searchChromeStyleEnabled(),
                 darkMode = darkModeEnabled
             )
         } else {

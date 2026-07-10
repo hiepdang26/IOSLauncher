@@ -28,8 +28,8 @@ class LauncherHomeLayoutPreferencesTest {
 
     @Test
     fun resolve_coercesIconSliderRange() {
-        assertEquals(46, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 1, rows = 6).iconSizeDp)
-        assertEquals(69, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 200, rows = 6).iconSizeDp)
+        assertEquals(48, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 1, rows = 6).iconSizeDp)
+        assertEquals(72, LauncherHomeLayoutPreferences.resolve(iconSizeDp = 200, rows = 6).iconSizeDp)
     }
 
     @Test
@@ -39,7 +39,7 @@ class LauncherHomeLayoutPreferencesTest {
             rows = 6
         )
 
-        assertEquals(57, settings.iconSizeDp)
+        assertEquals(60, settings.iconSizeDp)
     }
 
     @Test
@@ -58,33 +58,33 @@ class LauncherHomeLayoutPreferencesTest {
 
     @Test
     fun sliderProgress_mapsBackToClampedIconSizes() {
-        assertEquals(46, LauncherHomeLayoutPreferences.sliderProgressToIconSize(-20))
-        assertEquals(57, LauncherHomeLayoutPreferences.sliderProgressToIconSize(10))
-        assertEquals(69, LauncherHomeLayoutPreferences.sliderProgressToIconSize(200))
-        assertEquals(10, LauncherHomeLayoutPreferences.iconSizeToSliderProgress(57))
+        assertEquals(48, LauncherHomeLayoutPreferences.sliderProgressToIconSize(-20))
+        assertEquals(60, LauncherHomeLayoutPreferences.sliderProgressToIconSize(10))
+        assertEquals(72, LauncherHomeLayoutPreferences.sliderProgressToIconSize(200))
+        assertEquals(10, LauncherHomeLayoutPreferences.iconSizeToSliderProgress(60))
     }
 
     @Test
     fun appLabelTextSize_scalesWithIconSize() {
-        assertEquals(11f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(46), 0.001f)
-        assertEquals(13f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(57), 0.001f)
-        assertEquals(15f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(69), 0.001f)
+        assertEquals(12f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(48), 0.001f)
+        assertEquals(14f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(60), 0.001f)
+        assertEquals(16f, LauncherHomeLayoutPreferences.appLabelTextSizeSp(72), 0.001f)
     }
 
     @Test
     fun migrateStoredIconSize_mapsPreviousDefaultSizesToNewDefaultOnce() {
-        assertEquals(57, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(55, migrationApplied = false))
-        assertEquals(57, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(65, migrationApplied = false))
+        assertEquals(60, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(55, migrationApplied = false))
+        assertEquals(60, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(65, migrationApplied = false))
         assertEquals(55, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(55, migrationApplied = true))
         assertEquals(65, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(65, migrationApplied = true))
-        assertEquals(46, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(1, migrationApplied = false))
-        assertEquals(69, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(200, migrationApplied = false))
+        assertEquals(48, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(1, migrationApplied = false))
+        assertEquals(72, LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(200, migrationApplied = false))
     }
 
     @Test
     fun migrateStoredIconSize_mapsPreviousCompactDefaultToNewDefaultOnce() {
         assertEquals(
-            57,
+            60,
             LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
                 iconSizeDp = 52,
                 migrationApplied = true,
@@ -96,7 +96,30 @@ class LauncherHomeLayoutPreferencesTest {
             LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
                 iconSizeDp = 52,
                 migrationApplied = true,
-                default56MigrationApplied = true
+                default56MigrationApplied = true,
+                default60MigrationApplied = true
+            )
+        )
+    }
+
+    @Test
+    fun migrateStoredIconSize_mapsPreviousDefault57ToNewDefaultOnce() {
+        assertEquals(
+            60,
+            LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
+                iconSizeDp = 57,
+                migrationApplied = true,
+                default56MigrationApplied = true,
+                default60MigrationApplied = false
+            )
+        )
+        assertEquals(
+            57,
+            LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
+                iconSizeDp = 57,
+                migrationApplied = true,
+                default56MigrationApplied = true,
+                default60MigrationApplied = true
             )
         )
     }

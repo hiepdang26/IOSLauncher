@@ -7368,6 +7368,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 .putInt(KEY_HOME_ICON_SIZE_DP, boundedSize)
                 .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
                 .apply()
         }
         applyHomeLayoutSettingsUi()
@@ -7379,16 +7380,20 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val migrationApplied = layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, false)
         val default56MigrationApplied =
             layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
+        val default60MigrationApplied =
+            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, false)
         val migratedIconSizeDp = LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(
             iconSizeDp = rawIconSizeDp,
             migrationApplied = migrationApplied,
-            default56MigrationApplied = default56MigrationApplied
+            default56MigrationApplied = default56MigrationApplied,
+            default60MigrationApplied = default60MigrationApplied
         )
-        if (!migrationApplied || !default56MigrationApplied) {
+        if (!migrationApplied || !default56MigrationApplied || !default60MigrationApplied) {
             layoutPreferences.edit()
                 .putInt(KEY_HOME_ICON_SIZE_DP, migratedIconSizeDp)
                 .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
                 .apply()
         }
         return migratedIconSizeDp
@@ -7960,6 +7965,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED
         const val KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED =
             LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED
+        const val KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED =
+            LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED
         const val HOME_HORIZONTAL_PADDING_DP = 18
         const val HOME_BOTTOM_PADDING_DP = 16
         const val DOCK_VERTICAL_EXTRA_DP = 28

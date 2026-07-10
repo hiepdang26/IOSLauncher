@@ -13,6 +13,8 @@ object LauncherHomeIconSizePolicy {
         LauncherHomeLayoutPreferences.KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED
     const val KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED =
         LauncherHomeLayoutPreferences.KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED
+    const val KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED =
+        LauncherHomeLayoutPreferences.KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED
 
     fun sliderProgressToIconSize(progress: Int): Int {
         return LauncherHomeLayoutPreferences.sliderProgressToIconSize(progress)
@@ -29,12 +31,14 @@ object LauncherHomeIconSizePolicy {
     fun migrateStoredIconSizeDp(
         iconSizeDp: Int,
         migrationApplied: Boolean,
-        default56MigrationApplied: Boolean = false
+        default56MigrationApplied: Boolean = false,
+        default60MigrationApplied: Boolean = false
     ): Int {
         return LauncherHomeLayoutPreferences.migrateStoredIconSizeDp(
             iconSizeDp = iconSizeDp,
             migrationApplied = migrationApplied,
-            default56MigrationApplied = default56MigrationApplied
+            default56MigrationApplied = default56MigrationApplied,
+            default60MigrationApplied = default60MigrationApplied
         )
     }
 }

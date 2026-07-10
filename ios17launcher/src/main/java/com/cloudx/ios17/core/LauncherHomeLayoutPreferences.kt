@@ -21,6 +21,8 @@ object LauncherHomeLayoutPreferences {
     const val KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED = "home_icon_size_compact_migration_applied"
     const val KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED =
         "home_icon_size_default_56_migration_applied"
+    const val KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED =
+        "home_icon_size_default_60_migration_applied"
     const val KEY_HOME_GRID_ROWS = "home_grid_rows"
     const val KEY_AUTO_REARRANGE_APPS = "auto_rearrange"
     const val KEY_LAYOUT_AUTO_REARRANGE_APPS = "layout_auto_arrange"
@@ -38,9 +40,9 @@ object LauncherHomeLayoutPreferences {
     const val HOME_GRID_ROWS_6 = 6
     const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
 
-    const val MIN_HOME_ICON_SIZE_DP = 46
-    const val DEFAULT_HOME_ICON_SIZE_DP = 57
-    const val MAX_HOME_ICON_SIZE_DP = 69
+    const val MIN_HOME_ICON_SIZE_DP = 48
+    const val DEFAULT_HOME_ICON_SIZE_DP = 60
+    const val MAX_HOME_ICON_SIZE_DP = 72
     const val ICON_SIZE_SLIDER_MAX = 20
     const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = ICON_SIZE_SLIDER_MAX / 2
     const val DEFAULT_AUTO_REARRANGE_APPS = false
@@ -59,6 +61,8 @@ object LauncherHomeLayoutPreferences {
     private const val LEGACY_DEFAULT_HOME_ICON_SIZE_DP = 55
     private const val LEGACY_LARGE_DEFAULT_HOME_ICON_SIZE_DP = 65
     private const val PREVIOUS_COMPACT_DEFAULT_HOME_ICON_SIZE_DP = 52
+    private const val PREVIOUS_DEFAULT_56_HOME_ICON_SIZE_DP = 56
+    private const val PREVIOUS_DEFAULT_57_HOME_ICON_SIZE_DP = 57
     private const val MIN_HORIZONTAL_GAP_DP = 8
 
     fun read(context: Context): LauncherHomeLayoutSettings {
@@ -67,16 +71,20 @@ object LauncherHomeLayoutPreferences {
         val migrationApplied = prefs.getBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, false)
         val default56MigrationApplied =
             prefs.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
+        val default60MigrationApplied =
+            prefs.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, false)
         val iconSizeDp = migrateStoredIconSizeDp(
             iconSizeDp = rawIconSizeDp,
             migrationApplied = migrationApplied,
-            default56MigrationApplied = default56MigrationApplied
+            default56MigrationApplied = default56MigrationApplied,
+            default60MigrationApplied = default60MigrationApplied
         )
-        if (!migrationApplied || !default56MigrationApplied) {
+        if (!migrationApplied || !default56MigrationApplied || !default60MigrationApplied) {
             prefs.edit()
                 .putInt(KEY_HOME_ICON_SIZE_DP, iconSizeDp)
                 .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
                 .apply()
         }
         return resolve(
@@ -135,18 +143,19 @@ object LauncherHomeLayoutPreferences {
         return if (safeSize <= DEFAULT_HOME_ICON_SIZE_DP) {
             val progress = (safeSize - MIN_HOME_ICON_SIZE_DP).toFloat() /
                 (DEFAULT_HOME_ICON_SIZE_DP - MIN_HOME_ICON_SIZE_DP)
-            11f + progress * 2f
+            12f + progress * 2f
         } else {
             val progress = (safeSize - DEFAULT_HOME_ICON_SIZE_DP).toFloat() /
                 (MAX_HOME_ICON_SIZE_DP - DEFAULT_HOME_ICON_SIZE_DP)
-            13f + progress * 2f
+            14f + progress * 2f
         }
     }
 
     fun migrateStoredIconSizeDp(
         iconSizeDp: Int,
         migrationApplied: Boolean,
-        default56MigrationApplied: Boolean = false
+        default56MigrationApplied: Boolean = false,
+        default60MigrationApplied: Boolean = false
     ): Int {
         val compactMigratedSize = if (!migrationApplied) {
             when (iconSizeDp) {
@@ -157,12 +166,20 @@ object LauncherHomeLayoutPreferences {
         } else {
             iconSizeDp
         }
-        val migratedSize = if (!default56MigrationApplied &&
+        val default56MigratedSize = if (!default56MigrationApplied &&
             compactMigratedSize == PREVIOUS_COMPACT_DEFAULT_HOME_ICON_SIZE_DP
         ) {
             DEFAULT_HOME_ICON_SIZE_DP
         } else {
             compactMigratedSize
+        }
+        val migratedSize = if (!default60MigrationApplied &&
+            (default56MigratedSize == PREVIOUS_DEFAULT_56_HOME_ICON_SIZE_DP ||
+                default56MigratedSize == PREVIOUS_DEFAULT_57_HOME_ICON_SIZE_DP)
+        ) {
+            DEFAULT_HOME_ICON_SIZE_DP
+        } else {
+            default56MigratedSize
         }
         return migratedSize.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
     }

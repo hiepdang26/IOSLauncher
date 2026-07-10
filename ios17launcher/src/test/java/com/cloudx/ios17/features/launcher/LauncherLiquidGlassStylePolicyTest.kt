@@ -58,15 +58,15 @@ class LauncherLiquidGlassStylePolicyTest {
     }
 
     @Test
-    fun folderPreview_usesMintFolderGlassWhenBlurIsEnabled() {
+    fun folderPreview_usesDimmerBlueGlassWhenBlurIsEnabled() {
         val folderPreview = LauncherLiquidGlassStylePolicy.folderPreview(enabled = true)
 
-        assertEquals(0x5EEFFFF8, folderPreview.color)
+        assertEquals(0x786F88C9, folderPreview.color)
         assertNull(folderPreview.strokeColor)
-        assertEquals(0x50FFFFFF, folderPreview.topHighlightColor)
-        assertEquals(0x08FFFFFF, folderPreview.bottomShadeColor)
-        assertEquals(0x38FFFFFF, folderPreview.sideHighlightColor)
-        assertEquals(0x08CFFCEF, folderPreview.edgeShadeColor)
+        assertEquals(0x2AFFFFFF, folderPreview.topHighlightColor)
+        assertEquals(0x16001224, folderPreview.bottomShadeColor)
+        assertEquals(0x20D8F9FF, folderPreview.sideHighlightColor)
+        assertEquals(0x18004A99, folderPreview.edgeShadeColor)
         assertEquals(13, folderPreview.radiusDp)
     }
 
@@ -133,15 +133,15 @@ class LauncherLiquidGlassStylePolicyTest {
     }
 
     @Test
-    fun dockGradient_keepsLightPaletteWhenBlurIsDisabledInLightMode() {
+    fun dockGradient_usesSameLightPaletteWithLowerAlphaWhenBlurIsDisabled() {
         val gradient = LauncherLiquidGlassStylePolicy.dockGradient(
             enabled = false,
             darkMode = false
         )
 
-        assertEquals(0x526C90B8, gradient[0])
-        assertEquals(0x486184A8, gradient[1])
-        assertEquals(0x54486AB0, gradient[2])
+        assertEquals(0x26FFFFFF, gradient[0])
+        assertEquals(0x22EFFFF8, gradient[1])
+        assertEquals(0x1EE6FFF5, gradient[2])
     }
 
     @Test
@@ -188,7 +188,7 @@ class LauncherLiquidGlassStylePolicyTest {
             liquidGlass = true
         )
 
-        assertEquals(0xB07088C0.toInt(), folderPreview.color)
+        assertEquals(0x76566FA8, folderPreview.color)
         assertNull(folderPreview.strokeColor)
         assertEquals(0x72FFFFFF, folderPanel.color)
         assertNull(folderPanel.strokeColor)
@@ -203,18 +203,18 @@ class LauncherLiquidGlassStylePolicyTest {
     }
 
     @Test
-    fun dockMaterial_keepsLightPaletteWhenBlurIsDisabledInLightMode() {
+    fun dockMaterial_usesTransparentLightPaletteWhenBlurIsDisabled() {
         val dock = LauncherLiquidGlassStylePolicy.dockMaterial(
             enabled = false,
             darkMode = false
         )
 
-        assertEquals(0x566C90B8, dock.color)
-        assertEquals(0x24FFFFFF, dock.strokeColor)
-        assertEquals(0x1CFFFFFF, dock.topHighlightColor)
-        assertEquals(0x24013D78, dock.bottomShadeColor)
-        assertEquals(0x1675C6E8, dock.sideHighlightColor)
-        assertEquals(0x1A0A2A62, dock.edgeShadeColor)
+        assertEquals(0x24EFFFF8, dock.color)
+        assertEquals(0x12FFFFFF, dock.strokeColor)
+        assertEquals(0x18FFFFFF, dock.topHighlightColor)
+        assertEquals(0x02FFFFFF, dock.bottomShadeColor)
+        assertEquals(0x14FFFFFF, dock.sideHighlightColor)
+        assertEquals(0x02CFFCEF, dock.edgeShadeColor)
         assertEquals(38, dock.radiusDp)
     }
 
@@ -232,17 +232,17 @@ class LauncherLiquidGlassStylePolicyTest {
             LauncherLiquidGlassStylePolicy.searchPill(enabled = false, darkMode = true),
             LauncherLiquidGlassStylePolicy.searchPill(enabled = true, darkMode = true)
         )
-        assertEquals(
+        assertNotEquals(
             LauncherLiquidGlassStylePolicy.dockMaterial(
                 enabled = false,
                 darkMode = true,
                 liquidGlass = false
-            ),
+            ).color,
             LauncherLiquidGlassStylePolicy.dockMaterial(
                 enabled = true,
                 darkMode = true,
                 liquidGlass = false
-            )
+            ).color
         )
     }
 
@@ -375,6 +375,24 @@ class LauncherLiquidGlassStylePolicyTest {
     }
 
     @Test
+    fun darkDockMaterial_changesWhenDockBlurIsDisabled() {
+        val enabled = LauncherLiquidGlassStylePolicy.dockMaterial(
+            enabled = true,
+            darkMode = true,
+            liquidGlass = false
+        )
+        val disabled = LauncherLiquidGlassStylePolicy.dockMaterial(
+            enabled = false,
+            darkMode = true,
+            liquidGlass = false
+        )
+
+        assertNotEquals(enabled.color, disabled.color)
+        assertEquals(0x5214242C, disabled.color)
+        assertEquals(0x24FFFFFF, disabled.strokeColor)
+    }
+
+    @Test
     fun enabledLightDockMaterialIsClearerThanPreviousOpaqueBlueTint() {
         val dock = LauncherLiquidGlassStylePolicy.dockMaterial(
             enabled = true,
@@ -405,7 +423,7 @@ class LauncherLiquidGlassStylePolicyTest {
 
         assertNotEquals(enabled.color, disabled.color)
         assertEquals(0x327EDBFF, enabled.color)
-        assertEquals(0x566C90B8, disabled.color)
+        assertEquals(0x24EFFFF8, disabled.color)
     }
 
     @Test

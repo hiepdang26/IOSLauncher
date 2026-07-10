@@ -88,7 +88,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         val metrics = DockStylePolicy.layoutMetrics(deviceProfile.hotseatCellHeightPx, safeInsets.bottom)
         lp.height = metrics.heightPx
         val dockStyle = currentDockStyle()
-        val blurEnabled = lightModeDockBlurEnabled()
+        val blurEnabled = isDockBlurEnabled()
         appliedDockStyle = dockStyle
         dockBlurEnabled = blurEnabled
         when (dockStyle) {
@@ -203,9 +203,6 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         val prefs = mContext.getSharedPreferences(DockStylePolicy.LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(LauncherHomeLayoutPreferences.KEY_LAYOUT_LIQUID_GLASS, false)
     }
-
-    private fun lightModeDockBlurEnabled(): Boolean =
-        isDockBlurEnabled() && !isDarkModeEnabled()
 
     private fun isDockBlurEnabled(): Boolean {
         return LauncherHomeLayoutPreferences.isDockBlurEnabled(mContext)

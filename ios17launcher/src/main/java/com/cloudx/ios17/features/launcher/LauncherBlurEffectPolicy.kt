@@ -48,6 +48,17 @@ object LauncherBlurEffectPolicy {
         return SEARCH_BACKGROUND_CONTENT_ALPHA
     }
 
+    fun searchChromeStyleEnabled(
+        searchBlurEnabled: Boolean,
+        darkModeEnabled: Boolean = false
+    ): Boolean {
+        return if (darkModeEnabled) {
+            searchBlurEnabled
+        } else {
+            !searchBlurEnabled
+        }
+    }
+
     fun searchTouchBlockerAlpha(
         masterEnabled: Boolean,
         searchEnabled: Boolean,

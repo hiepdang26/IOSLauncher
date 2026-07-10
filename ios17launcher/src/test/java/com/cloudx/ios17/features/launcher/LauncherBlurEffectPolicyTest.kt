@@ -109,4 +109,11 @@ class LauncherBlurEffectPolicyTest {
         assertEquals(0f, LauncherBlurEffectPolicy.searchTouchBlockerAlpha(true, false))
         assertEquals(0f, LauncherBlurEffectPolicy.searchTouchBlockerAlpha(true, true, darkModeEnabled = true))
     }
+
+    @Test
+    fun searchChromeStyleEnabled_invertsLightModeSearchBlurToggle() {
+        assertEquals(false, LauncherBlurEffectPolicy.searchChromeStyleEnabled(searchBlurEnabled = true))
+        assertEquals(true, LauncherBlurEffectPolicy.searchChromeStyleEnabled(searchBlurEnabled = false))
+        assertEquals(true, LauncherBlurEffectPolicy.searchChromeStyleEnabled(searchBlurEnabled = true, darkModeEnabled = true))
+    }
 }
