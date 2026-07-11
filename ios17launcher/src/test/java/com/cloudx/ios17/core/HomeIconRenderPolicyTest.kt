@@ -39,4 +39,24 @@ class HomeIconRenderPolicyTest {
         assertFalse(HomeIconRenderPolicy.shouldScaleIconDrawable(1f))
         assertTrue(HomeIconRenderPolicy.shouldScaleIconDrawable(HomeIconRenderPolicy.homeScreenIconContentScale))
     }
+
+    @Test
+    fun appIconMask_isResizedWhenIconViewUsesADifferentSize() {
+        assertTrue(
+            HomeIconRenderPolicy.shouldResizeClipMaskToViewBounds(
+                viewWidth = 62,
+                viewHeight = 62,
+                maskWidth = 72f,
+                maskHeight = 72f
+            )
+        )
+        assertFalse(
+            HomeIconRenderPolicy.shouldResizeClipMaskToViewBounds(
+                viewWidth = 62,
+                viewHeight = 62,
+                maskWidth = 62f,
+                maskHeight = 62f
+            )
+        )
+    }
 }

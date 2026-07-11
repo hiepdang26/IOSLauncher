@@ -1437,7 +1437,7 @@ class LauncherActivity : AppCompatActivity(),
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             return
         }
-        val effect = if (enabled && liquidGlassEnabled) {
+        val effect = if (enabled) {
             val radius = dp(FolderOpenLayoutPolicy.LIQUID_GLASS_BACKGROUND_RENDER_BLUR_RADIUS_DP).toFloat()
             RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
         } else {
@@ -2156,7 +2156,8 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createTodayWidgetAppIcon(app: ApplicationItem?): ImageView {
-        return ImageView(this).apply {
+        return SquareImageView(this).apply {
+            iconContentScale = TodayWidgetAppIconRenderPolicy.iconContentScale
             setImageDrawable(app?.icon)
             visibility = if (app == null) View.INVISIBLE else VISIBLE
             contentDescription = app?.title
@@ -9430,17 +9431,27 @@ class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun createAppLibraryPreviewIcon(app: ApplicationItem?): View {
-        return ImageView(this).apply {
+    private fun createAppLibraryIconView(
+        app: ApplicationItem?,
+        onClick: ((View, ApplicationItem) -> Unit)? = null
+    ): ImageView {
+        return SquareImageView(this).apply {
+            iconContentScale = AppLibraryIconRenderPolicy.iconContentScale
             visibility = if (app == null) View.INVISIBLE else VISIBLE
             setImageDrawable(app?.icon)
             contentDescription = app?.title?.toString()
             scaleType = ImageView.ScaleType.FIT_CENTER
-            if (app != null) {
+            if (app != null && onClick != null) {
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { view -> startActivitySafely(applicationContext, app, view) }
+                setOnClickListener { view -> onClick(view, app) }
             }
+        }
+    }
+
+    private fun createAppLibraryPreviewIcon(app: ApplicationItem?): View {
+        return createAppLibraryIconView(app) { view, clickedApp ->
+            startActivitySafely(applicationContext, clickedApp, view)
         }
     }
 
@@ -9454,16 +9465,8 @@ class LauncherActivity : AppCompatActivity(),
                         repeat(2) { column ->
                             val app = apps.getOrNull(row * 2 + column)
                             addView(
-                                ImageView(context).apply {
-                                    visibility = if (app == null) View.INVISIBLE else VISIBLE
-                                    setImageDrawable(app?.icon)
-                                    contentDescription = app?.title?.toString()
-                                    scaleType = ImageView.ScaleType.FIT_CENTER
-                                    if (app != null) {
-                                        isClickable = true
-                                        isFocusable = true
-                                        setOnClickListener { view -> startActivitySafely(applicationContext, app, view) }
-                                    }
+                                createAppLibraryIconView(app) { view, clickedApp ->
+                                    startActivitySafely(applicationContext, clickedApp, view)
                                 },
                                 appLibraryOverflowLayoutParams()
                             )
@@ -9582,11 +9585,7 @@ class LauncherActivity : AppCompatActivity(),
                 hideAppLibraryDetailOverlay(animated = false)
             }
             addView(
-                ImageView(context).apply {
-                    setImageDrawable(app.icon)
-                    contentDescription = app.title?.toString()
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                },
+                createAppLibraryIconView(app),
                 LinearLayout.LayoutParams(dp(64), dp(64))
             )
             addView(
@@ -9919,11 +9918,7 @@ class LauncherActivity : AppCompatActivity(),
                 hideAppLibrarySearchOverlay(animated = false)
             }
             addView(
-                ImageView(context).apply {
-                    setImageDrawable(app.icon)
-                    contentDescription = app.title?.toString()
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                },
+                createAppLibraryIconView(app),
                 LinearLayout.LayoutParams(dp(54), dp(54))
             )
             addView(

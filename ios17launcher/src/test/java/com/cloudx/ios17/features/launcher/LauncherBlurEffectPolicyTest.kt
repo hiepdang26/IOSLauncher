@@ -63,9 +63,9 @@ class LauncherBlurEffectPolicyTest {
     }
 
     @Test
-    fun folderBackgroundContentAlpha_keepsBlurredHomeVisibleForLiquidGlass() {
+    fun folderBackgroundContentAlpha_keepsBlurredHomeVisibleBehindOpenFolder() {
         assertEquals(
-            FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA,
+            0.45f,
             LauncherBlurEffectPolicy.folderBackgroundContentAlpha(
                 masterEnabled = true,
                 folderEnabled = true,
