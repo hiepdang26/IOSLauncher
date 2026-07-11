@@ -1,6 +1,6 @@
-package com.vhmsoft.launcherios26.ui.launcher
+﻿package com.vhmsoft.launcherios26.ui.launcher
 
-import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
+import com.vhmsoft.launcherios26.core.LauncherHomeLayoutPreferences
 
 object LauncherHomeIconSizePolicy {
     const val MIN_HOME_ICON_SIZE_DP = LauncherHomeLayoutPreferences.MIN_HOME_ICON_SIZE_DP

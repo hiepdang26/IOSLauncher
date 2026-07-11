@@ -1,16 +1,14 @@
 package com.vhmsoft.launcherios26.ui.launcher
 
-import android.Manifest
-import android.animation.LayoutTransition
-import android.app.SearchManager
-import android.app.role.RoleManager
 import android.app.Dialog
+import android.app.SearchManager
 import android.app.WallpaperManager
+import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.res.ColorStateList
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -19,71 +17,51 @@ import android.graphics.ImageDecoder
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
+import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.SystemClock
 import android.provider.Settings
 import android.text.TextUtils
 import android.view.Gravity
-import android.view.MotionEvent
-import android.view.TouchDelegate
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
-import android.widget.SeekBar
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
-import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.RequiresApi
-import androidx.appcompat.content.res.AppCompatResources
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.DefaultItemAnimator
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearSmoothScroller
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.viewpager2.widget.ViewPager2
-import com.cloudx.ios17.BlissLauncher
-import com.cloudx.ios17.core.LauncherCustomIconStore
-import com.cloudx.ios17.core.LauncherAppRenamePreferences
-import com.cloudx.ios17.core.LauncherAppRenamePolicy
-import com.cloudx.ios17.core.events.AppRenameEvent
-import com.cloudx.ios17.core.events.AppWallpaperEvent
-import com.cloudx.ios17.core.events.EventRelay
-import com.cloudx.ios17.core.wallpaper.Ios26DefaultWallpaperInstaller
+import com.vhmsoft.launcherios26.BlissLauncher
 import com.vhmsoft.launcherios26.R
+import com.vhmsoft.launcherios26.core.LauncherAppRenamePolicy
+import com.vhmsoft.launcherios26.core.LauncherAppRenamePreferences
+import com.vhmsoft.launcherios26.core.LauncherCustomIconStore
+import com.vhmsoft.launcherios26.core.LauncherHomeLayoutPreferences
+import com.vhmsoft.launcherios26.core.events.AppRenameEvent
+import com.vhmsoft.launcherios26.core.events.AppWallpaperEvent
+import com.vhmsoft.launcherios26.core.events.EventRelay
+import com.vhmsoft.launcherios26.core.wallpaper.Ios26DefaultWallpaperInstaller
 import com.vhmsoft.launcherios26.data.model.LauncherApp
-import com.vhmsoft.launcherios26.data.model.LauncherFolder
 import com.vhmsoft.launcherios26.data.repository.LauncherRepository
 import com.vhmsoft.launcherios26.databinding.ActivityIosLauncherBinding
 import com.vhmsoft.launcherios26.databinding.DialogFeatureDownloadBinding
@@ -93,225 +71,55 @@ import com.vhmsoft.launcherios26.databinding.ViewLauncherPlainSwitchRowBinding
 import com.vhmsoft.launcherios26.databinding.ViewLauncherSettingRowBinding
 import com.vhmsoft.launcherios26.di.RepositoryProvider
 import com.vhmsoft.launcherios26.ui.applibrary.AppLibraryActivity
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherAppOptionsController
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherAnimationSettings
 import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherBlurSettings
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherCategoryDetailController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherFolderController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherKeyboardController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherRemoveAppController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherSearchController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherSystemUiController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherVisualEffectsController
-import com.vhmsoft.launcherios26.ui.launcher.controller.LauncherWidgetSheetController
 import com.vhmsoft.launcherios26.ui.launcher.icon.IconCropView
 import com.vhmsoft.launcherios26.ui.launcher.icon.IosLauncherIconTheme
-import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupBuilder
-import com.vhmsoft.launcherios26.ui.launcher.workspace.AppLibraryGroupUiModel
-import com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
-import com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockAdapter
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockDragCallback
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockHomeEdgeDragPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDockHomeDropResolver
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragCallback
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDragPreviewPositioner
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherDropCommitRenderGate
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherFolderExitDropResolver
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeDragBaseBuilder
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeEdgePreviewPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeHoverDropAction
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeHoverDropPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemDropResolver
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeItemUiModel
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutBuilder
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeLayoutStatePolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomePageEdgeDragPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherHomeScreenGridPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconAdapter
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragDropPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIos17DragGeometryPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherLiquidGlassStylePolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPagedFolderGridLayoutManager
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageAdapter
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWindowPolicy
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherPageIndicatorWheelView
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherResponsiveWorkspaceLayout
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherResponsiveWorkspaceSpec
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherScaledBoundsHitTest
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherSingleDragCommitGuard
-import com.vhmsoft.launcherios26.ui.launcher.workspace.WidgetAppAdapter
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeature
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCatalog
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCode
-import com.vhmsoft.launcherios26.weather.DailyWeather
-import com.vhmsoft.launcherios26.weather.OpenMeteoWeatherApi
-import com.vhmsoft.launcherios26.weather.WeatherForecast
-import com.vhmsoft.launcherios26.weather.WeatherLocationProvider
 import com.vhmsoft.launcherios26.weather.WeatherSettingsPolicy
-import com.vhmsoft.launcherios26.weather.WeatherWidgetUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.IOException
-import kotlin.math.abs
 
 class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private lateinit var binding: ActivityIosLauncherBinding
     private lateinit var presenter: IOSLauncherPresenter
     private lateinit var launcherRepository: LauncherRepository
-    private lateinit var systemUiController: LauncherSystemUiController
-    private lateinit var keyboardController: LauncherKeyboardController
-    private lateinit var visualEffectsController: LauncherVisualEffectsController
-    private lateinit var appOptionsController: LauncherAppOptionsController
-    private lateinit var removeAppController: LauncherRemoveAppController
-    private lateinit var searchController: LauncherSearchController
-    private lateinit var folderController: LauncherFolderController
-    private lateinit var widgetSheetController: LauncherWidgetSheetController
-    private lateinit var categoryDetailController: LauncherCategoryDetailController
-    private lateinit var workspacePageAdapter: LauncherPageAdapter
-    private lateinit var dockAdapter: LauncherDockAdapter
-    private lateinit var categoryDetailAdapter: LauncherIconAdapter
-    private lateinit var folderContentAdapter: LauncherIconAdapter
-    private lateinit var dockItemTouchHelper: ItemTouchHelper
-    private lateinit var folderItemTouchHelper: ItemTouchHelper
-    private lateinit var widgetAppAdapter: WidgetAppAdapter
+
     private val layoutPreferences by lazy {
-        getSharedPreferences(LAYOUT_PREFERENCES_NAME, MODE_PRIVATE)
+        getSharedPreferences(LauncherHomeLayoutPreferences.LAYOUT_PREFERENCES_NAME, MODE_PRIVATE)
     }
-    private val dropCommitRenderGate by lazy {
-        LauncherDropCommitRenderGate { action ->
-            binding.workspace.root.postOnAnimation(action)
-        }
-    }
-    private val state = LauncherUiState()
-    private val indicatorHandler = Handler(Looper.getMainLooper())
-    private val hideIndicatorRunnable = Runnable { hidePageIndicator() }
-    private val folderEdgeSwitchHandler = Handler(Looper.getMainLooper())
-    private val folderEdgeSwitchRunnable = Runnable { performFolderExitEdgeSwitch() }
-    private val homeEdgeSwitchHandler = Handler(Looper.getMainLooper())
-    private val homeEdgeSwitchRunnable = Runnable { performHomeEdgeSwitch() }
-    private val weatherRefreshHandler = Handler(Looper.getMainLooper())
-    private val weatherRefreshRunnable = Runnable { refreshWeatherForecast(force = true) }
-    private var homeItems: List<LauncherHomeItemUiModel> = emptyList()
-    private var dockItems: List<LauncherHomeItemUiModel> = emptyList()
-    private var pullDownStartX = 0f
-    private var pullDownStartY = 0f
-    private var pullDownGestureArmed = false
-    private val emptyLongPressHandler = Handler(Looper.getMainLooper())
-    private val emptyLongPressRunnable = Runnable {
-        if (emptyLongPressArmed) {
-            emptyLongPressArmed = false
-            setHomeEditing(true)
-        }
-    }
-    private var emptyLongPressStartX = 0f
-    private var emptyLongPressStartY = 0f
-    private var emptyLongPressArmed = false
-    private var lastLauncherMode = false
-    private var editingHome = false
-    private var forceSettingsPanel = false
-    private var skipNextResumeReload = true
-    private var waitingForLauncherSelection = false
-    private var defaultWelcomeOverlay: View? = null
-    private var renameAppPickerOverlay: View? = null
-    private var renameAppPickerLoadToken: Any? = null
-    private var hiddenAppsSettingsPanel: View? = null
-    private var hiddenAppsSettingsLoadJob: Job? = null
-    private var hiddenAppsSettingsChanged = false
-    private var hasPositionedInitialHomePage = false
-    private var lastWorkspacePagePosition = RecyclerView.NO_POSITION
-    private var suppressingEdgePageIndicator = false
+
     private var layoutDarkMode = false
     private var layoutIphone8Style = false
     private var layoutAutoArrange = false
     private var layoutLiquidGlass = false
     private var homeIconSizeDp = DEFAULT_HOME_ICON_SIZE_DP
     private var homeGridRows = DEFAULT_HOME_GRID_ROWS
-    private var effectiveHomeIconSizeDp = DEFAULT_HOME_ICON_SIZE_DP
-    private var effectiveHomeGridRows = DEFAULT_HOME_GRID_ROWS
-    private val homePageSize: Int
-        get() = HOME_PAGE_COLUMNS * effectiveHomeGridRows
-    private var folderExitDragActive = false
-    private var folderExitDragCollapsed = false
-    private var folderExitDragCenterX = 0f
-    private var folderExitDragCenterY = 0f
-    private var folderExitDragCenterXOnScreen = 0f
-    private var folderExitDragCenterYOnScreen = 0f
-    private var folderExitEdgeDirection = 0
-    private var folderExitDragPage = 0
-    private var folderExitPreviewIndex = NO_PREVIEW_INDEX
-    private var folderExitFolderTargetIndex = NO_PREVIEW_INDEX
-    private var folderExitDraggedApp: LauncherIconUiModel? = null
-    private var folderExitBaseHomeItems: List<LauncherHomeItemUiModel> = emptyList()
-    private var folderExitPreviewIconKey: String? = null
-    private val folderExitDropCommitGuard = LauncherSingleDragCommitGuard()
-    private var folderExitPendingCenterXOnScreen = 0f
-    private var folderExitPendingCenterYOnScreen = 0f
-    private var folderExitPositionFramePosted = false
-    private var folderExitDragMetrics: FolderExitDragMetrics? = null
-    private val folderExitPositionRunnable = Runnable {
-        folderExitPositionFramePosted = false
-        applyFolderExitDragPosition(
-            folderExitPendingCenterXOnScreen,
-            folderExitPendingCenterYOnScreen
-        )
-    }
-    private var homeEdgeDragActive = false
-    private var homeEdgeDragCenterX = 0f
-    private var homeEdgeDragCenterY = 0f
-    private var homeEdgeDragPage = 0
-    private var homeEdgeSourcePage = 0
-    private var homeEdgeHasLeftSourcePage = false
-    private var homeEdgeDirection = 0
-    private var homeEdgePreviewIndex = NO_PREVIEW_INDEX
-    private var homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
-    private var homeEdgeDraggedItem: LauncherHomeItemUiModel? = null
-    private var homeEdgeDragPlaceholder: LauncherHomeItemUiModel.Placeholder? = null
-    private var homeEdgeBaseItems: List<LauncherHomeItemUiModel> = emptyList()
-    private var homeEdgeDragFromDock = false
-    private var homeEdgeCommitted = false
-    private var homeEdgeTouchActive = false
-    private var homeEdgePageSwitching = false
-    private var homeDockDragActive = false
-    private var homeDockDraggedApp: LauncherIconUiModel? = null
-    private var pendingRemoveAppPackageName: String? = null
-    private var pendingIconChangeApp: LauncherApp? = null
+    private var waitingForLauncherSelection = false
+    private var renameAppPickerOverlay: View? = null
+    private var renameAppPickerLoadToken: Any? = null
     private var changeIconPanel: View? = null
     private var changeIconPickerLoadToken: Any? = null
     private var iconCropPanel: View? = null
+    private var pendingIconChangeApp: LauncherApp? = null
     private var wallpaperPickerPanel: View? = null
     private var wallpaperPreviewPanel: View? = null
     private var weatherSettingsPanel: View? = null
-    private var weatherDetailPanel: View? = null
-    private var latestWeatherForecast: WeatherForecast? = null
-    private var latestWeatherRefreshUptime = 0L
-    private var weatherLoadInFlight = false
-    private var openWeatherDetailAfterRefresh = false
-    private var openFolderSource = FolderSource.HOME
-    private var indicatorMode = IndicatorMode.SEARCH
-    private var indicatorWheelView: LauncherPageIndicatorWheelView? = null
+    private var hiddenAppsSettingsPanel: View? = null
+    private var hiddenAppsSettingsLoadJob: Job? = null
+    private var hiddenAppsSettingsChanged = false
+
     private val appLibraryLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK && ::presenter.isInitialized) {
-            refreshWorkspaceDataIfEnabled()
-        }
+    ) {
+        notifyLauncherDataChanged()
     }
-    private val removeAppUninstallLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val packageName = pendingRemoveAppPackageName ?: return@registerForActivityResult
-        val packageRemoved = !isPackageInstalled(packageName)
-        pendingRemoveAppPackageName = null
-        if (result.resultCode == android.app.Activity.RESULT_OK || packageRemoved) {
-            refreshWorkspaceDataIfEnabled()
-            showError(getString(R.string.launcher_uninstall_success))
-        }
-    }
+
     private val customIconImageLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -327,6 +135,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         showCustomIconCropPage(app, bitmap)
     }
+
     private val wallpaperImageLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -340,32 +149,65 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         showWallpaperPreviewPage(uri, bitmap)
     }
+
     private val homeRoleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         handleDefaultLauncherSelectionReturn(showNotSelectedToast = true)
     }
+
     private val homeSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         handleDefaultLauncherSelectionReturn(showNotSelectedToast = true)
     }
-    private val weatherLocationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            refreshWeatherForecast(force = true)
-        } else {
-            openWeatherDetailAfterRefresh = false
-            updateWidgetWeatherPermissionState(fetchIfNeeded = false)
-        }
-    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         binding = ActivityIosLauncherBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        launcherRepository = RepositoryProvider.provideLauncherRepository(applicationContext)
+        presenter = IOSLauncherPresenter(launcherRepository)
+        presenter.attachView(this)
+
+        readLayoutPreferences()
+        setupSettingsRows()
+        setupLayoutSettingsPage()
+        setupLiquidGlassSettingsPage()
+        setupBlurEffectSettingsPage()
+        setupAnimationSettingsPage()
+        setupSettingsDrawer()
+        installBackHandling()
+        installSystemInsetHandling()
+        applyLayoutAppearance()
+        updateSettingsFabVisibility()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyLauncherSystemUi()
+        if (waitingForLauncherSelection && isCurrentDefaultLauncher()) {
+            handleDefaultLauncherSelectionReturn(showNotSelectedToast = false)
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyLauncherSystemUi()
+        }
+    }
+
+    override fun onDestroy() {
+        hiddenAppsSettingsLoadJob?.cancel()
+        presenter.detachView()
+        super.onDestroy()
+    }
+
+    private fun readLayoutPreferences() {
         layoutDarkMode = layoutPreferences.getBoolean(KEY_LAYOUT_DARK_MODE, false)
         layoutIphone8Style = layoutPreferences.getBoolean(KEY_LAYOUT_IPHONE8_STYLE, false)
         layoutAutoArrange = layoutPreferences.getBoolean(KEY_LAYOUT_AUTO_ARRANGE, false)
@@ -374,149 +216,22 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         homeGridRows = layoutPreferences.getInt(KEY_HOME_GRID_ROWS, DEFAULT_HOME_GRID_ROWS)
             .takeIf { rows -> rows == HOME_GRID_ROWS_5 || rows == HOME_GRID_ROWS_6 }
             ?: DEFAULT_HOME_GRID_ROWS
-        effectiveHomeIconSizeDp = homeIconSizeDp
-        effectiveHomeGridRows = homeGridRows
         IosLauncherIconTheme.setDarkMode(layoutDarkMode)
-        forceSettingsPanel = shouldOpenSettingsPanel(intent)
-        systemUiController = LauncherSystemUiController(this, binding)
-        keyboardController = LauncherKeyboardController(this)
-        visualEffectsController = LauncherVisualEffectsController(binding)
-        visualEffectsController.setBlurSettings(currentBlurSettings())
-        removeAppController = LauncherRemoveAppController(
-            activity = this,
-            showError = { message -> showError(message) },
-            launchUninstall = { uninstallIntent, app -> launchRemoveAppUninstall(uninstallIntent, app) }
-        )
-        appOptionsController = LauncherAppOptionsController(
-            activity = this,
-            binding = binding,
-            visualEffectsController = visualEffectsController,
-            onAppInfoClicked = { item -> presenter.onAppInfoOptionClicked(item.app) },
-            onHideClicked = { showHiddenAppsSettingsPage() },
-            onEditHomeClicked = { setHomeEditing(true) },
-            onDeleteClicked = { item -> showRemoveAppDialog(item.app) }
-        )
-        widgetSheetController = LauncherWidgetSheetController(
-            activity = this,
-            binding = binding,
-            visualEffectsController = visualEffectsController,
-            applySystemUi = { applyLauncherSystemUi() }
-        )
-        searchController = LauncherSearchController(
-            activity = this,
-            binding = binding,
-            keyboardController = keyboardController,
-            visualEffectsController = visualEffectsController,
-            dismissAppOptions = { appOptionsController.dismiss() },
-            clearPageIndicatorCallbacks = { indicatorHandler.removeCallbacks(hideIndicatorRunnable) },
-            hideCategoryDetail = { hideCategoryDetail() },
-            showSearchTrigger = { animated -> showSearchControlInIndicator(animated) },
-            applySystemUi = { applyLauncherSystemUi() },
-            onSearchAppClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
-            onSearchAppLongClicked = { item, anchor ->
-                hideSearchOverlay(clearQuery = false)
-                showAnchoredAppOptions(item, anchor)
-                true
-            },
-            onLibrarySearchAppClicked = { item -> presenter.onOpenAppOptionClicked(item.app) }
-        )
-
-        installBackHandling()
-        installSystemInsetHandling()
-        if (LauncherShellModePolicy.shouldInitializeWorkspace()) {
-            setupWorkspaceViews()
-        }
-        launcherRepository = RepositoryProvider.provideLauncherRepository(applicationContext)
-        presenter = IOSLauncherPresenter(launcherRepository)
-        setupSettingsRows()
-        setupLayoutSettingsPage()
-        setupLiquidGlassSettingsPage()
-        setupBlurEffectSettingsPage()
-        setupAnimationSettingsPage()
-        setupSettingsDrawer()
-        updateLauncherContentDescription()
-        applyLayoutAppearance()
-        presenter.attachView(this)
-        updateLauncherMode()
-        applyLauncherSystemUi()
-        if (LauncherShellModePolicy.shouldLoadWorkspaceData()) {
-            presenter.loadLauncherData()
-        }
     }
 
-    override fun onResume() {
-        super.onResume()
-        updateLauncherMode()
-        applyLauncherSystemUi()
-        if (waitingForLauncherSelection && isCurrentDefaultLauncher()) {
-            handleDefaultLauncherSelectionReturn(showNotSelectedToast = false)
-        } else {
-            showDefaultWelcomeIfNeeded()
-        }
-        updateWidgetWeatherPermissionState()
-        if (skipNextResumeReload) {
-            skipNextResumeReload = false
-        } else if (::presenter.isInitialized) {
-            refreshWorkspaceDataIfEnabled()
-        }
-        verifyPendingRemoveAppUninstall()
-    }
+    override fun showLoading(isLoading: Boolean) = Unit
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        when {
-            isHomeIntent(intent) -> forceSettingsPanel = false
-            shouldOpenSettingsPanel(intent) -> forceSettingsPanel = true
-        }
-        updateLauncherMode(forceAnimate = true)
-        applyLauncherSystemUi()
-        showDefaultWelcomeIfNeeded()
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && ::systemUiController.isInitialized) {
-            applyLauncherSystemUi()
-        }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (::binding.isInitialized) {
-            if (handleHomeDockExternalDragEvent(ev)) {
-                return super.dispatchTouchEvent(ev)
-            }
-            if (handleHomeEdgeExternalDragEvent(ev)) {
-                return super.dispatchTouchEvent(ev)
-            }
-            if (handleFolderExitExternalDragEvent(ev)) {
-                return super.dispatchTouchEvent(ev)
-            }
-            handleEmptyLongPressForEdit(ev)
-            if (handlePullDownSearchGesture(ev)) {
-                return true
-            }
-        }
-        return super.dispatchTouchEvent(ev)
+    override fun showError(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun setupSettingsRows() {
         binding.settingsSocialBar.bringToFront()
-        binding.likeButton.setOnClickListener {
-            presenter.onRateClicked()
-        }
-        binding.mailButton.setOnClickListener {
-            presenter.onMailClicked()
-        }
-        binding.shareButton.setOnClickListener {
-            presenter.onShareClicked()
-        }
-        binding.settingsMenuButton.setOnClickListener {
-            presenter.onSettingsMenuClicked()
-        }
-        binding.settingsFab.setOnClickListener {
-            presenter.onRateClicked()
-        }
+        binding.likeButton.setOnClickListener { presenter.onRateClicked() }
+        binding.mailButton.setOnClickListener { presenter.onMailClicked() }
+        binding.shareButton.setOnClickListener { presenter.onShareClicked() }
+        binding.settingsMenuButton.setOnClickListener { presenter.onSettingsMenuClicked() }
+        binding.settingsFab.setOnClickListener { presenter.onRateClicked() }
 
         bindSettingsRow(
             row = binding.lockScreenRow,
@@ -658,11 +373,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun applyIos17LauncherMenuScope() {
-        val visibility = if (LauncherShellModePolicy.shouldShowFullOptionsMenu()) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
+        val visibility = if (LauncherShellModePolicy.shouldShowFullOptionsMenu()) View.VISIBLE else View.GONE
         binding.settingsTopCard.visibility = visibility
         binding.settingsBottomCard.visibility = visibility
         binding.settingsSocialBar.visibility = visibility
@@ -765,91 +476,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun applySettingsPageHeader(
-        toolbar: FrameLayout,
-        backButton: TextView,
-        titleView: TextView,
-        toolbarColor: Int,
-        titleColor: Int
-    ) {
-        toolbar.setBackgroundColor(toolbarColor)
-        toolbar.setPadding(0, 0, 0, 0)
-        toolbar.layoutParams = (toolbar.layoutParams ?: ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
-        )).apply {
-            height = dp(LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
-        }
-
-        backButton.apply {
-            text = getString(R.string.layout_back_settings)
-            setTextColor(LauncherRenamePickerUiPolicy.accentColor)
-            textSize = LauncherSettingsPageHeaderPolicy.backTextSizeSp
-            gravity = Gravity.CENTER_VERTICAL
-            includeFontPadding = false
-        }
-        backButton.layoutParams = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            dp(LauncherSettingsPageHeaderPolicy.toolbarRowHeightDp),
-            Gravity.START or Gravity.BOTTOM
-        ).apply {
-            leftMargin = dp(LauncherSettingsPageHeaderPolicy.backStartMarginDp)
-        }
-
-        titleView.apply {
-            setTextColor(titleColor)
-            textSize = LauncherSettingsPageHeaderPolicy.titleTextSizeSp
-            typeface = if (LauncherSettingsPageHeaderPolicy.titleIsBold) {
-                Typeface.DEFAULT_BOLD
-            } else {
-                Typeface.DEFAULT
-            }
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-        }
-        titleView.layoutParams = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            dp(LauncherSettingsPageHeaderPolicy.toolbarRowHeightDp),
-            Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-        )
-    }
-
-    private fun createSettingsPageToolbar(
-        title: CharSequence,
-        toolbarColor: Int = LauncherRenamePickerUiPolicy.toolbarColor,
-        titleColor: Int = LauncherRenamePickerUiPolicy.primaryTextColor,
-        onBack: () -> Unit
-    ): View {
-        val toolbar = FrameLayout(this)
-        val backButton = TextView(this).apply {
-            isClickable = true
-            isFocusable = true
-            foreground = obtainStyledForeground()
-            setOnClickListener { onBack() }
-        }
-        val titleView = TextView(this).apply {
-            text = title
-        }
-        toolbar.addView(backButton)
-        toolbar.addView(titleView)
-        applySettingsPageHeader(
-            toolbar = toolbar,
-            backButton = backButton,
-            titleView = titleView,
-            toolbarColor = toolbarColor,
-            titleColor = titleColor
-        )
-        toolbar.layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
-        )
-        return toolbar
-    }
-
     private fun setupLayoutSettingsPage() {
-        binding.layoutBackButton.setOnClickListener {
-            hideLayoutSettingsPage()
-        }
+        binding.layoutBackButton.setOnClickListener { hideLayoutSettingsPage() }
         binding.darkModeSwitch.setOnCheckedChangeListener(null)
         binding.darkModeSwitch.isChecked = layoutDarkMode
         binding.darkModeSwitch.setOnCheckedChangeListener { _, checked ->
@@ -894,20 +522,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
-        binding.grid5x4Option.setOnClickListener {
-            applyHomeGridRows(HOME_GRID_ROWS_5, persist = true)
-        }
-        binding.grid6x4Option.setOnClickListener {
-            applyHomeGridRows(HOME_GRID_ROWS_6, persist = true)
-        }
+        binding.grid5x4Option.setOnClickListener { applyHomeGridRows(HOME_GRID_ROWS_5, persist = true) }
+        binding.grid6x4Option.setOnClickListener { applyHomeGridRows(HOME_GRID_ROWS_6, persist = true) }
         applyHomeLayoutSettingsUi()
         tintLayoutSwitches()
     }
 
     private fun setupLiquidGlassSettingsPage() {
-        binding.liquidGlassBackButton.setOnClickListener {
-            hideLiquidGlassSettingsPage()
-        }
+        binding.liquidGlassBackButton.setOnClickListener { hideLiquidGlassSettingsPage() }
         binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
         binding.liquidGlassSwitch.isChecked = layoutLiquidGlass
         binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
@@ -920,135 +542,49 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun setupBlurEffectSettingsPage() {
-        binding.blurBackButton.setOnClickListener {
-            hideBlurEffectSettingsPage()
-        }
+        binding.blurBackButton.setOnClickListener { hideBlurEffectSettingsPage() }
         applyBlurSettingsUi()
         applyBlurSettingsAppearance()
     }
 
     private fun setupAnimationSettingsPage() {
-        binding.animationBackButton.setOnClickListener {
-            hideAnimationSettingsPage()
-        }
+        binding.animationBackButton.setOnClickListener { hideAnimationSettingsPage() }
         applyAnimationSettingsUi()
         applyAnimationSettingsAppearance()
     }
 
     private fun setupSettingsDrawer() {
-        binding.settingsDrawerDim.setOnClickListener {
-            hideSettingsDrawer()
-        }
+        binding.settingsDrawerDim.setOnClickListener { hideSettingsDrawer() }
         binding.settingsDrawerPanel.setOnClickListener {
             // Consume drawer panel taps so only the dimmed area closes it.
         }
         binding.drawerReloadRow.setOnClickListener {
             hideSettingsDrawer()
-            refreshWorkspaceDataIfEnabled()
+            notifyLauncherDataChanged()
             showError(getString(R.string.drawer_reload_done))
         }
-        binding.drawerPrivacyRow.setOnClickListener {
-            showDrawerComingSoon(R.string.drawer_privacy_policy)
-        }
-        binding.drawerGuideRow.setOnClickListener {
-            showDrawerComingSoon(R.string.drawer_user_guide)
-        }
-        binding.drawerWebsiteRow.setOnClickListener {
-            showDrawerComingSoon(R.string.drawer_website)
-        }
-        binding.drawerAboutRow.setOnClickListener {
-            showDrawerComingSoon(R.string.drawer_about_us)
-        }
+        binding.drawerPrivacyRow.setOnClickListener { showDrawerComingSoon(R.string.drawer_privacy_policy) }
+        binding.drawerGuideRow.setOnClickListener { showDrawerComingSoon(R.string.drawer_user_guide) }
+        binding.drawerWebsiteRow.setOnClickListener { showDrawerComingSoon(R.string.drawer_website) }
+        binding.drawerAboutRow.setOnClickListener { showDrawerComingSoon(R.string.drawer_about_us) }
     }
 
     private fun installBackHandling() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    defaultWelcomeOverlay != null -> {
-                        dismissDefaultWelcomeOverlay()
-                    }
-
-                    wallpaperPreviewPanel != null -> {
-                        hideWallpaperPreviewPage()
-                    }
-
-                    wallpaperPickerPanel != null -> {
-                        hideWallpaperPickerPage()
-                    }
-
-                    weatherDetailPanel != null -> {
-                        hideWeatherDetailPage()
-                    }
-
-                    weatherSettingsPanel != null -> {
-                        hideWeatherSettingsPage()
-                    }
-
-                    iconCropPanel != null -> {
-                        hideCustomIconCropPage()
-                    }
-
-                    changeIconPanel != null -> {
-                        hideChangeIconPage()
-                    }
-
-                    hiddenAppsSettingsPanel != null -> {
-                        hideHiddenAppsSettingsPage()
-                    }
-
-                    renameAppPickerOverlay != null -> {
-                        hideRenameAppPicker()
-                    }
-
-                    binding.layoutSettingsPanel.visibility == View.VISIBLE -> {
-                        hideLayoutSettingsPage()
-                    }
-
-                    binding.liquidGlassSettingsPanel.visibility == View.VISIBLE -> {
-                        hideLiquidGlassSettingsPage()
-                    }
-
-                    binding.blurSettingsPanel.visibility == View.VISIBLE -> {
-                        hideBlurEffectSettingsPage()
-                    }
-
-                    binding.animationSettingsPanel.visibility == View.VISIBLE -> {
-                        hideAnimationSettingsPage()
-                    }
-
-                    binding.settingsDrawerOverlay.visibility == View.VISIBLE -> {
-                        hideSettingsDrawer()
-                    }
-
-                    binding.workspace.widgetSheetOverlay.visibility == View.VISIBLE -> {
-                        hideWidgetSheet()
-                    }
-
-                    binding.workspace.editWidgetPrompt.visibility == View.VISIBLE -> {
-                        hideEditWidgetPrompt()
-                    }
-
-                    binding.workspace.folderOverlay.visibility == View.VISIBLE -> {
-                        hideFolderOverlay()
-                    }
-
-                    editingHome -> {
-                        setHomeEditing(false)
-                    }
-
-                    binding.workspace.librarySearchOverlay.visibility == View.VISIBLE -> {
-                        hideLibrarySearchOverlay()
-                    }
-
-                    binding.workspace.categoryDetailOverlay.visibility == View.VISIBLE -> {
-                        hideCategoryDetail()
-                    }
-
-                    binding.workspace.searchOverlay.visibility == View.VISIBLE -> {
-                        hideSearchOverlay()
-                    }
-
+                    wallpaperPreviewPanel != null -> hideWallpaperPreviewPage()
+                    wallpaperPickerPanel != null -> hideWallpaperPickerPage()
+                    iconCropPanel != null -> hideCustomIconCropPage()
+                    changeIconPanel != null -> hideChangeIconPage()
+                    hiddenAppsSettingsPanel != null -> hideHiddenAppsSettingsPage()
+                    renameAppPickerOverlay != null -> hideRenameAppPicker()
+                    weatherSettingsPanel != null -> hideWeatherSettingsPage()
+                    binding.layoutSettingsPanel.visibility == View.VISIBLE -> hideLayoutSettingsPage()
+                    binding.liquidGlassSettingsPanel.visibility == View.VISIBLE -> hideLiquidGlassSettingsPage()
+                    binding.blurSettingsPanel.visibility == View.VISIBLE -> hideBlurEffectSettingsPage()
+                    binding.animationSettingsPanel.visibility == View.VISIBLE -> hideAnimationSettingsPage()
+                    binding.settingsDrawerOverlay.visibility == View.VISIBLE -> hideSettingsDrawer()
                     else -> {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
@@ -1058,1966 +594,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         })
     }
 
-    override fun onDestroy() {
-        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        emptyLongPressHandler.removeCallbacks(emptyLongPressRunnable)
-        folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-        homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-        weatherRefreshHandler.removeCallbacks(weatherRefreshRunnable)
-        appOptionsController.dismiss()
-        presenter.detachView()
-        super.onDestroy()
-    }
-
-    override fun showLoading(isLoading: Boolean) {
-        state.loading = isLoading
-    }
-
-    private fun refreshWorkspaceDataIfEnabled() {
-        if (::presenter.isInitialized && LauncherShellModePolicy.shouldLoadWorkspaceData()) {
-            presenter.refreshApps()
-        }
-    }
-
-    override fun showLauncherApps(
-        apps: List<LauncherIconUiModel>,
-        folders: List<LauncherFolder>,
-        dockFolders: List<LauncherFolder>,
-        dockOrder: List<String>
-    ) {
-        if (!LauncherShellModePolicy.shouldLoadWorkspaceData() ||
-            !::workspacePageAdapter.isInitialized ||
-            !::dockAdapter.isInitialized
-        ) {
-            return
-        }
-        val builtHomeItems = LauncherHomeLayoutBuilder.build(apps, folders)
-        val restoredHomeItems = LauncherHomeLayoutStatePolicy.restore(
-            encoded = layoutPreferences.getString(KEY_HOME_LAYOUT_ITEMS, null),
-            apps = apps,
-            folders = folders,
-            fallbackItems = builtHomeItems
-        )
-        homeItems = arrangeHomeItems(restoredHomeItems)
-        dockItems = buildDockItems(apps, dockFolders, dockOrder)
-        state.appCount = apps.size
-        updateLauncherContentDescription()
-        workspacePageAdapter.submitItems(homeItems)
-        workspacePageAdapter.submitLibraryGroups(AppLibraryGroupBuilder.buildGroups(apps))
-        if (!hasPositionedInitialHomePage && workspacePageAdapter.homePageCount() > 0) {
-            binding.workspace.workspacePager.setCurrentItem(workspacePageAdapter.firstHomeAdapterPosition(), false)
-            hasPositionedInitialHomePage = true
-        }
-        dockAdapter.submitItems(dockItems)
-        widgetAppAdapter.submitApps(apps)
-        searchController.submitApps(apps)
-        updateOpenFolderContent()
-        applyWorkspaceAppearance()
-        updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-        updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
-        showDefaultWelcomeIfNeeded()
-    }
-
-    private fun handleHomeItemsChanged(
-        items: List<LauncherHomeItemUiModel>,
-        refreshWorkspace: Boolean = true,
-        preferredPage: Int? = null,
-        refreshOpenFolder: Boolean = true,
-        refreshAppearance: Boolean = true
-    ) {
-        homeItems = arrangeHomeItems(items)
-        saveHomeLayoutItems(homeItems)
-        presenter.onHomeItemsChanged(homeItems)
-        if (refreshWorkspace) {
-            workspacePageAdapter.submitItems(homeItems)
-            preferredPage?.let { page ->
-                val targetHomePage = page.coerceIn(
-                    0,
-                    (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0)
-                )
-                val targetPage = workspacePageAdapter.adapterPositionForHomePage(targetHomePage)
-                if (binding.workspace.workspacePager.currentItem != targetPage) {
-                    binding.workspace.workspacePager.setCurrentItem(targetPage, false)
-                }
-            }
-        }
-        val chromePage = preferredPage
-            ?.coerceIn(0, (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0))
-            ?.let { page -> workspacePageAdapter.adapterPositionForHomePage(page) }
-            ?: binding.workspace.workspacePager.currentItem
-        if (refreshOpenFolder) {
-            updateOpenFolderContent()
-        }
-        if (refreshAppearance) {
-            applyWorkspaceAppearance()
-        }
-        updateWorkspaceChromeForPage(chromePage)
-        updatePageIndicatorDotsForAdapterPosition(chromePage)
-    }
-
-    private fun arrangeHomeItems(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
-        val arrangedItems = LauncherHomeLayoutStatePolicy.arrange(
-            items = items,
-            autoArrange = layoutAutoArrange
-        )
-        return LauncherHomeScreenGridPolicy.removeEmptyPages(
-            items = arrangedItems,
-            pageSize = homePageSize
-        )
-    }
-
-    private fun shouldRefreshWorkspaceAfterHomeItemsChanged(items: List<LauncherHomeItemUiModel>): Boolean {
-        return arrangeHomeItems(items) != items ||
-            layoutAutoArrange && items.any { item -> item is LauncherHomeItemUiModel.Placeholder }
-    }
-
-    private fun saveHomeLayoutItems(items: List<LauncherHomeItemUiModel>) {
-        layoutPreferences.edit()
-            .putString(KEY_HOME_LAYOUT_ITEMS, LauncherHomeLayoutStatePolicy.encode(items))
-            .apply()
-    }
-
-    private fun handleDockItemsChanged(
-        items: List<LauncherHomeItemUiModel>,
-        refreshDock: Boolean = true
-    ) {
-        dockItems = normalizeDockItems(items)
-        presenter.onDockItemsChanged(dockItems)
-        if (refreshDock) {
-            dockAdapter.submitItems(dockItems)
-        }
-        updateOpenFolderContent()
-    }
-
-    private fun buildDockItems(
-        apps: List<LauncherIconUiModel>,
-        folders: List<LauncherFolder>,
-        dockOrder: List<String>
-    ): List<LauncherHomeItemUiModel> {
-        val appByKey = apps.associateBy { item -> item.app.iconKey }
-        val folderKeys = folders
-            .flatMap { folder -> folder.appIconKeys }
-            .filter { iconKey -> iconKey in appByKey }
-        val orderedKeys = dockOrder.filter { iconKey -> iconKey in appByKey }
-        val fallbackKeys = apps
-            .map { item -> item.app.iconKey }
-            .filterNot { iconKey -> iconKey in orderedKeys || iconKey in folderKeys }
-        val candidateKeys = (orderedKeys + folderKeys + fallbackKeys).distinct()
-        val candidateApps = candidateKeys.mapNotNull { iconKey -> appByKey[iconKey] }
-            .ifEmpty { apps.take(DOCK_APP_COUNT) }
-
-        return normalizeDockItems(LauncherHomeLayoutBuilder.build(candidateApps, folders))
-    }
-
-    private fun normalizeDockItems(items: List<LauncherHomeItemUiModel>): List<LauncherHomeItemUiModel> {
-        return LauncherHomeLayoutBuilder.normalize(items)
-            .filterNot { item -> item is LauncherHomeItemUiModel.Placeholder }
-            .take(DOCK_APP_COUNT)
-    }
-
-    private fun handleHomePageDragMoved(
-        item: LauncherHomeItemUiModel?,
-        viewHolder: RecyclerView.ViewHolder,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): Boolean {
-        if (homeEdgeCommitted) return true
-        if (!editingHome) return false
-        val draggedItem = item?.takeUnless { current ->
-            current is LauncherHomeItemUiModel.Placeholder
-        } ?: return false
-        updateDragEdgeGlows(dragActive = true)
-        val draggedApp = (draggedItem as? LauncherHomeItemUiModel.App)?.iconItem
-        if (draggedApp != null &&
-            (homeDockDragActive || isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen))
-        ) {
-            beginHomeDockDragIfNeeded(draggedApp)
-            updateHomeDockDragPosition(centerXOnScreen, centerYOnScreen)
-            return true
-        }
-
-        val rootLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        val rootWidth = binding.workspace.root.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
-        val rootCenterX = centerXOnScreen - rootLocation[0]
-        val direction = homeEdgeDirectionForCenter(rootCenterX, rootWidth)
-        if (!LauncherHomePageEdgeDragPolicy.shouldStart(
-                editingHome = editingHome,
-                hasDraggableItem = true,
-                alreadyActive = homeEdgeDragActive,
-                direction = direction
-            )
-        ) {
-            return false
-        }
-
-        beginHomeEdgeDragIfNeeded(draggedItem, viewHolder)
-        updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
-        return true
-    }
-
-    private fun handleHomePageDragEnded(
-        item: LauncherHomeItemUiModel?,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): Boolean {
-        val draggedApp = (item as? LauncherHomeItemUiModel.App)?.iconItem
-        if (draggedApp != null && isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen)) {
-            animateHomeIconIntoDock(draggedApp, centerXOnScreen, centerYOnScreen)
-            return true
-        }
-        if (homeDockDragActive) {
-            hideHomeDockDragPreview()
-            return true
-        }
-
-        if (!homeEdgeDragActive) {
-            hideFolderEdgeGlows()
-            return false
-        }
-        if (homeEdgeCommitted) return true
-
-        if (homeEdgeTouchActive) return true
-
-        updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
-        finishHomeEdgeDrag(commit = true)
-        return true
-    }
-
-    private fun beginHomeDockDragIfNeeded(draggedApp: LauncherIconUiModel) {
-        if (homeDockDraggedApp != null) return
-
-        homeDockDraggedApp = draggedApp
-        binding.workspace.workspacePager.isUserInputEnabled = false
-        binding.workspace.selectedIconImage.setImageDrawable(draggedApp.displayIcon)
-        binding.workspace.selectedIconLabel.text = draggedApp.label
-        binding.workspace.selectedIconPreview.apply {
-            animate().cancel()
-            alpha = 1f
-            scaleX = 1.08f
-            scaleY = 1.08f
-            elevation = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            translationZ = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            visibility = View.VISIBLE
-        }
-        homeDockDragActive = true
-        updateDragEdgeGlows(dragActive = true)
-    }
-
-    private fun handleHomeDockExternalDragEvent(event: MotionEvent): Boolean {
-        if (!homeDockDragActive) return false
-
-        when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> updateHomeDockDragPosition(event.rawX, event.rawY)
-
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> updateHomeDockDragPosition(event.rawX, event.rawY)
-        }
-        return true
-    }
-
-    private fun updateHomeDockDragPosition(centerXOnScreen: Float, centerYOnScreen: Float) {
-        if (homeDockDraggedApp == null) return
-
-        val rootLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        val previewWidth = binding.workspace.selectedIconPreview.width.takeIf { it > 0 } ?: dp(DRAG_PREVIEW_WIDTH_DP)
-        val previewHeight = binding.workspace.selectedIconPreview.height.takeIf { it > 0 } ?: dp(DRAG_PREVIEW_HEIGHT_DP)
-        val rootWidth = binding.workspace.root.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
-        val rootHeight = binding.workspace.root.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
-        val rootCenterX = (centerXOnScreen - rootLocation[0]).coerceIn(0f, rootWidth.toFloat())
-        val rootCenterY = (centerYOnScreen - rootLocation[1]).coerceIn(0f, rootHeight.toFloat())
-        val previewPosition = LauncherDragPreviewPositioner.positionForIconCenter(
-            rootWidth = rootWidth,
-            rootHeight = rootHeight,
-            previewWidth = previewWidth,
-            previewHeight = previewHeight,
-            iconCenterY = dp(DRAG_PREVIEW_ICON_CENTER_Y_DP),
-            centerX = rootCenterX,
-            centerY = rootCenterY,
-            horizontalPadding = dp(4),
-            verticalPadding = dp(12)
-        )
-
-        binding.workspace.selectedIconPreview.x = previewPosition.left.toFloat()
-        binding.workspace.selectedIconPreview.y = previewPosition.top.toFloat()
-    }
-
-    private fun hideHomeDockDragPreview() {
-        if (!homeDockDragActive) return
-
-        homeDockDragActive = false
-        homeDockDraggedApp = null
-        binding.workspace.workspacePager.isUserInputEnabled = true
-        hideFolderEdgeGlows()
-        forceHideSelectedIconPreview()
-    }
-
-    private fun animateHomeIconIntoDock(
-        item: LauncherIconUiModel,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ) {
-        if (!homeDockDragActive || binding.workspace.selectedIconPreview.visibility != View.VISIBLE) {
-            hideHomeDockDragPreview()
-            binding.workspace.root.post {
-                moveHomeIconToDock(item, centerXOnScreen, centerYOnScreen)
-            }
-            return
-        }
-
-        homeDockDragActive = false
-        homeDockDraggedApp = null
-        binding.workspace.workspacePager.isUserInputEnabled = true
-        hideFolderEdgeGlows()
-
-        val preview = binding.workspace.selectedIconPreview
-        val target = dockDropPreviewTarget(item, centerXOnScreen, centerYOnScreen)
-        preview.animate().cancel()
-        binding.workspace.selectedIconLabel.animate().cancel()
-        preview.pivotX = preview.width / 2f
-        preview.pivotY = dp(DRAG_PREVIEW_ICON_CENTER_Y_DP).toFloat()
-        preview.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-        binding.workspace.selectedIconLabel.animate()
-            .alpha(0f)
-            .setDuration(HOME_DOCK_DROP_IN_MS)
-            .start()
-        preview.animate()
-            .x(target.left)
-            .y(target.top)
-            .scaleX(HOME_DOCK_DROP_SHRINK_SCALE)
-            .scaleY(HOME_DOCK_DROP_SHRINK_SCALE)
-            .alpha(0.92f)
-            .setDuration(HOME_DOCK_DROP_IN_MS)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                moveHomeIconToDock(item, centerXOnScreen, centerYOnScreen)
-                preview.animate()
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .alpha(0f)
-                    .setDuration(HOME_DOCK_DROP_POP_MS)
-                    .setInterpolator(OvershootInterpolator(1.18f))
-                    .withEndAction { forceHideSelectedIconPreview() }
-                    .start()
-            }
-            .start()
-    }
-
-    private fun dockDropPreviewTarget(
-        item: LauncherIconUiModel,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): DockDropPreviewTarget {
-        val rootLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        val previewWidth = binding.workspace.selectedIconPreview.width.takeIf { it > 0 }
-            ?: dp(DRAG_PREVIEW_WIDTH_DP)
-        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen, item)
-        val targetCenter = if (folderTargetIndex != NO_PREVIEW_INDEX) {
-            dockChildCenterOnScreen(folderTargetIndex) ?: dockSlotCenterOnScreen(centerXOnScreen)
-        } else {
-            dockSlotCenterOnScreen(centerXOnScreen)
-        }
-
-        return DockDropPreviewTarget(
-            left = targetCenter.first - rootLocation[0] - previewWidth / 2f,
-            top = targetCenter.second - rootLocation[1] - dp(DRAG_PREVIEW_ICON_CENTER_Y_DP)
-        )
-    }
-
-    private fun dockChildCenterOnScreen(position: Int): Pair<Float, Float>? {
-        val recyclerView = binding.workspace.dockRecyclerView
-        val child = recyclerView.findViewHolderForAdapterPosition(position)?.itemView ?: return null
-        val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
-        val childLocation = IntArray(2)
-        child.getLocationOnScreen(childLocation)
-        return Pair(
-            childLocation[0] + iconPlate.left + iconPlate.width / 2f,
-            childLocation[1] + iconPlate.top + iconPlate.height / 2f
-        )
-    }
-
-    private fun dockSlotCenterOnScreen(centerXOnScreen: Float): Pair<Float, Float> {
-        val recyclerView = binding.workspace.dockRecyclerView
-        val dockLocation = IntArray(2)
-        recyclerView.getLocationOnScreen(dockLocation)
-        val dockWidth = recyclerView.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
-        val dockHeight = recyclerView.height.takeIf { it > 0 } ?: dp(effectiveHomeIconSizeDp + DOCK_VERTICAL_EXTRA_DP)
-        val dockIndex = dockDropIndexForPoint(centerXOnScreen, dockAdapter.itemCount)
-        val slotWidth = dockWidth / DOCK_APP_COUNT.toFloat()
-        return Pair(
-            dockLocation[0] + slotWidth * (dockIndex + 0.5f),
-            dockLocation[1] + dockHeight / 2f
-        )
-    }
-
-    private fun handleDockDragEnded(
-        item: LauncherHomeItemUiModel,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): Boolean {
-        if (!editingHome) return false
-        if (homeEdgeDragActive && homeEdgeDragFromDock) {
-            if (homeEdgeCommitted) return true
-            if (homeEdgeTouchActive) return true
-
-            updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
-            finishHomeEdgeDrag(commit = true)
-            return true
-        }
-        if (isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen)) {
-            return false
-        }
-        if (!isPointInsideView(binding.workspace.workspacePager, centerXOnScreen, centerYOnScreen)) {
-            return false
-        }
-
-        binding.workspace.root.post {
-            moveDockItemToHome(item, centerXOnScreen, centerYOnScreen)
-        }
-        return true
-    }
-
-    private fun handleDockDragMoved(
-        item: LauncherHomeItemUiModel,
-        viewHolder: RecyclerView.ViewHolder,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): Boolean {
-        if (homeEdgeDragActive && !homeEdgeDragFromDock) return false
-
-        val rootLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        val rootWidth = binding.workspace.root.width.takeIf { width -> width > 0 }
-            ?: resources.displayMetrics.widthPixels
-        val rootCenterX = centerXOnScreen - rootLocation[0]
-        val inEdgeZone = homeEdgeDirectionForCenter(rootCenterX, rootWidth) != 0
-        val shouldHandle = LauncherDockHomeEdgeDragPolicy.shouldHandle(
-            editingHome = editingHome,
-            alreadyActive = homeEdgeDragActive && homeEdgeDragFromDock,
-            inDock = isPointInsideView(binding.workspace.dockRecyclerView, centerXOnScreen, centerYOnScreen),
-            inWorkspace = isPointInsideView(binding.workspace.workspacePager, centerXOnScreen, centerYOnScreen),
-            inEdgeZone = inEdgeZone
-        )
-        if (!shouldHandle) {
-            if (homeEdgeDragActive && homeEdgeDragFromDock) {
-                finishHomeEdgeDrag(commit = false)
-            }
-            return false
-        }
-
-        beginDockHomeEdgeDragIfNeeded(item, viewHolder)
-        updateHomeEdgeDragPosition(centerXOnScreen, centerYOnScreen)
-        return true
-    }
-
-    private fun moveHomeIconToDock(
-        item: LauncherIconUiModel,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ) {
-        val currentDockItems = removeAppFromItems(dockAdapter.itemsSnapshot(), item).toMutableList()
-        val folderTargetIndex = dockDropTargetIndexForPoint(centerXOnScreen, centerYOnScreen, item)
-        if (folderTargetIndex in currentDockItems.indices) {
-            currentDockItems[folderTargetIndex] = mergeAppIntoDockTarget(currentDockItems[folderTargetIndex], item)
-            handleDockItemsChanged(currentDockItems)
-            handleHomeItemsChanged(removeAppFromHomeItems(homeItems, item))
-            return
-        }
-
-        val dockIndex = dockDropIndexForPoint(centerXOnScreen, currentDockItems.size)
-        currentDockItems.add(
-            dockIndex.coerceIn(0, currentDockItems.size),
-            LauncherHomeItemUiModel.App(item)
-        )
-        val overflowItem = if (currentDockItems.size > DOCK_APP_COUNT) {
-            currentDockItems.removeAt(DOCK_APP_COUNT)
-        } else {
-            null
-        }
-
-        handleDockItemsChanged(currentDockItems)
-
-        val removedFromHome = removeAppFromHomeItems(homeItems, item)
-        val updatedItems = if (overflowItem == null) {
-            removedFromHome
-        } else {
-            insertOverflowDockItemIntoHome(removedFromHome, overflowItem, item, centerXOnScreen)
-        }
-        handleHomeItemsChanged(updatedItems)
-    }
-
-    private fun mergeAppIntoDockTarget(
-        target: LauncherHomeItemUiModel,
-        app: LauncherIconUiModel
-    ): LauncherHomeItemUiModel {
-        return when (target) {
-            is LauncherHomeItemUiModel.App -> LauncherHomeItemUiModel.Folder(
-                id = "dock_folder_${System.nanoTime()}",
-                title = LauncherHomeLayoutBuilder.DEFAULT_FOLDER_TITLE,
-                apps = listOf(target.iconItem, app)
-            )
-
-            is LauncherHomeItemUiModel.Folder -> {
-                if (target.apps.any { folderApp -> folderApp.app.iconKey == app.app.iconKey }) {
-                    target
-                } else {
-                    target.copy(apps = target.apps + app)
-                }
-            }
-
-            is LauncherHomeItemUiModel.Placeholder -> LauncherHomeItemUiModel.App(app)
-        }
-    }
-
-    private fun insertOverflowDockItemIntoHome(
-        baseItems: List<LauncherHomeItemUiModel>,
-        overflowItem: LauncherHomeItemUiModel,
-        draggedItem: LauncherIconUiModel,
-        centerXOnScreen: Float
-    ): List<LauncherHomeItemUiModel> {
-        val overflowApps = overflowItem.containedApps()
-            .filter { overflowApp -> overflowApp.app.iconKey != draggedItem.app.iconKey }
-            .filterNot { overflowApp -> containsHomeApp(baseItems, overflowApp) }
-        if (overflowApps.isEmpty()) return baseItems
-
-        var insertionIndex = homeDropIndexForPoint(
-            centerXOnScreen = centerXOnScreen,
-            centerYOnScreen = dockDropFallbackHomeY(),
-            itemCountAfterRemoval = baseItems.size
-        )
-        return overflowApps.fold(baseItems) { currentItems, overflowApp ->
-            insertItemAtHomeIndex(
-                baseItems = currentItems,
-                index = insertionIndex++.coerceIn(0, currentItems.size),
-                item = LauncherHomeItemUiModel.App(overflowApp)
-            )
-        }
-    }
-
-    private fun moveDockItemToHome(
-        item: LauncherHomeItemUiModel,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ) {
-        val updatedDockItems = dockAdapter.itemsSnapshot()
-            .filterNot { dockItem -> dockItem.stableId == item.stableId }
-        val baseItems = item.containedApps().fold(homeItems) { currentItems, app ->
-            removeAppFromHomeItems(currentItems, app)
-        }
-        val folderTargetIndex = if (item is LauncherHomeItemUiModel.App) {
-            homeFolderDropIndexForPoint(
-                centerXOnScreen = centerXOnScreen,
-                centerYOnScreen = centerYOnScreen,
-                items = baseItems
-            )
-        } else {
-            NO_PREVIEW_INDEX
-        }
-        val dropIndex = homeDropIndexForPoint(
-            centerXOnScreen = centerXOnScreen,
-            centerYOnScreen = centerYOnScreen,
-            itemCountAfterRemoval = baseItems.size,
-            items = baseItems
-        )
-        val updatedItems = LauncherDockHomeDropResolver.resolveDrop(
-            baseItems = baseItems,
-            dockItem = item,
-            dropIndex = dropIndex,
-            folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
-        )
-        handleDockItemsChanged(updatedDockItems)
-        handleHomeItemsChanged(updatedItems)
-    }
-
-    private fun removeAppFromHomeItems(
-        items: List<LauncherHomeItemUiModel>,
-        app: LauncherIconUiModel
-    ): List<LauncherHomeItemUiModel> {
-        return removeAppFromItems(items, app)
-    }
-
-    private fun removeAppFromItems(
-        items: List<LauncherHomeItemUiModel>,
-        app: LauncherIconUiModel
-    ): List<LauncherHomeItemUiModel> {
-        val filteredItems = items.mapNotNull { item ->
-            when (item) {
-                is LauncherHomeItemUiModel.App -> {
-                    item.takeIf { current -> current.iconItem.app.iconKey != app.app.iconKey }
-                }
-
-                is LauncherHomeItemUiModel.Folder -> {
-                    val remainingApps = item.apps.filterNot { folderApp ->
-                        folderApp.app.iconKey == app.app.iconKey
-                    }
-                    item.copy(apps = remainingApps)
-                }
-
-                is LauncherHomeItemUiModel.Placeholder -> item
-            }
-        }
-        return LauncherHomeLayoutBuilder.normalize(filteredItems)
-    }
-
-    private fun containsHomeApp(
-        items: List<LauncherHomeItemUiModel>,
-        app: LauncherIconUiModel
-    ): Boolean {
-        return items.any { item ->
-            item.containedApps().any { containedApp ->
-                containedApp.app.iconKey == app.app.iconKey
-            }
-        }
-    }
-
-    private fun dockDropTargetIndexForPoint(
-        centerXOnScreen: Float,
-        centerYOnScreen: Float,
-        draggedApp: LauncherIconUiModel
-    ): Int {
-        val recyclerView = binding.workspace.dockRecyclerView
-        val recyclerLocation = IntArray(2)
-        recyclerView.getLocationOnScreen(recyclerLocation)
-        val localX = centerXOnScreen - recyclerLocation[0]
-        val localY = centerYOnScreen - recyclerLocation[1]
-        val draggedItem = LauncherHomeItemUiModel.App(draggedApp)
-
-        for (childIndex in 0 until recyclerView.childCount) {
-            val child = recyclerView.getChildAt(childIndex)
-            val holder = recyclerView.getChildViewHolder(child)
-            val position = holder.bindingAdapterPosition
-            if (position == RecyclerView.NO_POSITION) continue
-            val targetItem = dockAdapter.itemAt(position) ?: continue
-
-            val iconPlate = child.findViewById<View>(R.id.iconPlate) ?: child
-            val plateLeft = child.left + iconPlate.left.toFloat()
-            val plateTop = child.top + iconPlate.top.toFloat()
-            val plateRight = child.left + iconPlate.right.toFloat()
-            val plateBottom = child.top + iconPlate.bottom.toFloat()
-            if (!LauncherIos17DragGeometryPolicy.intersectsTargetIcon(
-                    dragCenterX = localX,
-                    dragCenterY = localY,
-                    dragIconWidth = iconPlate.width.toFloat(),
-                    dragIconHeight = iconPlate.height.toFloat(),
-                    targetLeft = plateLeft,
-                    targetTop = plateTop,
-                    targetRight = plateRight,
-                    targetBottom = plateBottom
-                )
-            ) {
-                continue
-            }
-            if (iconPlate.width <= 0 || iconPlate.height <= 0) continue
-
-            val action = LauncherHomeHoverDropPolicy.resolveAction(
-                draggedItem = draggedItem,
-                targetItem = targetItem,
-                localXInCell = ((localX - plateLeft) / iconPlate.width).coerceIn(0f, 1f),
-                localYInCell = ((localY - plateTop) / iconPlate.height).coerceIn(0f, 1f)
-            )
-            if (action == LauncherHomeHoverDropAction.FOLDER) {
-                return position
-            }
-        }
-        return NO_PREVIEW_INDEX
-    }
-
-    private fun dockDropIndexForPoint(centerXOnScreen: Float, itemCount: Int): Int {
-        val dockLocation = IntArray(2)
-        binding.workspace.dockRecyclerView.getLocationOnScreen(dockLocation)
-        val dockWidth = binding.workspace.dockRecyclerView.width.takeIf { width -> width > 0 }
-            ?: return itemCount
-        val localX = (centerXOnScreen - dockLocation[0]).coerceIn(0f, (dockWidth - 1).toFloat())
-        val slotWidth = dockWidth / DOCK_APP_COUNT.toFloat()
-        return (localX / slotWidth).toInt().coerceIn(0, DOCK_APP_COUNT - 1)
-    }
-
-    private fun homeDropIndexForPoint(
-        centerXOnScreen: Float,
-        centerYOnScreen: Float,
-        itemCountAfterRemoval: Int,
-        items: List<LauncherHomeItemUiModel> = homeItems
-    ): Int {
-        val pager = binding.workspace.workspacePager
-        val pagerWidth = pager.width.takeIf { width -> width > 0 } ?: return itemCountAfterRemoval
-        val pagerHeight = pager.height.takeIf { height -> height > 0 } ?: return itemCountAfterRemoval
-        val pagerLocation = IntArray(2)
-        pager.getLocationOnScreen(pagerLocation)
-
-        val localX = (centerXOnScreen - pagerLocation[0]).coerceIn(0f, (pagerWidth - 1).toFloat())
-        val localY = (centerYOnScreen - pagerLocation[1]).coerceIn(0f, (pagerHeight - 1).toFloat())
-        val cellWidth = pagerWidth / HOME_PAGE_COLUMNS.toFloat()
-        val cellHeight = pagerHeight / effectiveHomeGridRows.toFloat()
-        val column = (localX / cellWidth).toInt().coerceIn(0, HOME_PAGE_COLUMNS - 1)
-        val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
-        val insertAfterTarget = localX - column * cellWidth > cellWidth / 2f
-        val pageCount = homePageCountForItemCount(itemCountAfterRemoval + 1)
-        val page = currentHomePageIndex().coerceIn(0, pageCount - 1)
-        val targetIndex = page * homePageSize + row * HOME_PAGE_COLUMNS + column
-        val targetItem = items.getOrNull(targetIndex)
-        if (targetItem == null || targetItem is LauncherHomeItemUiModel.Placeholder) {
-            return targetIndex
-        }
-        return (targetIndex + if (insertAfterTarget) 1 else 0).coerceIn(0, itemCountAfterRemoval)
-    }
-
-    private fun homeFolderDropIndexForPoint(
-        centerXOnScreen: Float,
-        centerYOnScreen: Float,
-        items: List<LauncherHomeItemUiModel>
-    ): Int {
-        val target = homeTargetCellForPoint(centerXOnScreen, centerYOnScreen, items)
-            ?: return NO_PREVIEW_INDEX
-        val item = items.getOrNull(target.index) ?: return NO_PREVIEW_INDEX
-        if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
-            return NO_PREVIEW_INDEX
-        }
-        val overTargetCenter = LauncherIos17DragGeometryPolicy.isFolderInterest(
-            localXInIcon = target.localXInCell,
-            localYInIcon = target.localYInCell
-        )
-        return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
-    }
-
-    private fun homeTargetCellForPoint(
-        centerXOnScreen: Float,
-        centerYOnScreen: Float,
-        items: List<LauncherHomeItemUiModel>
-    ): HomeEdgeTargetCell? {
-        val pager = binding.workspace.workspacePager
-        val pagerWidth = pager.width.takeIf { width -> width > 0 } ?: return null
-        val pagerHeight = pager.height.takeIf { height -> height > 0 } ?: return null
-        val pagerLocation = IntArray(2)
-        pager.getLocationOnScreen(pagerLocation)
-
-        val localX = (centerXOnScreen - pagerLocation[0]).coerceIn(0f, (pagerWidth - 1).toFloat())
-        val localY = (centerYOnScreen - pagerLocation[1]).coerceIn(0f, (pagerHeight - 1).toFloat())
-        val cellWidth = pagerWidth / HOME_PAGE_COLUMNS.toFloat()
-        val cellHeight = pagerHeight / effectiveHomeGridRows.toFloat()
-        val column = (localX / cellWidth).toInt().coerceIn(0, HOME_PAGE_COLUMNS - 1)
-        val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
-        val pageCount = homePageCountForItemCount(items.size + 1)
-        val page = currentHomePageIndex().coerceIn(0, pageCount - 1)
-        return HomeEdgeTargetCell(
-            index = page * homePageSize + row * HOME_PAGE_COLUMNS + column,
-            localXInCell = ((localX - column * cellWidth) / cellWidth).coerceIn(0f, 1f),
-            localYInCell = ((localY - row * cellHeight) / cellHeight).coerceIn(0f, 1f)
-        )
-    }
-
-    private fun dockDropFallbackHomeY(): Float {
-        val pagerLocation = IntArray(2)
-        binding.workspace.workspacePager.getLocationOnScreen(pagerLocation)
-        return pagerLocation[1] + binding.workspace.workspacePager.height * 0.72f
-    }
-
-    private fun finishHomeEdgeDrag(commit: Boolean) {
-        if (!homeEdgeDragActive || homeEdgeCommitted) return
-
-        if (!commit) {
-            hideHomeEdgeDragPreview(restoreWorkspace = true)
-            return
-        }
-        homeEdgeCommitted = true
-
-        val draggedItem = homeEdgeDraggedItem
-            ?: return hideHomeEdgeDragPreview(restoreWorkspace = true)
-        val draggedApp = (draggedItem as? LauncherHomeItemUiModel.App)?.iconItem
-        val folderTargetIndex = if (draggedApp != null) {
-            homeEdgeFolderDropIndex()
-        } else {
-            NO_PREVIEW_INDEX
-        }
-        val dropIndex = if (homeEdgePreviewIndex != NO_PREVIEW_INDEX) {
-            homeEdgePreviewIndex
-        } else {
-            homeEdgeHomeDropIndex()
-        }
-        val updatedItems = if (draggedApp != null) {
-            if (homeEdgeDragFromDock) {
-                LauncherDockHomeDropResolver.resolveDrop(
-                    baseItems = homeEdgeBaseItems,
-                    dockItem = draggedItem,
-                    dropIndex = dropIndex,
-                    folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
-                )
-            } else {
-                LauncherFolderExitDropResolver.resolveDrop(
-                    baseItems = homeEdgeBaseItems,
-                    draggedApp = draggedApp,
-                    dropIndex = dropIndex,
-                    folderTargetIndex = folderTargetIndex.takeIf { index -> index != NO_PREVIEW_INDEX }
-                )
-            }
-        } else if (homeEdgeDragFromDock) {
-            LauncherDockHomeDropResolver.resolveDrop(
-                baseItems = homeEdgeBaseItems,
-                dockItem = draggedItem,
-                dropIndex = dropIndex,
-                folderTargetIndex = null
-            )
-        } else {
-            LauncherHomeItemDropResolver.resolveDrop(
-                baseItems = homeEdgeBaseItems,
-                draggedItem = draggedItem,
-                dropIndex = dropIndex,
-                sourcePlaceholderStableId = homeEdgeDragPlaceholder?.stableId,
-                columns = HOME_PAGE_COLUMNS,
-                rows = effectiveHomeGridRows
-            )
-        }
-        val committedPage = homeEdgeDragPage
-        val updatedDockItems = if (homeEdgeDragFromDock) {
-            dockAdapter.itemsSnapshot()
-                .filterNot { dockItem -> dockItem.stableId == draggedItem.stableId }
-        } else {
-            null
-        }
-
-        homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-        hideFolderEdgeGlows()
-        binding.workspace.workspacePager.post {
-            if (!homeEdgeCommitted) return@post
-            updatedDockItems?.let { items -> handleDockItemsChanged(items) }
-            handleHomeItemsChanged(updatedItems, preferredPage = committedPage)
-            dropCommitRenderGate.afterCommittedRender {
-                hideHomeEdgeDragPreview(restoreWorkspace = false)
-            }
-        }
-    }
-
-    private fun beginHomeEdgeDragIfNeeded(
-        draggedItem: LauncherHomeItemUiModel,
-        viewHolder: RecyclerView.ViewHolder
-    ) {
-        if (homeEdgeDraggedItem != null) return
-
-        homeEdgeDraggedItem = draggedItem
-        homeEdgeDragFromDock = false
-        homeEdgeCommitted = false
-        homeEdgeTouchActive = true
-        homeEdgePageSwitching = false
-        homeEdgeDragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
-        homeEdgeBaseItems = LauncherHomeDragBaseBuilder.forMovingItem(
-            items = homeItems,
-            draggedItem = draggedItem,
-            placeholder = homeEdgeDragPlaceholder
-        )
-        homeEdgeSourcePage = currentHomePageIndex()
-        homeEdgeHasLeftSourcePage = false
-        homeEdgeDragPage = currentHomePageIndex().coerceAtMost(
-            maxOf(0, homePageCountForItemCount(homeEdgeBaseItems.size + 1) - 1)
-        )
-        homeEdgePreviewIndex = NO_PREVIEW_INDEX
-        binding.workspace.workspacePager.isUserInputEnabled = false
-        binding.workspace.selectedIconImage.setImageDrawable(homeEdgePreviewDrawable(draggedItem, viewHolder))
-        binding.workspace.selectedIconLabel.text = draggedItem.label
-        binding.workspace.selectedIconPreview.apply {
-            animate().cancel()
-            alpha = 1f
-            scaleX = 1.08f
-            scaleY = 1.08f
-            elevation = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            translationZ = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            visibility = View.VISIBLE
-        }
-        homeEdgeDragActive = true
-        updateDragEdgeGlows(dragActive = true)
-    }
-
-    private fun beginDockHomeEdgeDragIfNeeded(
-        draggedItem: LauncherHomeItemUiModel,
-        viewHolder: RecyclerView.ViewHolder
-    ) {
-        if (homeEdgeDraggedItem != null) return
-
-        homeEdgeDraggedItem = draggedItem
-        homeEdgeDragFromDock = true
-        homeEdgeCommitted = false
-        homeEdgeTouchActive = true
-        homeEdgePageSwitching = false
-        homeEdgeDragPlaceholder = LauncherHomeItemUiModel.Placeholder.forDragSession()
-        homeEdgeBaseItems = draggedItem.containedApps().fold(homeItems) { currentItems, app ->
-            removeAppFromHomeItems(currentItems, app)
-        }
-        homeEdgeSourcePage = currentHomePageIndex()
-        homeEdgeHasLeftSourcePage = true
-        homeEdgeDragPage = currentHomePageIndex().coerceAtMost(
-            maxOf(0, homePageCountForItemCount(homeEdgeBaseItems.size + 1) - 1)
-        )
-        homeEdgePreviewIndex = NO_PREVIEW_INDEX
-        homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
-        homeEdgeDirection = 0
-        binding.workspace.workspacePager.isUserInputEnabled = false
-        binding.workspace.selectedIconImage.setImageDrawable(homeEdgePreviewDrawable(draggedItem, viewHolder))
-        binding.workspace.selectedIconLabel.text = draggedItem.label
-        binding.workspace.selectedIconPreview.apply {
-            animate().cancel()
-            alpha = 1f
-            scaleX = 1.08f
-            scaleY = 1.08f
-            elevation = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            translationZ = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            visibility = View.VISIBLE
-        }
-        homeEdgeDragActive = true
-        updateDragEdgeGlows(dragActive = true)
-    }
-
-    private fun homeEdgePreviewDrawable(
-        item: LauncherHomeItemUiModel,
-        viewHolder: RecyclerView.ViewHolder
-    ): Drawable? {
-        if (item is LauncherHomeItemUiModel.App) {
-            return item.iconItem.displayIcon
-        }
-
-        val fallbackDrawable = (item as? LauncherHomeItemUiModel.Folder)
-            ?.apps
-            ?.firstOrNull()
-            ?.displayIcon
-        val iconPlate = viewHolder.itemView.findViewById<View>(R.id.iconPlate)
-            ?: return fallbackDrawable
-        if (iconPlate.width <= 0 || iconPlate.height <= 0) {
-            return fallbackDrawable
-        }
-
-        val removeBadge = iconPlate.findViewById<View>(R.id.removeBadge)
-        val previousBadgeVisibility = removeBadge?.visibility
-        return try {
-            removeBadge?.visibility = View.GONE
-            val bitmap = Bitmap.createBitmap(
-                iconPlate.width,
-                iconPlate.height,
-                Bitmap.Config.ARGB_8888
-            )
-            iconPlate.draw(Canvas(bitmap))
-            BitmapDrawable(resources, bitmap)
-        } finally {
-            if (previousBadgeVisibility != null) {
-                removeBadge.visibility = previousBadgeVisibility
-            }
-        }
-    }
-
-    private fun handleHomeEdgeExternalDragEvent(event: MotionEvent): Boolean {
-        if (!homeEdgeDragActive) return false
-
-        if (homeEdgeCommitted) return true
-
-        when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> updateHomeEdgeDragPosition(event.rawX, event.rawY)
-
-            MotionEvent.ACTION_UP -> {
-                homeEdgeTouchActive = false
-                updateHomeEdgeDragPosition(event.rawX, event.rawY)
-                finishHomeEdgeDrag(commit = true)
-            }
-
-            MotionEvent.ACTION_CANCEL -> {
-                homeEdgeTouchActive = false
-                updateHomeEdgeDragPosition(event.rawX, event.rawY)
-                finishHomeEdgeDrag(commit = false)
-            }
-        }
-        return true
-    }
-
-    private fun updateHomeEdgeDragPosition(centerXOnScreen: Float, centerYOnScreen: Float) {
-        if (homeEdgeDraggedItem == null) return
-
-        val rootLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        val previewWidth = binding.workspace.selectedIconPreview.width.takeIf { it > 0 } ?: dp(DRAG_PREVIEW_WIDTH_DP)
-        val previewHeight = binding.workspace.selectedIconPreview.height.takeIf { it > 0 } ?: dp(DRAG_PREVIEW_HEIGHT_DP)
-        val rootWidth = binding.workspace.root.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
-        val rootHeight = binding.workspace.root.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
-        val rootCenterX = (centerXOnScreen - rootLocation[0]).coerceIn(0f, rootWidth.toFloat())
-        val rootCenterY = (centerYOnScreen - rootLocation[1]).coerceIn(0f, rootHeight.toFloat())
-        val previewPosition = LauncherDragPreviewPositioner.positionForIconCenter(
-            rootWidth = rootWidth,
-            rootHeight = rootHeight,
-            previewWidth = previewWidth,
-            previewHeight = previewHeight,
-            iconCenterY = dp(DRAG_PREVIEW_ICON_CENTER_Y_DP),
-            centerX = rootCenterX,
-            centerY = rootCenterY,
-            horizontalPadding = dp(4),
-            verticalPadding = dp(12)
-        )
-
-        homeEdgeDragCenterX = rootCenterX
-        homeEdgeDragCenterY = rootCenterY
-        binding.workspace.selectedIconPreview.x = previewPosition.left.toFloat()
-        binding.workspace.selectedIconPreview.y = previewPosition.top.toFloat()
-        updateHomeEdgeState(rootCenterX, rootWidth)
-        updateHomeEdgePreview()
-    }
-
-    private fun updateHomeEdgePreview() {
-        val draggedItem = homeEdgeDraggedItem ?: return
-        if (!LauncherHomeEdgePreviewPolicy.shouldUpdatePreview(
-                dragActive = homeEdgeDragActive,
-                pageSwitching = homeEdgePageSwitching,
-                edgeDirection = currentHomeEdgeDirection(),
-                dragPage = homeEdgeDragPage,
-                sourcePage = homeEdgeSourcePage,
-                hasLeftSourcePage = homeEdgeHasLeftSourcePage
-            )
-        ) {
-            homeEdgePreviewIndex = NO_PREVIEW_INDEX
-            homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
-            workspacePageAdapter.clearTemporaryHomeDragPreview()
-            return
-        }
-
-        val insertIndex = homeEdgeHomeDropIndex()
-        val draggedApp = (draggedItem as? LauncherHomeItemUiModel.App)?.iconItem
-        val folderTargetIndex = if (draggedApp != null) {
-            homeEdgeFolderDropIndex()
-        } else {
-            NO_PREVIEW_INDEX
-        }
-        if (insertIndex == homeEdgePreviewIndex && folderTargetIndex == homeEdgeFolderTargetIndex) return
-
-        homeEdgePreviewIndex = insertIndex
-        homeEdgeFolderTargetIndex = folderTargetIndex
-        val previewItems = if (draggedApp != null && folderTargetIndex != NO_PREVIEW_INDEX) {
-            LauncherFolderExitDropResolver.resolveDrop(
-                baseItems = homeEdgeBaseItems,
-                draggedApp = draggedApp,
-                dropIndex = insertIndex,
-                folderTargetIndex = folderTargetIndex
-            )
-        } else {
-            LauncherHomeItemDropResolver.resolveDrop(
-                baseItems = homeEdgeBaseItems,
-                draggedItem = homeEdgeDragPlaceholder
-                    ?: LauncherHomeItemUiModel.Placeholder.forGridIndex(insertIndex),
-                dropIndex = insertIndex,
-                columns = HOME_PAGE_COLUMNS,
-                rows = effectiveHomeGridRows
-            )
-        }
-        workspacePageAdapter.applyTemporaryHomeDragPreview(
-            baseItems = homeEdgeBaseItems,
-            previewItems = previewItems,
-            focusPage = homeEdgeDragPage
-        )
-    }
-
-    private fun updateHomeEdgeState(rootCenterX: Float, rootWidth: Int) {
-        val direction = homeEdgeDirectionForCenter(rootCenterX, rootWidth)
-        updateDragEdgeGlows(dragActive = homeEdgeDragActive)
-
-        if (homeEdgePageSwitching) {
-            homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-            homeEdgeDirection = 0
-            return
-        }
-
-        if (direction == 0) {
-            homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-            homeEdgeDirection = 0
-            return
-        }
-        if (direction == homeEdgeDirection) return
-
-        homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-        homeEdgeDirection = direction
-        homeEdgeSwitchHandler.postDelayed(homeEdgeSwitchRunnable, HOME_EDGE_SWITCH_DELAY_MS)
-    }
-
-    private fun currentHomeEdgeDirection(): Int {
-        val rootWidth = binding.workspace.root.width
-        if (rootWidth <= 0) return 0
-        return homeEdgeDirectionForCenter(homeEdgeDragCenterX, rootWidth)
-    }
-
-    private fun homeEdgeDirectionForCenter(rootCenterX: Float, rootWidth: Int): Int {
-        return LauncherHomePageEdgeDragPolicy.directionForCenter(
-            rootCenterX = rootCenterX,
-            rootWidth = rootWidth,
-            edgeZonePx = dp(HOME_EDGE_SWITCH_ZONE_DP)
-        )
-    }
-
-    private fun performHomeEdgeSwitch() {
-        val direction = homeEdgeDirection
-        if (!homeEdgeDragActive || homeEdgeCommitted || homeEdgePageSwitching || direction == 0) return
-
-        var baseChanged = false
-        if (direction < 0 && homeEdgeDragPage == 0) {
-            homeEdgeDirection = 0
-            return
-        } else {
-            val targetPage = maxOf(0, homeEdgeDragPage + direction)
-            if (targetPage >= homePageCountForItemCount(homeEdgeBaseItems.size + 1)) {
-                if (!LauncherIos17DragDropPolicy.canCreateNextPage(
-                        currentPageItemCount = homeEdgePageItemCount(homeEdgeDragPage),
-                        autoArrange = layoutAutoArrange
-                    )
-                ) {
-                    homeEdgeDirection = 0
-                    return
-                }
-                homeEdgeBaseItems = ensurePageExists(homeEdgeBaseItems, targetPage)
-                baseChanged = true
-            }
-            homeEdgeDragPage = targetPage
-            if (targetPage != homeEdgeSourcePage) {
-                homeEdgeHasLeftSourcePage = true
-            }
-        }
-        homeEdgePreviewIndex = NO_PREVIEW_INDEX
-        homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
-        workspacePageAdapter.clearTemporaryHomeDragPreview()
-        if (baseChanged) {
-            workspacePageAdapter.ensureTemporaryHomePage(homeEdgeDragPage)
-        }
-        binding.workspace.workspacePager.postDelayed({
-            if (homeEdgeDragActive) {
-                smoothScrollHomeEdgeToPage(homeEdgeDragPage)
-            }
-        }, if (baseChanged) HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS else HOME_EDGE_SWITCH_START_DELAY_MS)
-        showPageIndicator(workspacePageAdapter.adapterPositionForHomePage(homeEdgeDragPage))
-        homeEdgeDirection = 0
-    }
-
-    private fun homeEdgePageItemCount(page: Int): Int {
-        val start = page.coerceAtLeast(0) * homePageSize
-        val end = start + homePageSize
-        return homeEdgeBaseItems
-            .subList(start.coerceAtMost(homeEdgeBaseItems.size), end.coerceAtMost(homeEdgeBaseItems.size))
-            .count { item -> item !is LauncherHomeItemUiModel.Placeholder }
-    }
-
-    private fun smoothScrollHomeEdgeToPage(homePage: Int) {
-        val targetAdapterPosition = workspacePageAdapter.adapterPositionForHomePage(homePage)
-        val pager = binding.workspace.workspacePager
-        if (pager.currentItem == targetAdapterPosition) {
-            pager.post { updateHomeEdgePreview() }
-            return
-        }
-
-        homeEdgePageSwitching = true
-        val recyclerView = pager.getChildAt(0) as? RecyclerView
-        val layoutManager = recyclerView?.layoutManager as? LinearLayoutManager
-        if (layoutManager == null) {
-            pager.setCurrentItem(targetAdapterPosition, true)
-        } else {
-            val smoothScroller = object : LinearSmoothScroller(this) {
-                override fun calculateTimeForScrolling(dx: Int): Int {
-                    return HOME_EDGE_PAGE_SWITCH_ANIMATION_MS.toInt()
-                }
-
-                override fun calculateTimeForDeceleration(dx: Int): Int {
-                    return HOME_EDGE_PAGE_SWITCH_ANIMATION_MS.toInt()
-                }
-
-                override fun getHorizontalSnapPreference(): Int {
-                    return SNAP_TO_START
-                }
-            }
-            smoothScroller.targetPosition = targetAdapterPosition
-            layoutManager.startSmoothScroll(smoothScroller)
-        }
-
-        pager.postDelayed(
-            {
-                homeEdgePageSwitching = false
-                if (!homeEdgeDragActive || homeEdgeCommitted) return@postDelayed
-                if (pager.currentItem != targetAdapterPosition &&
-                    pager.scrollState == ViewPager2.SCROLL_STATE_IDLE
-                ) {
-                    pager.setCurrentItem(targetAdapterPosition, false)
-                }
-                updateHomeEdgePreview()
-            },
-            HOME_EDGE_PAGE_SWITCH_ANIMATION_MS + HOME_EDGE_PAGE_SWITCH_SETTLE_MS
-        )
-    }
-
-    private fun ensurePageExists(
-        items: List<LauncherHomeItemUiModel>,
-        page: Int
-    ): List<LauncherHomeItemUiModel> {
-        return LauncherHomeScreenGridPolicy.ensurePageExists(
-            items = items,
-            page = page,
-            pageSize = homePageSize
-        )
-    }
-
-    private fun homeEdgeHomeDropIndex(): Int {
-        val pager = binding.workspace.workspacePager
-        val pagerWidth = pager.width.takeIf { it > 0 } ?: return homeEdgeBaseItems.size
-        val pagerHeight = pager.height.takeIf { it > 0 } ?: return homeEdgeBaseItems.size
-        val rootLocation = IntArray(2)
-        val pagerLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        pager.getLocationOnScreen(pagerLocation)
-
-        val pagerLeftInRoot = pagerLocation[0] - rootLocation[0]
-        val pagerTopInRoot = pagerLocation[1] - rootLocation[1]
-        val localX = (homeEdgeDragCenterX - pagerLeftInRoot).coerceIn(0f, (pagerWidth - 1).toFloat())
-        val localY = (homeEdgeDragCenterY - pagerTopInRoot).coerceIn(0f, (pagerHeight - 1).toFloat())
-        val cellWidth = pagerWidth / HOME_PAGE_COLUMNS.toFloat()
-        val cellHeight = pagerHeight / effectiveHomeGridRows.toFloat()
-        val column = (localX / cellWidth).toInt().coerceIn(0, HOME_PAGE_COLUMNS - 1)
-        val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
-        val insertAfterTarget = localX - column * cellWidth > cellWidth / 2f
-        val targetIndex = homeEdgeDragPage * homePageSize +
-            row * HOME_PAGE_COLUMNS +
-            column
-        if (homeEdgeBaseItems.getOrNull(targetIndex) is LauncherHomeItemUiModel.Placeholder) {
-            return targetIndex
-        }
-        return targetIndex + if (insertAfterTarget) 1 else 0
-    }
-
-    private fun homeEdgeFolderDropIndex(): Int {
-        val target = homeEdgeTargetCell() ?: return NO_PREVIEW_INDEX
-        val item = homeEdgeBaseItems.getOrNull(target.index) ?: return NO_PREVIEW_INDEX
-        if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
-            return NO_PREVIEW_INDEX
-        }
-        val overTargetCenter = LauncherIos17DragGeometryPolicy.isFolderInterest(
-            localXInIcon = target.localXInCell,
-            localYInIcon = target.localYInCell
-        )
-        return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
-    }
-
-    private fun homeEdgeTargetCell(): HomeEdgeTargetCell? {
-        val pager = binding.workspace.workspacePager
-        val pagerWidth = pager.width.takeIf { it > 0 } ?: return null
-        val pagerHeight = pager.height.takeIf { it > 0 } ?: return null
-        val rootLocation = IntArray(2)
-        val pagerLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        pager.getLocationOnScreen(pagerLocation)
-
-        val pagerLeftInRoot = pagerLocation[0] - rootLocation[0]
-        val pagerTopInRoot = pagerLocation[1] - rootLocation[1]
-        val localX = (homeEdgeDragCenterX - pagerLeftInRoot).coerceIn(0f, (pagerWidth - 1).toFloat())
-        val localY = (homeEdgeDragCenterY - pagerTopInRoot).coerceIn(0f, (pagerHeight - 1).toFloat())
-        val cellWidth = pagerWidth / HOME_PAGE_COLUMNS.toFloat()
-        val cellHeight = pagerHeight / effectiveHomeGridRows.toFloat()
-        val column = (localX / cellWidth).toInt().coerceIn(0, HOME_PAGE_COLUMNS - 1)
-        val row = (localY / cellHeight).toInt().coerceIn(0, effectiveHomeGridRows - 1)
-        val localXInCell = ((localX - column * cellWidth) / cellWidth).coerceIn(0f, 1f)
-        val localYInCell = ((localY - row * cellHeight) / cellHeight).coerceIn(0f, 1f)
-        return HomeEdgeTargetCell(
-            index = homeEdgeDragPage * homePageSize + row * HOME_PAGE_COLUMNS + column,
-            localXInCell = localXInCell,
-            localYInCell = localYInCell
-        )
-    }
-
-    private fun insertItemAtHomeIndex(
-        baseItems: List<LauncherHomeItemUiModel>,
-        index: Int,
-        item: LauncherHomeItemUiModel
-    ): List<LauncherHomeItemUiModel> {
-        val targetIndex = index.coerceAtLeast(0)
-        return baseItems.toMutableList().apply {
-            while (size < targetIndex) {
-                add(LauncherHomeItemUiModel.Placeholder.forGridIndex(size))
-            }
-            val boundedIndex = targetIndex.coerceAtMost(size)
-            if (getOrNull(boundedIndex) is LauncherHomeItemUiModel.Placeholder) {
-                this[boundedIndex] = item
-            } else {
-                add(boundedIndex, item)
-            }
-        }
-    }
-
-    private fun hideHomeEdgeDragPreview(restoreWorkspace: Boolean) {
-        workspacePageAdapter.clearTemporaryHomeDragPreview()
-        if (restoreWorkspace) {
-            workspacePageAdapter.submitItems(homeItems)
-            updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
-        }
-        homeEdgeDragActive = false
-        homeEdgeDraggedItem = null
-        homeEdgeDragPlaceholder = null
-        homeEdgeBaseItems = emptyList()
-        homeEdgeDragFromDock = false
-        homeEdgeSourcePage = 0
-        homeEdgeHasLeftSourcePage = false
-        homeEdgePreviewIndex = NO_PREVIEW_INDEX
-        homeEdgeFolderTargetIndex = NO_PREVIEW_INDEX
-        homeEdgeDirection = 0
-        homeEdgeCommitted = false
-        homeEdgeTouchActive = false
-        homeEdgePageSwitching = false
-        homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-        hideFolderEdgeGlows()
-        binding.workspace.workspacePager.isUserInputEnabled = true
-        forceHideSelectedIconPreview()
-    }
-
-    private fun showFolderOverlay(folder: LauncherHomeItemUiModel.Folder, source: FolderSource = FolderSource.HOME) {
-        openFolderSource = source
-        folderController.show(folder)
-    }
-
-    private fun hideFolderOverlay(
-        restoreFolderExitPreview: Boolean = true,
-        restoreFolderOverlayBackground: Boolean = true,
-        animate: Boolean = true
-    ) {
-        hideFolderExitDragPreview(restoreWorkspace = restoreFolderExitPreview)
-        resetFolderExitDragVisuals(restoreFolderOverlayBackground)
-        folderController.hide(animate = animate)
-        if (!animate && !restoreFolderOverlayBackground) {
-            binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
-        }
-        openFolderSource = FolderSource.HOME
-    }
-
-    private fun updateOpenFolderContent() {
-        folderController.updateContent(
-            if (openFolderSource == FolderSource.DOCK) {
-                dockItems
-            } else {
-                homeItems
-            }
-        )
-    }
-
-    private fun handleOpenFolderItemsChanged(items: List<LauncherHomeItemUiModel>) {
-        val folderId = folderController.currentFolderId() ?: return
-        val reorderedApps = LauncherHomeLayoutBuilder.flattenApps(items)
-        if (openFolderSource == FolderSource.DOCK) {
-            val updatedDockItems = dockItems.flatMap { item ->
-                if (item is LauncherHomeItemUiModel.Folder && item.id == folderId) {
-                    LauncherHomeLayoutBuilder.normalize(listOf(item.copy(apps = reorderedApps)))
-                } else {
-                    listOf(item)
-                }
-            }
-            handleDockItemsChanged(updatedDockItems)
-            return
-        }
-
-        val updatedItems = homeItems.flatMap { item ->
-            if (item is LauncherHomeItemUiModel.Folder && item.id == folderId) {
-                LauncherHomeLayoutBuilder.normalize(listOf(item.copy(apps = reorderedApps)))
-            } else {
-                listOf(item)
-            }
-        }
-        handleHomeItemsChanged(updatedItems)
-    }
-
-    private fun handleFolderItemDroppedOutside(item: LauncherHomeItemUiModel?): Boolean {
-        val draggedApp = folderExitDraggedApp
-            ?: (item as? LauncherHomeItemUiModel.App)?.iconItem
-            ?: return false
-        if (!folderExitDropCommitGuard.tryCommit()) return true
-
-        val baseItems = folderExitBaseHomeItems.ifEmpty {
-            removeAppFromOpenFolder(draggedApp)
-        }
-        val folderTargetIndex = folderExitFolderDropIndex(baseItems)
-            .takeIf { index -> index != NO_PREVIEW_INDEX }
-        val dropIndex = if (folderExitPreviewIndex != NO_PREVIEW_INDEX) {
-            folderExitPreviewIndex
-        } else {
-            folderExitHomeDropIndex()
-        }
-        val updatedItems = LauncherFolderExitDropResolver.resolveDrop(
-            baseItems = baseItems,
-            draggedApp = draggedApp,
-            dropIndex = dropIndex,
-            folderTargetIndex = folderTargetIndex
-        )
-
-        if (openFolderSource == FolderSource.DOCK) {
-            handleDockItemsChanged(removeAppFromDockFolder(draggedApp))
-        }
-        folderContentAdapter.clearActiveTouch()
-        folderContentAdapter.setActiveDragStableId(null)
-        handleHomeItemsChanged(
-            items = updatedItems,
-            preferredPage = folderExitDragPage,
-            refreshOpenFolder = false,
-            refreshAppearance = false
-        )
-        dropCommitRenderGate.afterCommittedRender {
-            hideFolderOverlay(
-                restoreFolderExitPreview = false,
-                restoreFolderOverlayBackground = false,
-                animate = false
-            )
-        }
-        return true
-    }
-
-    private fun isFolderDragCenterOutsidePanel(centerXOnScreen: Float, centerYOnScreen: Float): Boolean {
-        val panel = binding.workspace.folderContentPanel
-        val panelLocation = IntArray(2)
-        panel.getLocationOnScreen(panelLocation)
-        val hitScaleX = if (folderExitDragCollapsed) FOLDER_EXIT_COLLAPSED_PANEL_SCALE else panel.scaleX
-        val hitScaleY = if (folderExitDragCollapsed) FOLDER_EXIT_COLLAPSED_PANEL_SCALE else panel.scaleY
-
-        return LauncherScaledBoundsHitTest.isOutside(
-            pointX = centerXOnScreen,
-            pointY = centerYOnScreen,
-            left = panelLocation[0].toFloat(),
-            top = panelLocation[1].toFloat(),
-            width = panel.width.toFloat(),
-            height = panel.height.toFloat(),
-            scaleX = hitScaleX,
-            scaleY = hitScaleY,
-            slop = dp(FOLDER_EXIT_SLOP_DP).toFloat()
-        )
-    }
-
-    private fun handleFolderDragOutsideChanged(
-        item: LauncherHomeItemUiModel?,
-        outside: Boolean,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ) {
-        if (outside) {
-            showFolderExitDragPreview(item, centerXOnScreen, centerYOnScreen)
-        } else {
-            hideFolderExitDragPreview(restoreWorkspace = true)
-            restoreOpenFolderAfterExitDrag()
-        }
-    }
-
-    private fun handleFolderDragMoved(
-        item: LauncherHomeItemUiModel?,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): Boolean {
-        if (!editingHome) return false
-        if (!isFolderDragCenterOutsidePanel(centerXOnScreen, centerYOnScreen)) {
-            return false
-        }
-
-        showFolderExitDragPreview(item, centerXOnScreen, centerYOnScreen)
-        return true
-    }
-
-    private fun handleFolderDragEnded(
-        item: LauncherHomeItemUiModel?,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ): Boolean {
-        if (!folderExitDragActive) return false
-
-        val dropCenterX = folderExitDragCenterXOnScreen.takeIf { it > 0f } ?: centerXOnScreen
-        val dropCenterY = folderExitDragCenterYOnScreen.takeIf { it > 0f } ?: centerYOnScreen
-        updateFolderExitDragPosition(dropCenterX, dropCenterY, immediate = true)
-        return if (isFolderDragCenterOutsidePanel(dropCenterX, dropCenterY)) {
-            handleFolderItemDroppedOutside(item)
-        } else {
-            hideFolderExitDragPreview(restoreWorkspace = true)
-            restoreOpenFolderAfterExitDrag()
-            true
-        }
-    }
-
-    private fun showFolderExitDragPreview(
-        item: LauncherHomeItemUiModel?,
-        centerXOnScreen: Float,
-        centerYOnScreen: Float
-    ) {
-        val draggedApp = (item as? LauncherHomeItemUiModel.App)?.iconItem
-            ?: folderExitDraggedApp
-            ?: return
-        beginFolderExitDragIfNeeded(draggedApp)
-
-        collapseOpenFolderForExitDrag()
-        bindFolderExitDragPreviewIfNeeded(draggedApp)
-        val firstPosition = folderExitDragCenterXOnScreen == 0f && folderExitDragCenterYOnScreen == 0f
-        updateFolderExitDragPosition(centerXOnScreen, centerYOnScreen, immediate = firstPosition)
-    }
-
-    private fun bindFolderExitDragPreviewIfNeeded(draggedApp: LauncherIconUiModel) {
-        val iconKey = draggedApp.app.iconKey
-        if (folderExitPreviewIconKey == iconKey &&
-            binding.workspace.selectedIconPreview.visibility == View.VISIBLE
-        ) {
-            return
-        }
-
-        folderExitPreviewIconKey = iconKey
-        binding.workspace.selectedIconImage.setImageDrawable(draggedApp.displayIcon)
-        binding.workspace.selectedIconLabel.text = draggedApp.label
-        binding.workspace.selectedIconPreview.bringToFront()
-        binding.workspace.selectedIconPreview.apply {
-            animate().cancel()
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            alpha = 1f
-            scaleX = 1.08f
-            scaleY = 1.08f
-            elevation = dp(DRAG_PREVIEW_ELEVATION_DP).toFloat()
-            translationZ = dp(FOLDER_EXIT_PREVIEW_ELEVATION_DP).toFloat()
-            visibility = View.VISIBLE
-        }
-        if (folderExitDragMetrics == null) {
-            folderExitDragMetrics = captureFolderExitDragMetrics()
-        }
-    }
-
-    private fun hideFolderExitDragPreview(restoreWorkspace: Boolean = false) {
-        if (restoreWorkspace && folderExitBaseHomeItems.isNotEmpty()) {
-            workspacePageAdapter.submitItems(homeItems)
-            updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
-        }
-        folderExitDragActive = false
-        folderExitDraggedApp = null
-        folderExitBaseHomeItems = emptyList()
-        folderExitPreviewIconKey = null
-        folderExitDragMetrics = null
-        folderExitPreviewIndex = NO_PREVIEW_INDEX
-        folderExitFolderTargetIndex = NO_PREVIEW_INDEX
-        folderExitEdgeDirection = 0
-        folderExitDragCenterXOnScreen = 0f
-        folderExitDragCenterYOnScreen = 0f
-        folderExitPendingCenterXOnScreen = 0f
-        folderExitPendingCenterYOnScreen = 0f
-        folderExitPositionFramePosted = false
-        binding.workspace.root.removeCallbacks(folderExitPositionRunnable)
-        if (::folderContentAdapter.isInitialized) {
-            folderContentAdapter.clearActiveTouch()
-            folderContentAdapter.setActiveDragStableId(null)
-        }
-        folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-        hideFolderEdgeGlows()
-        binding.workspace.workspacePager.isUserInputEnabled = true
-        forceHideSelectedIconPreview()
-    }
-
-    private fun beginFolderExitDragIfNeeded(draggedApp: LauncherIconUiModel) {
-        if (folderExitDraggedApp != null) return
-
-        folderExitDragActive = true
-        folderExitDropCommitGuard.beginDrag()
-        folderExitDraggedApp = draggedApp
-        folderExitBaseHomeItems = removeAppFromOpenFolder(draggedApp)
-        folderExitDragPage = currentHomePageIndex().coerceIn(
-            0,
-            homePageCountForItemCount(folderExitBaseHomeItems.size + 1) - 1
-        )
-        folderExitPreviewIndex = NO_PREVIEW_INDEX
-        folderExitFolderTargetIndex = NO_PREVIEW_INDEX
-        folderExitPreviewIconKey = null
-        folderExitDragMetrics = null
-        binding.workspace.workspacePager.isUserInputEnabled = false
-        updateDragEdgeGlows(dragActive = true)
-    }
-
-    private fun removeAppFromOpenFolder(draggedApp: LauncherIconUiModel): List<LauncherHomeItemUiModel> {
-        val folderId = folderController.currentFolderId() ?: return homeItems
-        if (openFolderSource == FolderSource.DOCK) {
-            return homeItems
-        }
-        return homeItems.flatMap { homeItem ->
-            if (homeItem is LauncherHomeItemUiModel.Folder && homeItem.id == folderId) {
-                val remainingApps = homeItem.apps.filterNot { app ->
-                    app.app.iconKey == draggedApp.app.iconKey
-                }
-                LauncherHomeLayoutBuilder.normalize(listOf(homeItem.copy(apps = remainingApps)))
-            } else {
-                listOf(homeItem)
-            }
-        }
-    }
-
-    private fun removeAppFromDockFolder(draggedApp: LauncherIconUiModel): List<LauncherHomeItemUiModel> {
-        val folderId = folderController.currentFolderId() ?: return dockItems
-        return dockItems.flatMap { dockItem ->
-            if (dockItem is LauncherHomeItemUiModel.Folder && dockItem.id == folderId) {
-                val remainingApps = dockItem.apps.filterNot { app ->
-                    app.app.iconKey == draggedApp.app.iconKey
-                }
-                LauncherHomeLayoutBuilder.normalize(listOf(dockItem.copy(apps = remainingApps)))
-            } else {
-                listOf(dockItem)
-            }
-        }
-    }
-
-    private fun handleFolderExitExternalDragEvent(event: MotionEvent): Boolean {
-        if (!folderExitDragActive) return false
-
-        if (::folderContentAdapter.isInitialized) {
-            folderContentAdapter.updateActiveTouch(event.rawX, event.rawY)
-        }
-        when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> updateFolderExitDragPosition(event.rawX, event.rawY)
-
-            MotionEvent.ACTION_UP -> {
-                updateFolderExitDragPosition(event.rawX, event.rawY, immediate = true)
-                folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-                hideFolderEdgeGlows()
-                folderExitEdgeDirection = 0
-                if (isFolderDragCenterOutsidePanel(event.rawX, event.rawY)) {
-                    handleFolderItemDroppedOutside(null)
-                } else {
-                    hideFolderExitDragPreview(restoreWorkspace = true)
-                    restoreOpenFolderAfterExitDrag()
-                }
-            }
-
-            MotionEvent.ACTION_CANCEL -> {
-                updateFolderExitDragPosition(event.rawX, event.rawY, immediate = true)
-                folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-                hideFolderEdgeGlows()
-                folderExitEdgeDirection = 0
-                hideFolderExitDragPreview(restoreWorkspace = true)
-                restoreOpenFolderAfterExitDrag()
-            }
-        }
-        return true
-    }
-
-    private fun updateFolderExitDragPosition(
-        centerXOnScreen: Float,
-        centerYOnScreen: Float,
-        immediate: Boolean = false
-    ) {
-        if (folderExitDraggedApp == null) return
-
-        folderExitPendingCenterXOnScreen = centerXOnScreen
-        folderExitPendingCenterYOnScreen = centerYOnScreen
-        if (immediate) {
-            binding.workspace.root.removeCallbacks(folderExitPositionRunnable)
-            folderExitPositionFramePosted = false
-            applyFolderExitDragPosition(centerXOnScreen, centerYOnScreen)
-            return
-        }
-
-        if (folderExitPositionFramePosted) return
-
-        folderExitPositionFramePosted = true
-        binding.workspace.root.postOnAnimation(folderExitPositionRunnable)
-    }
-
-    private fun applyFolderExitDragPosition(centerXOnScreen: Float, centerYOnScreen: Float) {
-        if (folderExitDraggedApp == null) return
-
-        folderExitDragCenterXOnScreen = centerXOnScreen
-        folderExitDragCenterYOnScreen = centerYOnScreen
-        val metrics = folderExitDragMetrics ?: captureFolderExitDragMetrics().also { metrics ->
-            folderExitDragMetrics = metrics
-        }
-        val rootCenterX = (centerXOnScreen - metrics.rootLeftOnScreen).coerceIn(0f, metrics.rootWidth.toFloat())
-        val rootCenterY = (centerYOnScreen - metrics.rootTopOnScreen).coerceIn(0f, metrics.rootHeight.toFloat())
-        val previewPosition = LauncherDragPreviewPositioner.positionForIconCenter(
-            rootWidth = metrics.rootWidth,
-            rootHeight = metrics.rootHeight,
-            previewWidth = metrics.previewWidth,
-            previewHeight = metrics.previewHeight,
-            iconCenterY = dp(DRAG_PREVIEW_ICON_CENTER_Y_DP),
-            centerX = rootCenterX,
-            centerY = rootCenterY,
-            horizontalPadding = dp(4),
-            verticalPadding = dp(12)
-        )
-
-        folderExitDragCenterX = rootCenterX
-        folderExitDragCenterY = rootCenterY
-        binding.workspace.selectedIconPreview.x = previewPosition.left.toFloat()
-        binding.workspace.selectedIconPreview.y = previewPosition.top.toFloat()
-        updateFolderExitEdgeState(rootCenterX, metrics.rootWidth)
-        updateFolderExitHomePreview()
-    }
-
-    private fun captureFolderExitDragMetrics(): FolderExitDragMetrics {
-        val rootLocation = IntArray(2)
-        val pagerLocation = IntArray(2)
-        binding.workspace.root.getLocationOnScreen(rootLocation)
-        binding.workspace.workspacePager.getLocationOnScreen(pagerLocation)
-
-        val rootWidth = binding.workspace.root.width.takeIf { it > 0 }
-            ?: resources.displayMetrics.widthPixels
-        val rootHeight = binding.workspace.root.height.takeIf { it > 0 }
-            ?: resources.displayMetrics.heightPixels
-        val previewWidth = binding.workspace.selectedIconPreview.width.takeIf { it > 0 }
-            ?: dp(DRAG_PREVIEW_WIDTH_DP)
-        val previewHeight = binding.workspace.selectedIconPreview.height.takeIf { it > 0 }
-            ?: dp(DRAG_PREVIEW_HEIGHT_DP)
-        val pagerWidth = binding.workspace.workspacePager.width.takeIf { it > 0 } ?: rootWidth
-        val pagerHeight = binding.workspace.workspacePager.height.takeIf { it > 0 } ?: rootHeight
-        val cellWidth = pagerWidth / HOME_PAGE_COLUMNS.toFloat()
-        val cellHeight = pagerHeight / effectiveHomeGridRows.toFloat()
-
-        return FolderExitDragMetrics(
-            rootLeftOnScreen = rootLocation[0],
-            rootTopOnScreen = rootLocation[1],
-            rootWidth = rootWidth,
-            rootHeight = rootHeight,
-            previewWidth = previewWidth,
-            previewHeight = previewHeight,
-            pagerLeftInRoot = (pagerLocation[0] - rootLocation[0]).toFloat(),
-            pagerTopInRoot = (pagerLocation[1] - rootLocation[1]).toFloat(),
-            pagerWidth = pagerWidth,
-            pagerHeight = pagerHeight,
-            cellWidth = cellWidth,
-            cellHeight = cellHeight
-        )
-    }
-
-    private fun updateFolderExitHomePreview() {
-        val baseItems = folderExitBaseHomeItems
-        if (baseItems.isEmpty() || folderExitDraggedApp == null) return
-
-        val insertIndex = folderExitHomeDropIndex()
-        val folderTargetIndex = folderExitFolderDropIndex(baseItems)
-        if (insertIndex == folderExitPreviewIndex && folderTargetIndex == folderExitFolderTargetIndex) return
-
-        folderExitPreviewIndex = insertIndex
-        folderExitFolderTargetIndex = folderTargetIndex
-        val draggedApp = folderExitDraggedApp ?: return
-        val previewItems = if (folderTargetIndex != NO_PREVIEW_INDEX) {
-            LauncherFolderExitDropResolver.resolveDrop(
-                baseItems = baseItems,
-                draggedApp = draggedApp,
-                dropIndex = insertIndex,
-                folderTargetIndex = folderTargetIndex
-            )
-        } else {
-            insertItemAtHomeIndex(
-                baseItems = baseItems,
-                index = insertIndex,
-                item = LauncherHomeItemUiModel.Placeholder.forGridIndex(insertIndex)
-            )
-        }
-        workspacePageAdapter.submitDragPreviewItems(
-            items = previewItems,
-            focusPage = folderExitDragPage
-        )
-    }
-
-    private fun updateFolderExitEdgeState(rootCenterX: Float, rootWidth: Int) {
-        val edgeZone = dp(FOLDER_EDGE_SWITCH_ZONE_DP)
-        val direction = when {
-            rootCenterX <= edgeZone -> -1
-            rootCenterX >= rootWidth - edgeZone -> 1
-            else -> 0
-        }
-
-        updateDragEdgeGlows(dragActive = folderExitDragActive)
-
-        if (direction == 0 || !canSwitchFolderExitPage(direction)) {
-            folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-            folderExitEdgeDirection = 0
-            return
-        }
-        if (direction == folderExitEdgeDirection) return
-
-        folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-        folderExitEdgeDirection = direction
-        folderEdgeSwitchHandler.postDelayed(folderEdgeSwitchRunnable, FOLDER_EDGE_SWITCH_DELAY_MS)
-    }
-
-    private fun performFolderExitEdgeSwitch() {
-        val direction = folderExitEdgeDirection
-        if (direction == 0 || !canSwitchFolderExitPage(direction)) return
-
-        var baseChanged = false
-        val targetPage = maxOf(0, folderExitDragPage + direction)
-        if (targetPage >= homePageCountForItemCount(folderExitBaseHomeItems.size + 1)) {
-            folderExitBaseHomeItems = ensurePageExists(folderExitBaseHomeItems, targetPage)
-            baseChanged = true
-        }
-        folderExitDragPage = targetPage
-        folderExitPreviewIndex = NO_PREVIEW_INDEX
-        folderExitFolderTargetIndex = NO_PREVIEW_INDEX
-        if (baseChanged) {
-            workspacePageAdapter.submitDragPreviewItems(
-                items = folderExitBaseHomeItems,
-                focusPage = folderExitDragPage
-            )
-        }
-        binding.workspace.workspacePager.setCurrentItem(
-            workspacePageAdapter.adapterPositionForHomePage(folderExitDragPage),
-            false
-        )
-        showPageIndicator(workspacePageAdapter.adapterPositionForHomePage(folderExitDragPage))
-        updateFolderExitHomePreview()
-        folderExitEdgeDirection = 0
-    }
-
-    private fun canSwitchFolderExitPage(direction: Int): Boolean {
-        val targetPage = folderExitDragPage + direction
-        return targetPage >= 0 &&
-            targetPage <= homePageCountForItemCount(folderExitBaseHomeItems.size + 1)
-    }
-
-    private fun updateDragEdgeGlows(dragActive: Boolean) {
-        val state = LauncherDragEdgeGlowPolicy.resolve(dragActive)
-        setDragEdgeGlowVisible(binding.workspace.folderDragLeftEdgeGlow, state.showLeft)
-        setDragEdgeGlowVisible(binding.workspace.folderDragRightEdgeGlow, state.showRight)
-    }
-
-    private fun setDragEdgeGlowVisible(view: View, visible: Boolean) {
-        view.animate().cancel()
-        if (visible) {
-            if (view.visibility != View.VISIBLE) {
-                view.alpha = 0f
-                view.visibility = View.VISIBLE
-            }
-            view.animate()
-                .alpha(1f)
-                .setDuration(DRAG_EDGE_GLOW_FADE_MS)
-                .start()
-        } else {
-            view.alpha = 0f
-            view.visibility = View.GONE
-        }
-    }
-
-    private fun hideFolderEdgeGlows() {
-        updateDragEdgeGlows(dragActive = false)
-    }
-
-    private fun collapseOpenFolderForExitDrag() {
-        if (folderExitDragCollapsed) return
-
-        folderExitDragCollapsed = true
-        binding.workspace.folderOverlay.setBackgroundColor(Color.TRANSPARENT)
-        visualEffectsController.clearHomeBlur()
-        binding.workspace.folderContentPanel.animate().cancel()
-        binding.workspace.folderContentPanel.animate()
-            .alpha(0f)
-            .scaleX(FOLDER_EXIT_COLLAPSED_PANEL_SCALE)
-            .scaleY(FOLDER_EXIT_COLLAPSED_PANEL_SCALE)
-            .setDuration(160L)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-        binding.workspace.folderTitle.animate().cancel()
-        binding.workspace.folderTitle.animate()
-            .alpha(0f)
-            .translationY(dp(10).toFloat())
-            .setDuration(120L)
-            .start()
-    }
-
-    private fun restoreOpenFolderAfterExitDrag() {
-        if (!folderExitDragCollapsed) return
-
-        folderExitDragCollapsed = false
-        binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
-        visualEffectsController.applyFolderBlur()
-        binding.workspace.folderContentPanel.animate().cancel()
-        binding.workspace.folderContentPanel.animate()
-            .alpha(1f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(150L)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-        binding.workspace.folderTitle.animate().cancel()
-        binding.workspace.folderTitle.animate()
-            .alpha(1f)
-            .translationY(0f)
-            .setDuration(140L)
-            .start()
-    }
-
-    private fun resetFolderExitDragVisuals(
-        restoreFolderOverlayBackground: Boolean = true
-    ) {
-        folderExitDragActive = false
-        folderExitDragCollapsed = false
-        folderExitEdgeDirection = 0
-        folderExitFolderTargetIndex = NO_PREVIEW_INDEX
-        folderExitPreviewIconKey = null
-        folderExitDragMetrics = null
-        folderExitDragCenterXOnScreen = 0f
-        folderExitDragCenterYOnScreen = 0f
-        folderExitPendingCenterXOnScreen = 0f
-        folderExitPendingCenterYOnScreen = 0f
-        folderExitPositionFramePosted = false
-        binding.workspace.root.removeCallbacks(folderExitPositionRunnable)
-        folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-        hideFolderEdgeGlows()
-        binding.workspace.workspacePager.isUserInputEnabled = true
-        if (restoreFolderOverlayBackground) {
-            binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
-        }
-    }
-
-    private fun folderExitHomeDropIndex(): Int {
-        if (!folderExitDragActive) return folderExitBaseHomeItems.size
-
-        val metrics = folderExitDragMetrics ?: return folderExitBaseHomeItems.size
-        val localX = (folderExitDragCenterX - metrics.pagerLeftInRoot)
-            .coerceIn(0f, (metrics.pagerWidth - 1).toFloat())
-        val localY = (folderExitDragCenterY - metrics.pagerTopInRoot)
-            .coerceIn(0f, (metrics.pagerHeight - 1).toFloat())
-        val column = (localX / metrics.cellWidth)
-            .toInt()
-            .coerceIn(0, HOME_PAGE_COLUMNS - 1)
-        val row = (localY / metrics.cellHeight)
-            .toInt()
-            .coerceIn(0, effectiveHomeGridRows - 1)
-        val insertAfterTarget = localX - column * metrics.cellWidth > metrics.cellWidth / 2f
-        val page = folderExitDragPage.coerceAtLeast(0)
-        val targetIndex = page * homePageSize + row * HOME_PAGE_COLUMNS + column
-        return targetIndex + if (insertAfterTarget) 1 else 0
-    }
-
-    private fun folderExitFolderDropIndex(baseItems: List<LauncherHomeItemUiModel>): Int {
-        val target = folderExitTargetCell() ?: return NO_PREVIEW_INDEX
-        val item = baseItems.getOrNull(target.index) ?: return NO_PREVIEW_INDEX
-        if (item !is LauncherHomeItemUiModel.App && item !is LauncherHomeItemUiModel.Folder) {
-            return NO_PREVIEW_INDEX
-        }
-        val overTargetCenter = LauncherIos17DragGeometryPolicy.isFolderInterest(
-            localXInIcon = target.localXInCell,
-            localYInIcon = target.localYInCell
-        )
-        return if (overTargetCenter) target.index else NO_PREVIEW_INDEX
-    }
-
-    private fun folderExitTargetCell(): HomeEdgeTargetCell? {
-        val metrics = folderExitDragMetrics ?: return null
-        val localX = (folderExitDragCenterX - metrics.pagerLeftInRoot)
-            .coerceIn(0f, (metrics.pagerWidth - 1).toFloat())
-        val localY = (folderExitDragCenterY - metrics.pagerTopInRoot)
-            .coerceIn(0f, (metrics.pagerHeight - 1).toFloat())
-        val column = (localX / metrics.cellWidth)
-            .toInt()
-            .coerceIn(0, HOME_PAGE_COLUMNS - 1)
-        val row = (localY / metrics.cellHeight)
-            .toInt()
-            .coerceIn(0, effectiveHomeGridRows - 1)
-        val localXInCell = ((localX - column * metrics.cellWidth) / metrics.cellWidth)
-            .coerceIn(0f, 1f)
-        val localYInCell = ((localY - row * metrics.cellHeight) / metrics.cellHeight)
-            .coerceIn(0f, 1f)
-        return HomeEdgeTargetCell(
-            index = folderExitDragPage * homePageSize + row * HOME_PAGE_COLUMNS + column,
-            localXInCell = localXInCell,
-            localYInCell = localYInCell
-        )
-    }
-
-    private fun homePageCountForItemCount(itemCount: Int): Int {
-        return maxOf(1, (itemCount + homePageSize - 1) / homePageSize)
-    }
-
-    override fun showError(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    override fun showExternalFeatureDownloadPrompt(featureCode: LauncherExternalFeatureCode) {
-        showFeatureDownloadDialog(LauncherExternalFeatureCatalog.requireFeature(featureCode))
+    private fun installSystemInsetHandling() {
+        binding.root.fitsSystemWindows = true
+        binding.settingsPanel.fitsSystemWindows = true
     }
 
     override fun showSettingsDrawer() {
@@ -3042,81 +621,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             .setDuration(DRAWER_OPEN_ANIMATION_MS)
             .setInterpolator(DecelerateInterpolator())
             .start()
-    }
-
-    private fun hideLayoutSettingsPage() {
-        if (binding.layoutSettingsPanel.visibility != View.VISIBLE) return
-
-        binding.layoutSettingsPanel.animate()
-            .alpha(0f)
-            .translationX(dp(28).toFloat())
-            .setDuration(150L)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.layoutSettingsPanel.visibility = View.GONE
-                binding.layoutSettingsPanel.alpha = 1f
-                binding.layoutSettingsPanel.translationX = 0f
-                updateSettingsFabVisibility()
-            }
-            .start()
-    }
-
-    private fun hideLiquidGlassSettingsPage() {
-        if (binding.liquidGlassSettingsPanel.visibility != View.VISIBLE) return
-
-        binding.liquidGlassSettingsPanel.animate()
-            .alpha(0f)
-            .translationX(dp(28).toFloat())
-            .setDuration(150L)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.liquidGlassSettingsPanel.visibility = View.GONE
-                binding.liquidGlassSettingsPanel.alpha = 1f
-                binding.liquidGlassSettingsPanel.translationX = 0f
-                updateSettingsFabVisibility()
-            }
-            .start()
-    }
-
-    private fun hideBlurEffectSettingsPage() {
-        if (binding.blurSettingsPanel.visibility != View.VISIBLE) return
-
-        binding.blurSettingsPanel.animate()
-            .alpha(0f)
-            .translationX(dp(28).toFloat())
-            .setDuration(150L)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.blurSettingsPanel.visibility = View.GONE
-                binding.blurSettingsPanel.alpha = 1f
-                binding.blurSettingsPanel.translationX = 0f
-                updateSettingsFabVisibility()
-            }
-            .start()
-    }
-
-    private fun hideAnimationSettingsPage() {
-        if (binding.animationSettingsPanel.visibility != View.VISIBLE) return
-
-        binding.animationSettingsPanel.animate()
-            .alpha(0f)
-            .translationX(dp(28).toFloat())
-            .setDuration(150L)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                binding.animationSettingsPanel.visibility = View.GONE
-                binding.animationSettingsPanel.alpha = 1f
-                binding.animationSettingsPanel.translationX = 0f
-                updateSettingsFabVisibility()
-            }
-            .start()
+        updateSettingsFabVisibility()
     }
 
     private fun hideSettingsDrawer() {
         val overlay = binding.settingsDrawerOverlay
-        if (overlay.visibility != View.VISIBLE) {
-            return
-        }
+        if (overlay.visibility != View.VISIBLE) return
 
         val dimView = binding.settingsDrawerDim
         val panel = binding.settingsDrawerPanel
@@ -3134,6 +644,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 overlay.visibility = View.GONE
                 panel.translationX = 0f
                 dimView.alpha = 1f
+                updateSettingsFabVisibility()
             }
             .start()
     }
@@ -3141,6 +652,253 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun showDrawerComingSoon(titleRes: Int) {
         hideSettingsDrawer()
         showError(getString(R.string.app_option_coming_soon, getString(titleRes)))
+    }
+
+    override fun showExternalFeatureDownloadPrompt(featureCode: LauncherExternalFeatureCode) {
+        showFeatureDownloadDialog(LauncherExternalFeatureCatalog.requireFeature(featureCode))
+    }
+
+    private fun showFeatureDownloadDialog(feature: LauncherExternalFeature) {
+        val targetPackageName = getString(feature.packageNameRes)
+        val dialog = Dialog(this)
+        val dialogBinding = DialogFeatureDownloadBinding.inflate(layoutInflater)
+        dialogBinding.downloadMessage.setText(feature.messageRes)
+        dialogBinding.downloadPreview.setImageResource(feature.previewDrawableRes)
+        dialogBinding.cancelButton.setOnClickListener { dialog.dismiss() }
+        dialogBinding.okButton.setOnClickListener {
+            dialog.dismiss()
+            openExternalPackage(targetPackageName)
+        }
+
+        dialog.setContentView(dialogBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setDimAmount(0.56f)
+                setLayout((resources.displayMetrics.widthPixels * 0.86f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+        }
+        dialog.show()
+    }
+
+    override fun showRatingPrompt() {
+        showRatingDialog()
+    }
+
+    private fun showRatingDialog() {
+        val dialog = Dialog(this)
+        val dialogBinding = DialogRatingPromptBinding.inflate(layoutInflater)
+        var selectedRating = 0
+        val stars = listOf(
+            dialogBinding.ratingStar1,
+            dialogBinding.ratingStar2,
+            dialogBinding.ratingStar3,
+            dialogBinding.ratingStar4,
+            dialogBinding.ratingStar5
+        )
+
+        fun updateStars(rating: Int) {
+            selectedRating = rating
+            stars.forEachIndexed { index, imageView ->
+                val tintColor = if (index < selectedRating) {
+                    getColor(R.color.rating_star_selected)
+                } else {
+                    getColor(R.color.rating_star_empty)
+                }
+                imageView.imageTintList = ColorStateList.valueOf(tintColor)
+            }
+        }
+
+        stars.forEachIndexed { index, imageView ->
+            imageView.setOnClickListener { updateStars(index + 1) }
+        }
+        dialogBinding.ratingLaterButton.setOnClickListener { dialog.dismiss() }
+        dialogBinding.ratingNoButton.setOnClickListener { dialog.dismiss() }
+        dialogBinding.ratingSendButton.setOnClickListener {
+            dialog.dismiss()
+            openExternalPackage(packageName)
+        }
+
+        updateStars(0)
+        dialog.setContentView(dialogBinding.root)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setDimAmount(0.46f)
+                setLayout((resources.displayMetrics.widthPixels * 0.88f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+        }
+        dialog.show()
+    }
+
+    override fun shareLauncherApp() {
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_app_subject))
+            putExtra(Intent.EXTRA_TEXT, launcherShareText())
+        }
+        startShareActivity(Intent.createChooser(shareIntent, getString(R.string.share_app_chooser_title)))
+    }
+
+    override fun shareLauncherAppByMail() {
+        val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:")
+            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_app_subject))
+            putExtra(Intent.EXTRA_TEXT, launcherShareText())
+        }
+        startShareActivity(Intent.createChooser(mailIntent, getString(R.string.share_mail_chooser_title)))
+    }
+
+    private fun launcherShareText(): String {
+        return getString(R.string.share_app_text, packageName)
+    }
+
+    private fun startShareActivity(intent: Intent) {
+        runCatching { startActivity(intent) }
+            .onFailure { showError(getString(R.string.share_no_app_found)) }
+    }
+
+    override fun openAppLibrarySettings() {
+        runCatching {
+            appLibraryLauncher.launch(Intent(this, AppLibraryActivity::class.java))
+        }.onFailure {
+            showError(getString(R.string.launcher_open_app_failed, getString(R.string.settings_app_library)))
+        }
+    }
+
+    override fun showLayoutSettingsPage() {
+        showBoundSettingsPanel(binding.layoutSettingsPanel)
+    }
+
+    private fun showLiquidGlassSettingsPage() {
+        showBoundSettingsPanel(binding.liquidGlassSettingsPanel)
+    }
+
+    private fun showBlurEffectSettingsPage() {
+        applyBlurSettingsUi()
+        showBoundSettingsPanel(binding.blurSettingsPanel)
+    }
+
+    private fun showAnimationSettingsPage() {
+        applyAnimationSettingsUi()
+        showBoundSettingsPanel(binding.animationSettingsPanel)
+    }
+
+    private fun showBoundSettingsPanel(panel: View) {
+        panel.apply {
+            animate().cancel()
+            alpha = 0f
+            translationX = dp(28).toFloat()
+            visibility = View.VISIBLE
+            bringToFront()
+            animate()
+                .alpha(1f)
+                .translationX(0f)
+                .setDuration(180L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+        applyLauncherSystemUi()
+        updateSettingsFabVisibility()
+    }
+
+    private fun hideLayoutSettingsPage() {
+        hideBoundSettingsPanel(binding.layoutSettingsPanel)
+    }
+
+    private fun hideLiquidGlassSettingsPage() {
+        hideBoundSettingsPanel(binding.liquidGlassSettingsPanel)
+    }
+
+    private fun hideBlurEffectSettingsPage() {
+        hideBoundSettingsPanel(binding.blurSettingsPanel)
+    }
+
+    private fun hideAnimationSettingsPage() {
+        hideBoundSettingsPanel(binding.animationSettingsPanel)
+    }
+
+    private fun hideBoundSettingsPanel(panel: View) {
+        if (panel.visibility != View.VISIBLE) return
+
+        panel.animate()
+            .alpha(0f)
+            .translationX(dp(28).toFloat())
+            .setDuration(150L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                panel.visibility = View.GONE
+                panel.alpha = 1f
+                panel.translationX = 0f
+                applyLauncherSystemUi()
+                updateSettingsFabVisibility()
+            }
+            .start()
+    }
+
+    override fun applyLayoutDarkMode(enabled: Boolean) {
+        val changed = layoutDarkMode != enabled
+        layoutDarkMode = enabled
+        IosLauncherIconTheme.setDarkMode(enabled)
+        if (changed) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_LAYOUT_DARK_MODE, enabled)
+                .apply()
+            notifyLauncherDataChanged()
+        }
+        applyLayoutAppearance()
+    }
+
+    private fun applyIphone8Style(enabled: Boolean, persist: Boolean) {
+        val changed = layoutIphone8Style != enabled
+        layoutIphone8Style = enabled
+        if (persist && changed) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_LAYOUT_IPHONE8_STYLE, enabled)
+                .apply()
+            notifyLauncherDataChanged()
+        }
+        binding.iphone8Switch.setOnCheckedChangeListener(null)
+        binding.iphone8Switch.isChecked = enabled
+        binding.iphone8Switch.setOnCheckedChangeListener { _, checked ->
+            applyIphone8Style(checked, persist = true)
+        }
+        applyHomeLayoutSettingsUi()
+    }
+
+    private fun applyAutoArrange(enabled: Boolean, persist: Boolean) {
+        val changed = layoutAutoArrange != enabled
+        layoutAutoArrange = enabled
+        if (persist && changed) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_LAYOUT_AUTO_ARRANGE, enabled)
+                .apply()
+            notifyLauncherDataChanged()
+        }
+        binding.autoArrangeSwitch.setOnCheckedChangeListener(null)
+        binding.autoArrangeSwitch.isChecked = enabled
+        binding.autoArrangeSwitch.setOnCheckedChangeListener { _, checked ->
+            applyAutoArrange(checked, persist = true)
+        }
+    }
+
+    private fun applyLiquidGlass(enabled: Boolean, persist: Boolean) {
+        val changed = layoutLiquidGlass != enabled
+        layoutLiquidGlass = enabled
+        if (persist && changed) {
+            layoutPreferences.edit()
+                .putBoolean(KEY_LAYOUT_LIQUID_GLASS, enabled)
+                .apply()
+            notifyLauncherDataChanged()
+        }
+        binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
+        binding.liquidGlassSwitch.isChecked = enabled
+        binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
+            applyLiquidGlass(checked, persist = true)
+        }
+        applyLiquidGlassSettingsAppearance()
     }
 
     private fun currentBlurSettings(): LauncherBlurSettings {
@@ -3161,9 +919,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 .putBoolean(KEY_BLUR_WIDGET_ENABLED, settings.widgetEnabled)
                 .putBoolean(KEY_BLUR_SEARCH_ENABLED, settings.searchEnabled)
                 .apply()
+            notifyLauncherDataChanged()
         }
-        visualEffectsController.setBlurSettings(settings)
-        applyWorkspaceAppearance()
         applyBlurSettingsUi()
     }
 
@@ -3215,16 +972,12 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         row.rowSwitch.setOnCheckedChangeListener(null)
         row.rowSwitch.isChecked = checked
         row.rowSwitch.isEnabled = enabled
-        row.rowSwitch.setOnCheckedChangeListener { _, isChecked ->
-            onCheckedChanged(isChecked)
-        }
+        row.rowSwitch.setOnCheckedChangeListener { _, isChecked -> onCheckedChanged(isChecked) }
         row.root.alpha = if (enabled) 1f else 0.45f
         row.root.isClickable = enabled
         row.root.isFocusable = enabled
         row.root.setOnClickListener(if (enabled) {
-            View.OnClickListener {
-                row.rowSwitch.isChecked = !row.rowSwitch.isChecked
-            }
+            View.OnClickListener { row.rowSwitch.isChecked = !row.rowSwitch.isChecked }
         } else {
             null
         })
@@ -3254,6 +1007,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 .putBoolean(KEY_ANIMATION_OPEN_CLOSE_ENABLED, settings.openCloseEnabled)
                 .putBoolean(KEY_ANIMATION_PARALLAX_ZOOM_ENABLED, settings.parallaxZoomEnabled)
                 .apply()
+            notifyLauncherDataChanged()
         }
         applyAnimationSettingsUi()
     }
@@ -3300,9 +1054,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         row.rowDivider.visibility = if (showDivider) View.VISIBLE else View.GONE
         row.rowSwitch.setOnCheckedChangeListener(null)
         row.rowSwitch.isChecked = checked
-        row.rowSwitch.setOnCheckedChangeListener { _, isChecked ->
-            onCheckedChanged(isChecked)
-        }
+        row.rowSwitch.setOnCheckedChangeListener { _, isChecked -> onCheckedChanged(isChecked) }
         row.root.setOnClickListener {
             row.rowSwitch.isChecked = !row.rowSwitch.isChecked
         }
@@ -3315,6 +1067,86 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }.onFailure {
             showError(getString(R.string.settings_live_wallpaper_failed))
         }.getOrDefault(false)
+    }
+
+    private fun applyHomeIconSize(sizeDp: Int, persist: Boolean) {
+        val boundedSize = sizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
+        homeIconSizeDp = boundedSize
+        if (persist) {
+            layoutPreferences.edit()
+                .putInt(KEY_HOME_ICON_SIZE_DP, boundedSize)
+                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
+                .apply()
+            notifyLauncherDataChanged()
+        }
+        applyHomeLayoutSettingsUi()
+    }
+
+    private fun readMigratedHomeIconSize(): Int {
+        val rawIconSizeDp = layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
+        val migrationApplied = layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, false)
+        val default56MigrationApplied =
+            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
+        val default60MigrationApplied =
+            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, false)
+        val default58MigrationApplied =
+            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, false)
+        val migratedIconSizeDp = LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(
+            iconSizeDp = rawIconSizeDp,
+            migrationApplied = migrationApplied,
+            default56MigrationApplied = default56MigrationApplied,
+            default60MigrationApplied = default60MigrationApplied,
+            default58MigrationApplied = default58MigrationApplied
+        )
+        if (!migrationApplied ||
+            !default56MigrationApplied ||
+            !default60MigrationApplied ||
+            !default58MigrationApplied
+        ) {
+            layoutPreferences.edit()
+                .putInt(KEY_HOME_ICON_SIZE_DP, migratedIconSizeDp)
+                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
+                .apply()
+        }
+        return migratedIconSizeDp
+    }
+
+    private fun applyHomeGridRows(rows: Int, persist: Boolean) {
+        val boundedRows = rows.takeIf { value -> value == HOME_GRID_ROWS_5 || value == HOME_GRID_ROWS_6 }
+            ?: DEFAULT_HOME_GRID_ROWS
+        homeGridRows = boundedRows
+        if (persist) {
+            layoutPreferences.edit()
+                .putInt(KEY_HOME_GRID_ROWS, boundedRows)
+                .apply()
+            notifyLauncherDataChanged()
+        }
+        applyHomeLayoutSettingsUi()
+    }
+
+    private fun applyHomeLayoutSettingsUi() {
+        val previewSize = dp(homeIconSizeDp)
+        binding.iconSizePreview.layoutParams = binding.iconSizePreview.layoutParams.apply {
+            width = previewSize
+            height = previewSize
+        }
+        val iconSizeProgress = LauncherHomeIconSizePolicy.iconSizeToSliderProgress(homeIconSizeDp)
+        if (binding.iconSizeSeekBar.progress != iconSizeProgress) {
+            binding.iconSizeSeekBar.progress = iconSizeProgress
+        }
+
+        val gridIconColor = layoutGridPreviewColor()
+        val gridLabelColor = themedColor(R.color.launcher_text_secondary, R.color.dark_settings_text_secondary)
+        binding.grid5x4Icon.setPreview(LauncherLayoutGridPreviewPolicy.rows5x4, gridIconColor)
+        binding.grid6x4Icon.setPreview(LauncherLayoutGridPreviewPolicy.rows6x4, gridIconColor)
+        binding.grid5x4Label.setTextColor(gridLabelColor)
+        binding.grid6x4Label.setTextColor(gridLabelColor)
     }
 
     private fun showWallpaperPickerPage() {
@@ -3330,21 +1162,15 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         overlay.addView(createWallpaperPickerToolbar())
         overlay.addView(
             createWallpaperPickerGrid(),
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
         )
 
         binding.root.addView(
             overlay,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         wallpaperPickerPanel = overlay
+        updateSettingsFabVisibility()
     }
 
     private fun createWallpaperPickerToolbar(): View {
@@ -3378,13 +1204,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         return ScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(LauncherRenamePickerUiPolicy.pageBackgroundColor)
-            addView(
-                grid,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
+            addView(grid, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 
@@ -3454,10 +1274,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         paint.shader = null
         paint.color = colors[2]
-        canvas.drawOval(
-            RectF(width * 0.42f, -height * 0.12f, width * 1.28f, height * 0.7f),
-            paint
-        )
+        canvas.drawOval(RectF(width * 0.42f, -height * 0.12f, width * 1.28f, height * 0.7f), paint)
 
         paint.color = colors[3]
         val ribbon = Path().apply {
@@ -3471,10 +1288,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         canvas.drawPath(ribbon, paint)
 
         paint.color = 0x55FFFFFF
-        canvas.drawOval(
-            RectF(-width * 0.18f, height * 0.03f, width * 0.55f, height * 0.4f),
-            paint
-        )
+        canvas.drawOval(RectF(-width * 0.18f, height * 0.03f, width * 0.55f, height * 0.4f), paint)
         return bitmap
     }
 
@@ -3492,10 +1306,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 setImageBitmap(bitmap)
                 scaleType = ImageView.ScaleType.CENTER_CROP
             },
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
 
         overlay.addView(
@@ -3507,11 +1318,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 gravity = Gravity.CENTER
                 includeFontPadding = false
             },
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                dp(42),
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            ).apply {
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
                 topMargin = dp(82)
             }
         )
@@ -3537,12 +1344,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         binding.root.addView(
             overlay,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         wallpaperPreviewPanel = overlay
+        updateSettingsFabVisibility()
     }
 
     private fun commitCustomWallpaper(uri: Uri) {
@@ -3551,7 +1356,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             .putString(KEY_CUSTOM_WALLPAPER_URI, rawUri)
             .apply()
         EventRelay.getInstance().push(AppWallpaperEvent(rawUri))
-        applyLauncherRootBackground(state.launcherMode)
+        notifyLauncherDataChanged()
         hideWallpaperPreviewPage()
         hideWallpaperPickerPage()
         showError(getString(R.string.settings_wallpaper_applied))
@@ -3572,6 +1377,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val panel = wallpaperPreviewPanel ?: return
         wallpaperPreviewPanel = null
         (panel.parent as? ViewGroup)?.removeView(panel)
+        updateSettingsFabVisibility()
     }
 
     private fun hideWallpaperPickerPage() {
@@ -3579,23 +1385,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val panel = wallpaperPickerPanel ?: return
         wallpaperPickerPanel = null
         (panel.parent as? ViewGroup)?.removeView(panel)
-    }
-
-    private fun openSystemWallpaperPicker() {
-        runCatching {
-            startActivity(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), getString(R.string.settings_wallpaper)))
-        }.onFailure {
-            showError(getString(R.string.launcher_default_prompt_failed))
-        }
-    }
-
-    private fun resetCustomWallpaper() {
-        layoutPreferences.edit()
-            .remove(KEY_CUSTOM_WALLPAPER_URI)
-            .apply()
-        EventRelay.getInstance().push(AppWallpaperEvent(null))
-        applyLauncherRootBackground(state.launcherMode)
-        showError(getString(R.string.settings_wallpaper_reset_done))
+        updateSettingsFabVisibility()
     }
 
     private fun showRenameAppPicker() {
@@ -3607,9 +1397,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         lifecycleScope.launch {
             val apps = runCatching {
-                launcherRepository.getAllInstalledApps()
-                    .filterNot { app -> app.packageName == packageName }
-                    .sortedBy { app -> app.label.lowercase() }
+                withContext(Dispatchers.IO) {
+                    launcherRepository.getAllInstalledApps()
+                        .filterNot { app -> app.packageName == packageName }
+                        .sortedBy { app -> app.label.lowercase() }
+                }
             }.getOrElse { error ->
                 if (isRenamePickerLoadActive(loadToken)) {
                     hideRenameAppPicker()
@@ -3642,20 +1434,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
 
         overlay.addView(createRenamePickerToolbar())
-        overlay.addView(content, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            0,
-            1f
-        ))
+        overlay.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         binding.root.addView(
             overlay,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         renameAppPickerOverlay = overlay
+        updateSettingsFabVisibility()
     }
 
     private fun createRenamePickerToolbar(): View {
@@ -3663,14 +1449,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             title = getString(R.string.settings_rename),
             onBack = { hideRenameAppPicker() }
         )
-    }
-
-    private fun createRenamePickerList(items: List<RenamePickerItem>): View {
-        return createRenamePickerScroll(createRenamePickerListContainer().apply {
-            items.forEach { item ->
-                addView(createRenamePickerRow(item))
-            }
-        })
     }
 
     private fun createRenamePickerListContainer(): LinearLayout {
@@ -3683,27 +1461,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun createRenamePickerScroll(list: LinearLayout): View {
         return ScrollView(this).apply {
             isFillViewport = true
-            addView(
-                list,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
+            addView(list, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 
     private fun populateRenamePickerList(list: LinearLayout, apps: List<LauncherApp>) {
         list.removeAllViews()
         apps.forEach { app ->
-            list.addView(
-                createRenamePickerRow(
-                    RenamePickerItem(
-                        app = app,
-                        icon = null
-                    )
-                )
-            )
+            list.addView(createRenamePickerRow(app = app, icon = null))
         }
     }
 
@@ -3717,7 +1482,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun createRenamePickerRow(item: RenamePickerItem): View {
+    private fun createRenamePickerRow(app: LauncherApp, icon: Drawable?): View {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(LauncherRenamePickerUiPolicy.toolbarColor)
@@ -3731,52 +1496,34 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 dp(LauncherRenamePickerUiPolicy.endPaddingDp),
                 0
             )
-            setOnClickListener { showRenameAppDialog(item.app) }
+            setOnClickListener { showRenameAppDialog(app) }
         }
         row.addView(
             ImageView(this).apply {
-                tag = renamePickerIconTag(item.app.iconKey)
-                item.icon?.let { icon -> setImageDrawable(icon) }
+                tag = renamePickerIconTag(app.iconKey)
+                icon?.let { setImageDrawable(it) }
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                contentDescription = item.app.label
+                contentDescription = app.label
             },
-            LinearLayout.LayoutParams(
-                dp(LauncherRenamePickerUiPolicy.iconSizeDp),
-                dp(LauncherRenamePickerUiPolicy.iconSizeDp)
-            )
+            LinearLayout.LayoutParams(dp(LauncherRenamePickerUiPolicy.iconSizeDp), dp(LauncherRenamePickerUiPolicy.iconSizeDp))
         )
         row.addView(
             TextView(this).apply {
-                tag = renamePickerLabelTag(item.app.iconKey)
-                text = item.app.label
+                tag = renamePickerLabelTag(app.iconKey)
+                text = app.label
                 setTextColor(LauncherRenamePickerUiPolicy.secondaryTextColor)
                 textSize = LauncherRenamePickerUiPolicy.appTextSizeSp
                 gravity = Gravity.CENTER_VERTICAL
                 includeFontPadding = false
             },
-            LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1f
-            ).apply {
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
                 marginStart = dp(LauncherRenamePickerUiPolicy.textMarginStartDp)
             }
         )
+        container.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(LauncherRenamePickerUiPolicy.rowHeightDp)))
         container.addView(
-            row,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(LauncherRenamePickerUiPolicy.rowHeightDp)
-            )
-        )
-        container.addView(
-            View(this).apply {
-                setBackgroundColor(LauncherRenamePickerUiPolicy.dividerColor)
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1
-            ).apply {
+            View(this).apply { setBackgroundColor(LauncherRenamePickerUiPolicy.dividerColor) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
                 marginStart = dp(
                     LauncherRenamePickerUiPolicy.startPaddingDp +
                         LauncherRenamePickerUiPolicy.iconSizeDp +
@@ -3794,6 +1541,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         renameAppPickerOverlay = null
         renameAppPickerLoadToken = null
         (overlay?.parent as? ViewGroup)?.removeView(overlay)
+        updateSettingsFabVisibility()
     }
 
     private fun updateRenamePickerLabel(app: LauncherApp, title: String) {
@@ -3813,12 +1561,73 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         return renameAppPickerLoadToken === loadToken && renameAppPickerOverlay != null
     }
 
-    private fun renamePickerLabelTag(iconKey: String): String {
-        return "rename_picker_label_$iconKey"
+    private fun renamePickerLabelTag(iconKey: String): String = "rename_picker_label_$iconKey"
+
+    private fun renamePickerIconTag(iconKey: String): String = "rename_picker_icon_$iconKey"
+
+    override fun showRenameAppDialog(app: LauncherApp) {
+        val input = EditText(this).apply {
+            setSingleLine(true)
+            hint = getString(R.string.settings_rename_hint)
+            setText(app.label)
+            selectAll()
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(input)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_rename)
+            .setView(container)
+            .setPositiveButton(R.string.dialog_ok) { _, _ ->
+                val updatedTitle = LauncherAppRenamePolicy.submittedTitle(
+                    input = input.text?.toString().orEmpty(),
+                    currentTitle = app.label
+                )
+                LauncherAppRenamePreferences.save(
+                    context = this,
+                    appKeys = LauncherIos17MenuBridgePolicy.renameKeys(app),
+                    title = updatedTitle
+                )
+                launcherRepository.saveCustomLabel(app, updatedTitle)
+                dispatchIos17LauncherRename(app, updatedTitle)
+                notifyLauncherDataChanged()
+                updateRenamePickerLabel(app, updatedTitle)
+                showError(getString(R.string.settings_rename_done, updatedTitle))
+            }
+            .setNeutralButton(R.string.dialog_reset) { _, _ ->
+                LauncherAppRenamePreferences.save(
+                    context = this,
+                    appKeys = LauncherIos17MenuBridgePolicy.renameKeys(app),
+                    title = ""
+                )
+                launcherRepository.saveCustomLabel(app, "")
+                lifecycleScope.launch {
+                    val restoredTitle = withContext(Dispatchers.IO) {
+                        launcherRepository.getAllInstalledApps()
+                            .firstOrNull { launcherApp -> launcherApp.iconKey == app.iconKey }
+                            ?.label
+                            ?: app.label
+                    }
+                    dispatchIos17LauncherRename(app, restoredTitle)
+                    notifyLauncherDataChanged()
+                    showRenameAppPicker()
+                }
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
     }
 
-    private fun renamePickerIconTag(iconKey: String): String {
-        return "rename_picker_icon_$iconKey"
+    private fun dispatchIos17LauncherRename(app: LauncherApp, updatedTitle: String) {
+        EventRelay.getInstance().push(
+            AppRenameEvent(
+                appKeys = LauncherIos17MenuBridgePolicy.renameKeys(app),
+                updatedTitle = updatedTitle
+            )
+        )
     }
 
     private fun showChangeIconAppPicker() {
@@ -3830,9 +1639,11 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         lifecycleScope.launch {
             val apps = runCatching {
-                launcherRepository.getAllInstalledApps()
-                    .filterNot { app -> app.packageName == packageName }
-                    .sortedBy { app -> app.label.lowercase() }
+                withContext(Dispatchers.IO) {
+                    launcherRepository.getAllInstalledApps()
+                        .filterNot { app -> app.packageName == packageName }
+                        .sortedBy { app -> app.label.lowercase() }
+                }
             }.getOrElse { error ->
                 if (isChangeIconPickerLoadActive(loadToken)) {
                     hideChangeIconPage()
@@ -3865,23 +1676,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
 
         overlay.addView(createChangeIconToolbar())
-        overlay.addView(
-            content,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
+        overlay.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         binding.root.addView(
             overlay,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         changeIconPanel = overlay
+        updateSettingsFabVisibility()
     }
 
     private fun createChangeIconToolbar(): View {
@@ -3901,27 +1703,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun createChangeIconScroll(list: LinearLayout): View {
         return ScrollView(this).apply {
             isFillViewport = true
-            addView(
-                list,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
+            addView(list, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 
     private fun populateChangeIconPickerList(list: LinearLayout, apps: List<LauncherApp>) {
         list.removeAllViews()
         apps.forEach { app ->
-            list.addView(
-                createChangeIconRow(
-                    ChangeIconPickerItem(
-                        app = app,
-                        icon = null
-                    )
-                )
-            )
+            list.addView(createChangeIconRow(ChangeIconPickerItem(app = app, icon = null)))
         }
     }
 
@@ -3957,10 +1746,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 contentDescription = item.app.label
             },
-            LinearLayout.LayoutParams(
-                dp(LauncherRenamePickerUiPolicy.iconSizeDp),
-                dp(LauncherRenamePickerUiPolicy.iconSizeDp)
-            )
+            LinearLayout.LayoutParams(dp(LauncherRenamePickerUiPolicy.iconSizeDp), dp(LauncherRenamePickerUiPolicy.iconSizeDp))
         )
         row.addView(
             TextView(this).apply {
@@ -3970,11 +1756,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 gravity = Gravity.CENTER_VERTICAL
                 includeFontPadding = false
             },
-            LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1f
-            ).apply {
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
                 marginStart = dp(LauncherRenamePickerUiPolicy.textMarginStartDp)
             }
         )
@@ -3996,21 +1778,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 marginStart = dp(12)
             }
         )
+        container.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(LauncherRenamePickerUiPolicy.rowHeightDp)))
         container.addView(
-            row,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(LauncherRenamePickerUiPolicy.rowHeightDp)
-            )
-        )
-        container.addView(
-            View(this).apply {
-                setBackgroundColor(LauncherRenamePickerUiPolicy.dividerColor)
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1
-            ).apply {
+            View(this).apply { setBackgroundColor(LauncherRenamePickerUiPolicy.dividerColor) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
                 marginStart = dp(
                     LauncherRenamePickerUiPolicy.startPaddingDp +
                         LauncherRenamePickerUiPolicy.iconSizeDp +
@@ -4044,6 +1815,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         changeIconPickerLoadToken = null
         (overlay.parent as? ViewGroup)?.removeView(overlay)
         changeIconPanel = null
+        updateSettingsFabVisibility()
     }
 
     private fun updateChangeIconPickerIcon(app: LauncherApp, icon: Drawable, loadToken: Any) {
@@ -4057,101 +1829,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         return changeIconPickerLoadToken === loadToken && changeIconPanel != null
     }
 
-    private fun changeIconPickerIconTag(iconKey: String): String {
-        return "change_icon_picker_icon_$iconKey"
-    }
-
-    private fun showAppSelectionDialog(
-        title: String,
-        onAppSelected: (LauncherApp) -> Unit
-    ) {
-        if (!::launcherRepository.isInitialized) return
-
-        lifecycleScope.launch {
-            val apps = runCatching {
-                launcherRepository.getAllInstalledApps()
-                    .filterNot { app -> app.packageName == packageName }
-                    .sortedBy { app -> app.label.lowercase() }
-            }.getOrElse { error ->
-                showError(error.message ?: getString(R.string.settings_no_apps_found))
-                return@launch
-            }
-            if (apps.isEmpty()) {
-                showError(getString(R.string.settings_no_apps_found))
-                return@launch
-            }
-
-            AlertDialog.Builder(this@IOSLauncherActivity)
-                .setTitle(title)
-                .setItems(apps.map { app -> app.label }.toTypedArray()) { _, which ->
-                    onAppSelected(apps[which])
-                }
-                .show()
-        }
-    }
-
-    override fun showRenameAppDialog(app: LauncherApp) {
-        val input = EditText(this).apply {
-            setSingleLine(true)
-            hint = getString(R.string.settings_rename_hint)
-            setText(app.label)
-            selectAll()
-            setPadding(dp(18), dp(8), dp(18), dp(8))
-        }
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(8), dp(20), 0)
-            addView(input)
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.settings_rename)
-            .setView(container)
-            .setPositiveButton(R.string.dialog_ok) { _, _ ->
-                val updatedTitle = LauncherAppRenamePolicy.submittedTitle(
-                    input = input.text?.toString().orEmpty(),
-                    currentTitle = app.label
-                )
-                LauncherAppRenamePreferences.save(
-                    context = this,
-                    appKeys = LauncherIos17MenuBridgePolicy.renameKeys(app),
-                    title = updatedTitle
-                )
-                launcherRepository.saveCustomLabel(app, updatedTitle)
-                dispatchIos17LauncherRename(app, updatedTitle)
-                refreshWorkspaceDataIfEnabled()
-                updateRenamePickerLabel(app, updatedTitle)
-                showError(getString(R.string.settings_rename_done, updatedTitle))
-            }
-            .setNeutralButton(R.string.dialog_reset) { _, _ ->
-                LauncherAppRenamePreferences.save(
-                    context = this,
-                    appKeys = LauncherIos17MenuBridgePolicy.renameKeys(app),
-                    title = ""
-                )
-                launcherRepository.saveCustomLabel(app, "")
-                lifecycleScope.launch {
-                    val restoredTitle = launcherRepository.getAllInstalledApps()
-                        .firstOrNull { launcherApp -> launcherApp.iconKey == app.iconKey }
-                        ?.label
-                        ?: app.label
-                    dispatchIos17LauncherRename(app, restoredTitle)
-                    refreshWorkspaceDataIfEnabled()
-                    showRenameAppPicker()
-                }
-            }
-            .setNegativeButton(R.string.dialog_cancel, null)
-            .show()
-    }
-
-    private fun dispatchIos17LauncherRename(app: LauncherApp, updatedTitle: String) {
-        EventRelay.getInstance().push(
-            AppRenameEvent(
-                appKeys = LauncherIos17MenuBridgePolicy.renameKeys(app),
-                updatedTitle = updatedTitle
-            )
-        )
-    }
+    private fun changeIconPickerIconTag(iconKey: String): String = "change_icon_picker_icon_$iconKey"
 
     override fun showChangeIconDialog(app: LauncherApp) {
         showChangeIconChoiceDialog(app)
@@ -4162,15 +1840,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         lifecycleScope.launch {
             val items = runCatching {
-                launcherRepository.getAllInstalledApps()
-                    .filterNot { app -> app.packageName == packageName }
-                    .sortedBy { app -> app.label.lowercase() }
-                    .map { app ->
-                        ChangeIconPickerItem(
-                            app = app,
-                            icon = launcherRepository.getAppIcon(app)
-                        )
-                    }
+                withContext(Dispatchers.IO) {
+                    launcherRepository.getAllInstalledApps()
+                        .filterNot { app -> app.packageName == packageName }
+                        .sortedBy { app -> app.label.lowercase() }
+                        .map { app ->
+                            ChangeIconPickerItem(app = app, icon = launcherRepository.getAppIcon(app))
+                        }
+                }
             }.getOrElse { error ->
                 showError(error.message ?: getString(R.string.settings_no_apps_found))
                 return@launch
@@ -4227,19 +1904,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
         root.addView(
             ScrollView(this).apply {
-                addView(
-                    grid,
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                )
+                addView(grid, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
         )
         root.addView(
             LinearLayout(this).apply {
@@ -4255,11 +1922,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                         gravity = Gravity.CENTER_VERTICAL
                         setOnClickListener { dialog.dismiss() }
                     },
-                    LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        1f
-                    )
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                 )
                 addView(
                     TextView(context).apply {
@@ -4274,17 +1937,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                             customIconImageLauncher.launch(arrayOf("image/*"))
                         }
                     },
-                    LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        1f
-                    )
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                 )
             },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(76)
-            )
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(76))
         )
 
         dialog.setContentView(root)
@@ -4304,11 +1960,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     private fun onCustomIconChanged(app: LauncherApp) {
-        presenter.clearIconCache()
-        refreshWorkspaceDataIfEnabled()
-        runCatching {
-            BlissLauncher.getApplication(applicationContext).appProvider.reload(true)
-        }
+        notifyLauncherDataChanged()
         if (changeIconPanel != null && iconCropPanel == null) {
             showChangeIconAppPicker()
         }
@@ -4329,23 +1981,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
 
         overlay.addView(createCustomIconCropToolbar(app, cropView))
-        overlay.addView(
-            cropView,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
+        overlay.addView(cropView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         binding.root.addView(
             overlay,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         iconCropPanel = overlay
+        updateSettingsFabVisibility()
     }
 
     private fun createCustomIconCropToolbar(app: LauncherApp, cropView: IconCropView): View {
@@ -4356,9 +1999,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 dp(LauncherRenamePickerUiPolicy.toolbarHeightDp)
             )
 
-            val row = FrameLayout(context).apply {
-                setBackgroundColor(Color.WHITE)
-            }
+            val row = FrameLayout(context).apply { setBackgroundColor(Color.WHITE) }
             addView(
                 row,
                 FrameLayout.LayoutParams(
@@ -4441,6 +2082,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val overlay = iconCropPanel ?: return
         (overlay.parent as? ViewGroup)?.removeView(overlay)
         iconCropPanel = null
+        updateSettingsFabVisibility()
     }
 
     private fun decodeBitmapFromUri(uri: Uri): Bitmap? {
@@ -4509,13 +2151,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             ScrollView(this@IOSLauncherActivity).apply {
                 overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
                 setBackgroundColor(backgroundColor)
-                addView(
-                    content,
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                )
+                addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
         )
@@ -4523,11 +2159,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         hiddenAppsSettingsPanel = panel
         binding.root.addView(
             panel,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
+        updateSettingsFabVisibility()
 
         hiddenAppsSettingsLoadJob = lifecycleScope.launch {
             val apps = runCatching {
@@ -4644,10 +2278,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             textSize = 17f
             gravity = Gravity.CENTER
             includeFontPadding = false
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(96)
-            )
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96))
         }
     }
 
@@ -4696,9 +2327,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                         .translationY(if (hidden) dp(24).toFloat() else -dp(24).toFloat())
                         .alpha(0f)
                         .setDuration(130L)
-                        .withEndAction {
-                            onToggle(app, hidden)
-                        }
+                        .withEndAction { onToggle(app, hidden) }
                         .start()
                 }
             },
@@ -4765,1761 +2394,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         (panel.parent as? ViewGroup)?.removeView(panel)
         if (reloadIfChanged && hiddenAppsSettingsChanged) {
             hiddenAppsSettingsChanged = false
-            refreshWorkspaceDataIfEnabled()
+            notifyLauncherDataChanged()
             showError(getString(R.string.settings_hidden_apps_done))
         }
-    }
-
-    private fun openNotificationAccessSettings() {
-        runCatching {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        }.onFailure {
-            showError(getString(R.string.settings_notification_access_failed))
-        }
-    }
-
-    private fun takePersistableReadPermission(uri: Uri) {
-        runCatching {
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-    }
-
-    private fun settingsDrawerWidth(): Float {
-        val measuredWidth = binding.settingsDrawerPanel.width
-        return if (measuredWidth > 0) {
-            measuredWidth.toFloat()
-        } else {
-            resources.getDimensionPixelSize(R.dimen.settings_drawer_width).toFloat()
-        }
-    }
-
-    private fun showFeatureDownloadDialog(feature: LauncherExternalFeature) {
-        val packageName = getString(feature.packageNameRes)
-        val dialog = Dialog(this)
-        val dialogBinding = DialogFeatureDownloadBinding.inflate(layoutInflater)
-        dialogBinding.downloadMessage.setText(feature.messageRes)
-        dialogBinding.downloadPreview.setImageResource(feature.previewDrawableRes)
-        dialogBinding.cancelButton.setOnClickListener {
-            dialog.dismiss()
-        }
-        dialogBinding.okButton.setOnClickListener {
-            dialog.dismiss()
-            openExternalPackage(packageName)
-        }
-
-        dialog.setContentView(dialogBinding.root)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.setOnShowListener {
-            dialog.window?.apply {
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                setDimAmount(0.56f)
-                setLayout((resources.displayMetrics.widthPixels * 0.86f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-        }
-        dialog.show()
-    }
-
-    private fun openExternalPackage(packageName: String) {
-        val marketIntent = Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse("market://details?id=${Uri.encode(packageName)}")
-        ).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        runCatching {
-            startActivity(Intent.createChooser(marketIntent, null))
-        }.onFailure {
-            openExternalPackageSearch(packageName)
-        }
-    }
-
-    private fun openExternalPackageSearch(packageName: String) {
-        val searchIntent = Intent(Intent.ACTION_WEB_SEARCH).apply {
-            putExtra(SearchManager.QUERY, packageName)
-        }
-        runCatching {
-            startActivity(searchIntent)
-        }.onFailure {
-            val webIntent = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://www.google.com/search?q=${Uri.encode(packageName)}")
-            )
-            runCatching {
-                startActivity(webIntent)
-            }.onFailure {
-                showError(getString(R.string.launcher_open_app_failed, packageName))
-            }
-        }
-    }
-
-    private fun launcherShareText(): String {
-        return getString(R.string.share_app_text, packageName)
-    }
-
-    private fun startShareActivity(intent: Intent) {
-        runCatching {
-            startActivity(intent)
-        }.onFailure {
-            showError(getString(R.string.share_no_app_found))
-        }
-    }
-
-    private fun showRatingDialog() {
-        val dialog = Dialog(this)
-        val dialogBinding = DialogRatingPromptBinding.inflate(layoutInflater)
-        var selectedRating = 0
-        val stars = listOf(
-            dialogBinding.ratingStar1,
-            dialogBinding.ratingStar2,
-            dialogBinding.ratingStar3,
-            dialogBinding.ratingStar4,
-            dialogBinding.ratingStar5
-        )
-
-        fun updateStars(rating: Int) {
-            selectedRating = rating
-            stars.forEachIndexed { index, imageView ->
-                val tintColor = if (index < selectedRating) {
-                    getColor(R.color.rating_star_selected)
-                } else {
-                    getColor(R.color.rating_star_empty)
-                }
-                imageView.imageTintList = ColorStateList.valueOf(tintColor)
-            }
-        }
-
-        stars.forEachIndexed { index, imageView ->
-            imageView.setOnClickListener {
-                updateStars(index + 1)
-            }
-        }
-        dialogBinding.ratingLaterButton.setOnClickListener {
-            dialog.dismiss()
-        }
-        dialogBinding.ratingNoButton.setOnClickListener {
-            dialog.dismiss()
-        }
-        dialogBinding.ratingSendButton.setOnClickListener {
-            dialog.dismiss()
-            openExternalPackage(packageName)
-        }
-
-        updateStars(0)
-        dialog.setContentView(dialogBinding.root)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.setOnShowListener {
-            dialog.window?.apply {
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                setDimAmount(0.46f)
-                setLayout((resources.displayMetrics.widthPixels * 0.88f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-        }
-        dialog.show()
-    }
-
-    private fun showDefaultLauncherPrompt() {
-        val dialog = Dialog(this)
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = roundedBackground(Color.WHITE, 26)
-            setPadding(dp(20), dp(30), dp(20), 0)
-        }
-        content.addView(
-            ImageView(this).apply {
-                setImageResource(R.mipmap.ic_launcher)
-                contentDescription = getString(R.string.app_name)
-            },
-            LinearLayout.LayoutParams(dp(72), dp(72)).apply {
-                gravity = Gravity.CENTER_HORIZONTAL
-            }
-        )
-        content.addView(
-            TextView(this).apply {
-                text = getString(R.string.default_launcher_prompt_title)
-                gravity = Gravity.CENTER
-                setTextColor(Color.BLACK)
-                textSize = 23f
-                typeface = Typeface.DEFAULT_BOLD
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(12)
-            }
-        )
-        content.addView(
-            TextView(this).apply {
-                text = getString(R.string.default_launcher_prompt_message)
-                gravity = Gravity.CENTER
-                setTextColor(0xFF222222.toInt())
-                textSize = 18f
-                setLineSpacing(dp(2).toFloat(), 1f)
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(18)
-                leftMargin = dp(6)
-                rightMargin = dp(6)
-            }
-        )
-        content.addView(
-            View(this).apply { setBackgroundColor(0xFFE2E2E2.toInt()) },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
-                topMargin = dp(28)
-            }
-        )
-
-        val buttonRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        val cancelButton = TextView(this).apply {
-            text = getString(R.string.dialog_cancel)
-            gravity = Gravity.CENTER
-            setTextColor(0xFF168BFF.toInt())
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            isClickable = true
-            isFocusable = true
-            foreground = obtainStyledForeground()
-            setOnClickListener { dialog.dismiss() }
-        }
-        val okButton = TextView(this).apply {
-            text = getString(R.string.dialog_ok)
-            gravity = Gravity.CENTER
-            setTextColor(0xFFFF1F2D.toInt())
-            textSize = 18f
-            typeface = Typeface.DEFAULT_BOLD
-            isClickable = true
-            isFocusable = true
-            foreground = obtainStyledForeground()
-            setOnClickListener {
-                dialog.dismiss()
-                presenter.onSetDefaultLauncherClicked()
-            }
-        }
-        buttonRow.addView(cancelButton, LinearLayout.LayoutParams(0, dp(56), 1f))
-        buttonRow.addView(
-            View(this).apply { setBackgroundColor(0xFFE2E2E2.toInt()) },
-            LinearLayout.LayoutParams(dp(1), dp(56))
-        )
-        buttonRow.addView(okButton, LinearLayout.LayoutParams(0, dp(56), 1f))
-        content.addView(
-            buttonRow,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56))
-        )
-
-        dialog.setContentView(content)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.setOnShowListener {
-            dialog.window?.apply {
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                setDimAmount(0.52f)
-                setLayout((resources.displayMetrics.widthPixels * 0.88f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
-            }
-        }
-        dialog.show()
-    }
-
-    override fun openDefaultLauncherSelection() {
-        val promptAction = LauncherDefaultSelectionPolicy.resolvePromptConfirmation(
-            isCurrentDefaultLauncher = isCurrentDefaultLauncher()
-        )
-        if (promptAction.openLauncherImmediately) {
-            forceSettingsPanel = false
-            Ios26DefaultWallpaperInstaller.applyWhenDefaultLauncherSelected(this)
-            showAlreadyDefaultLauncher()
-            openCopiedIos17Launcher()
-            return
-        }
-        if (!promptAction.openSystemLauncherSelection) {
-            waitingForLauncherSelection = false
-            showError(getString(R.string.launcher_default_prompt_failed))
-            return
-        }
-
-        Toast.makeText(this, R.string.launcher_default_opening, Toast.LENGTH_SHORT).show()
-        val shouldRequestHomeRoleFirst = LauncherDefaultSelectionPolicy.shouldRequestHomeRoleBeforeSettings(
-            sdkInt = Build.VERSION.SDK_INT
-        )
-        if (
-            shouldRequestHomeRoleFirst &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            requestHomeRole()
-        ) {
-            return
-        }
-        if (openHomeSettings()) {
-            return
-        }
-        if (
-            !shouldRequestHomeRoleFirst &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            requestHomeRole()
-        ) {
-            return
-        }
-
-        waitingForLauncherSelection = false
-        showError(getString(R.string.launcher_default_prompt_failed))
-    }
-
-    override fun openCopiedIos17Launcher() {
-        prepareCopiedIos17LauncherIcons()
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            component = ComponentName(
-                packageName,
-                "com.cloudx.ios17.features.launcher.LauncherActivity"
-            )
-            addCategory(Intent.CATEGORY_HOME)
-            addCategory(Intent.CATEGORY_DEFAULT)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        }
-        runCatching { startActivity(intent) }.onFailure {
-            showError(getString(R.string.launcher_default_prompt_failed))
-        }
-    }
-
-    private fun prepareCopiedIos17LauncherIcons() {
-        presenter.clearIconCache()
-        runCatching {
-            BlissLauncher.getApplication(applicationContext).appProvider.reload(true)
-        }
-    }
-
-    private fun resetFoldersForDefaultLauncher() {
-        val resetHomeItems = LauncherHomeLayoutStatePolicy.resetFoldersToApps(homeItems)
-        if (resetHomeItems != homeItems) {
-            handleHomeItemsChanged(
-                items = resetHomeItems,
-                preferredPage = 0,
-                refreshOpenFolder = false
-            )
-            hideFolderOverlay()
-        }
-
-        val resetDockItems = LauncherHomeLayoutStatePolicy.resetFoldersToApps(dockItems)
-            .take(DOCK_APP_COUNT)
-        if (resetDockItems != dockItems) {
-            handleDockItemsChanged(resetDockItems)
-        }
-    }
-
-    private fun openHomeSettings(): Boolean {
-        return runCatching {
-            waitingForLauncherSelection = true
-            homeSettingsLauncher.launch(Intent(Settings.ACTION_HOME_SETTINGS))
-        }.recoverCatching {
-            waitingForLauncherSelection = true
-            homeSettingsLauncher.launch(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
-        }.isSuccess.also { opened ->
-            if (!opened) {
-                waitingForLauncherSelection = false
-            }
-        }
-    }
-
-    private fun handleDefaultLauncherSelectionReturn(showNotSelectedToast: Boolean) {
-        waitingForLauncherSelection = false
-        if (isCurrentDefaultLauncher()) {
-            forceSettingsPanel = false
-            Ios26DefaultWallpaperInstaller.applyWhenDefaultLauncherSelected(this)
-            openCopiedIos17Launcher()
-        } else {
-            updateLauncherMode(forceAnimate = true)
-            if (showNotSelectedToast) {
-                Toast.makeText(this, R.string.launcher_default_not_selected, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun showDefaultWelcomeIfNeeded() {
-        if (!::binding.isInitialized || defaultWelcomeOverlay != null) return
-        val shouldShowWelcome = LauncherDefaultWelcomePolicy.shouldShowWelcome(
-            isDefaultLauncher = state.launcherMode && isCurrentDefaultLauncher(),
-            hasShownWelcome = layoutPreferences.getBoolean(KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN, false)
-        )
-        if (!shouldShowWelcome) return
-
-        showDefaultWelcomeOverlay()
-    }
-
-    private fun showDefaultWelcomeOverlay() {
-        if (::workspacePageAdapter.isInitialized && workspacePageAdapter.homePageCount() > 0) {
-            binding.workspace.workspacePager.setCurrentItem(
-                workspacePageAdapter.firstHomeAdapterPosition(),
-                false
-            )
-        }
-        val overlay = FrameLayout(this).apply {
-            isClickable = true
-            isFocusable = true
-            alpha = 0f
-        }
-        overlay.addView(
-            View(this).apply {
-                setBackgroundColor(0x26000000)
-            },
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-
-        val panel = FrameLayout(this).apply {
-            setBackgroundColor(0xFF31D3C9.toInt())
-            elevation = dp(20).toFloat()
-        }
-        val copyColumn = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.START
-        }
-        copyColumn.addView(
-            TextView(this).apply {
-                text = getString(R.string.default_launcher_welcome_title)
-                setTextColor(Color.BLACK)
-                textSize = 44f
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
-        copyColumn.addView(
-            TextView(this).apply {
-                text = getString(R.string.default_launcher_welcome_subtitle)
-                setTextColor(Color.BLACK)
-                textSize = 28f
-                typeface = Typeface.DEFAULT_BOLD
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(22)
-            }
-        )
-        copyColumn.addView(
-            TextView(this).apply {
-                text = getString(R.string.default_launcher_welcome_hint)
-                setTextColor(0x99000000.toInt())
-                textSize = 23f
-            },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(10)
-            }
-        )
-        panel.addView(
-            copyColumn,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-                leftMargin = dp(40)
-                topMargin = dp(64)
-                rightMargin = dp(40)
-            }
-        )
-        panel.addView(
-            TextView(this).apply {
-                text = getString(R.string.dialog_ok)
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                textSize = 20f
-                typeface = Typeface.DEFAULT_BOLD
-                background = roundedBackground(0x33333333, 4)
-                isClickable = true
-                isFocusable = true
-                foreground = obtainStyledForeground()
-                setOnClickListener { dismissDefaultWelcomeOverlay() }
-            },
-            FrameLayout.LayoutParams(dp(94), dp(58)).apply {
-                gravity = Gravity.TOP or Gravity.END
-                topMargin = dp(142)
-                rightMargin = dp(36)
-            }
-        )
-        overlay.addView(
-            panel,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(280),
-                Gravity.TOP
-            )
-        )
-
-        defaultWelcomeOverlay = overlay
-        binding.launcher.addView(
-            overlay,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-        overlay.bringToFront()
-        overlay.animate()
-            .alpha(1f)
-            .setDuration(180L)
-            .setInterpolator(DecelerateInterpolator())
-            .start()
-    }
-
-    private fun dismissDefaultWelcomeOverlay() {
-        layoutPreferences.edit()
-            .putBoolean(KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN, true)
-            .apply()
-        val overlay = defaultWelcomeOverlay ?: return
-        defaultWelcomeOverlay = null
-        overlay.animate()
-            .alpha(0f)
-            .setDuration(140L)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                (overlay.parent as? ViewGroup)?.removeView(overlay)
-            }
-            .start()
-    }
-
-    override fun showAlreadyDefaultLauncher() {
-        Toast.makeText(this, R.string.launcher_default_already, Toast.LENGTH_SHORT).show()
-    }
-
-    override fun openAppLibrarySettings() {
-        runCatching {
-            appLibraryLauncher.launch(Intent(this, AppLibraryActivity::class.java))
-        }.onFailure {
-            showError(getString(R.string.launcher_open_app_failed, getString(R.string.settings_app_library)))
-        }
-    }
-
-    override fun shareLauncherApp() {
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_app_subject))
-            putExtra(Intent.EXTRA_TEXT, launcherShareText())
-        }
-        startShareActivity(
-            intent = Intent.createChooser(shareIntent, getString(R.string.share_app_chooser_title))
-        )
-    }
-
-    override fun shareLauncherAppByMail() {
-        val mailIntent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:")
-            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_app_subject))
-            putExtra(Intent.EXTRA_TEXT, launcherShareText())
-        }
-        startShareActivity(
-            intent = Intent.createChooser(mailIntent, getString(R.string.share_mail_chooser_title))
-        )
-    }
-
-    override fun showRatingPrompt() {
-        showRatingDialog()
-    }
-
-    override fun showLayoutSettingsPage() {
-        binding.layoutSettingsPanel.apply {
-            animate().cancel()
-            alpha = 0f
-            translationX = dp(28).toFloat()
-            visibility = View.VISIBLE
-            bringToFront()
-            animate()
-                .alpha(1f)
-                .translationX(0f)
-                .setDuration(180L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-        binding.settingsFab.visibility = View.GONE
-    }
-
-    private fun showLiquidGlassSettingsPage() {
-        binding.liquidGlassSettingsPanel.apply {
-            animate().cancel()
-            alpha = 0f
-            translationX = dp(28).toFloat()
-            visibility = View.VISIBLE
-            bringToFront()
-            animate()
-                .alpha(1f)
-                .translationX(0f)
-                .setDuration(180L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-        binding.settingsFab.visibility = View.GONE
-    }
-
-    private fun showBlurEffectSettingsPage() {
-        applyBlurSettingsUi()
-        binding.blurSettingsPanel.apply {
-            animate().cancel()
-            alpha = 0f
-            translationX = dp(28).toFloat()
-            visibility = View.VISIBLE
-            bringToFront()
-            animate()
-                .alpha(1f)
-                .translationX(0f)
-                .setDuration(180L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-        binding.settingsFab.visibility = View.GONE
-    }
-
-    private fun showAnimationSettingsPage() {
-        applyAnimationSettingsUi()
-        binding.animationSettingsPanel.apply {
-            animate().cancel()
-            alpha = 0f
-            translationX = dp(28).toFloat()
-            visibility = View.VISIBLE
-            bringToFront()
-            animate()
-                .alpha(1f)
-                .translationX(0f)
-                .setDuration(180L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-        binding.settingsFab.visibility = View.GONE
-    }
-
-    override fun applyLayoutDarkMode(enabled: Boolean) {
-        val changed = layoutDarkMode != enabled
-        layoutDarkMode = enabled
-        if (changed) {
-            layoutPreferences.edit()
-                .putBoolean(KEY_LAYOUT_DARK_MODE, enabled)
-                .apply()
-        }
-        applyLayoutAppearance()
-    }
-
-    private fun applyIphone8Style(enabled: Boolean, persist: Boolean) {
-        val changed = layoutIphone8Style != enabled
-        layoutIphone8Style = enabled
-        if (persist && changed) {
-            layoutPreferences.edit()
-                .putBoolean(KEY_LAYOUT_IPHONE8_STYLE, enabled)
-                .apply()
-        }
-        binding.iphone8Switch.setOnCheckedChangeListener(null)
-        binding.iphone8Switch.isChecked = enabled
-        binding.iphone8Switch.setOnCheckedChangeListener { _, checked ->
-            applyIphone8Style(checked, persist = true)
-        }
-        applyResponsiveWorkspaceLayout()
-        applyWorkspaceAppearance()
-    }
-
-    private fun applyAutoArrange(enabled: Boolean, persist: Boolean) {
-        val changed = layoutAutoArrange != enabled
-        layoutAutoArrange = enabled
-        if (persist && changed) {
-            layoutPreferences.edit()
-                .putBoolean(KEY_LAYOUT_AUTO_ARRANGE, enabled)
-                .apply()
-        }
-        binding.autoArrangeSwitch.setOnCheckedChangeListener(null)
-        binding.autoArrangeSwitch.isChecked = enabled
-        binding.autoArrangeSwitch.setOnCheckedChangeListener { _, checked ->
-            applyAutoArrange(checked, persist = true)
-        }
-        if (!enabled || homeItems.isEmpty()) return
-
-        val compactedItems = arrangeHomeItems(homeItems)
-        if (compactedItems != homeItems) {
-            handleHomeItemsChanged(compactedItems)
-        }
-    }
-
-    private fun applyLiquidGlass(enabled: Boolean, persist: Boolean) {
-        val changed = layoutLiquidGlass != enabled
-        layoutLiquidGlass = enabled
-        if (persist && changed) {
-            layoutPreferences.edit()
-                .putBoolean(KEY_LAYOUT_LIQUID_GLASS, enabled)
-                .apply()
-        }
-        binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
-        binding.liquidGlassSwitch.isChecked = enabled
-        binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
-            applyLiquidGlass(checked, persist = true)
-        }
-        applyLiquidGlassSettingsAppearance()
-        applyWorkspaceAppearance()
-    }
-
-    override fun openApp(app: LauncherApp) {
-        if (app.packageName == packageName) {
-            showSettingsPanelFromLauncher()
-            return
-        }
-
-        val launchIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-            component = ComponentName(app.packageName, app.className)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-        }
-
-        if (currentAnimationSettings().shouldAnimateAppOpen) {
-            animateAndStartApp(launchIntent, app)
-        } else {
-            startAppIntent(launchIntent, app, animateTransition = false)
-        }
-    }
-
-    private fun animateAndStartApp(launchIntent: Intent, app: LauncherApp) {
-        val workspaceRoot = binding.workspace.root
-        workspaceRoot.animate().cancel()
-        workspaceRoot.animate()
-            .scaleX(1.018f)
-            .scaleY(1.018f)
-            .alpha(0.9f)
-            .setDuration(APP_OPEN_PREVIEW_ANIMATION_MS)
-            .setInterpolator(DecelerateInterpolator())
-            .withEndAction {
-                workspaceRoot.animate().cancel()
-                workspaceRoot.scaleX = 1f
-                workspaceRoot.scaleY = 1f
-                workspaceRoot.alpha = 1f
-                startAppIntent(launchIntent, app, animateTransition = true)
-            }
-            .start()
-    }
-
-    private fun startAppIntent(
-        launchIntent: Intent,
-        app: LauncherApp,
-        animateTransition: Boolean
-    ) {
-        runCatching {
-            startActivity(launchIntent)
-            if (animateTransition) {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(R.anim.ios_app_open_enter, R.anim.ios_launcher_open_exit)
-            }
-        }.onFailure {
-            showError(getString(R.string.launcher_open_app_failed, app.label))
-        }
-    }
-
-    private fun showSettingsPanelFromLauncher() {
-        appOptionsController.dismiss()
-        forceSettingsPanel = true
-        if (editingHome) {
-            setHomeEditing(false)
-        }
-        hideEditWidgetPrompt()
-        hideWidgetSheet()
-        hideFolderOverlay()
-        hideCategoryDetail()
-        hideLibrarySearchOverlay()
-        hideSearchOverlay()
-        updateLauncherMode()
-        applyLauncherSystemUi()
-    }
-
-    private fun installSystemInsetHandling() {
-        systemUiController.installInsetHandling()
-    }
-
-    private fun setupWorkspaceViews() {
-        workspacePageAdapter = LauncherPageAdapter(
-            onIconClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
-            onIconLongClicked = { item, anchor ->
-                if (!editingHome) {
-                    showAnchoredAppOptions(item, anchor)
-                }
-                true
-            },
-            onRemoveClicked = { item -> showRemoveAppDialog(item.app) },
-            onFolderClicked = { folder -> showFolderOverlay(folder, FolderSource.HOME) },
-            onHomeItemsChanged = { items ->
-                handleHomeItemsChanged(
-                    items = items,
-                    refreshWorkspace = shouldRefreshWorkspaceAfterHomeItemsChanged(items)
-                )
-            },
-            onHomeDragMoved = { item, holder, centerX, centerY ->
-                handleHomePageDragMoved(item, holder, centerX, centerY)
-            },
-            onHomeDragEnded = { item, _, centerX, centerY ->
-                handleHomePageDragEnded(item, centerX, centerY)
-            },
-            onLibrarySearchClicked = { showLibrarySearchOverlay() },
-            onLibraryGroupClicked = { group -> showCategoryDetail(group) },
-            onWidgetEditClicked = { setHomeEditing(true) },
-            onWidgetAppClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
-            onWeatherPermissionClicked = { requestWeatherLocationPermission() },
-            onWeatherWidgetClicked = { handleWeatherWidgetClicked() }
-        )
-        updateWidgetWeatherPermissionState(fetchIfNeeded = false)
-        workspacePageAdapter.setIconSizeDp(effectiveHomeIconSizeDp)
-        workspacePageAdapter.setHomeGridRows(effectiveHomeGridRows)
-        dockAdapter = LauncherDockAdapter(
-            onIconClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
-            onFolderClicked = { folder -> showFolderOverlay(folder, FolderSource.DOCK) },
-            onRemoveClicked = { item -> showRemoveAppDialog(item.app) },
-            onDragRequested = { holder ->
-                if (::dockItemTouchHelper.isInitialized) {
-                    dockItemTouchHelper.startDrag(holder)
-                }
-            },
-            onOrderChanged = { items -> handleDockItemsChanged(items, refreshDock = false) }
-        )
-        dockAdapter.setIconSizeDp(effectiveHomeIconSizeDp)
-        categoryDetailAdapter = LauncherIconAdapter(
-            onIconClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
-            onIconLongClicked = { item, anchor ->
-                hideCategoryDetail()
-                showAnchoredAppOptions(item, anchor)
-                true
-            }
-        )
-        categoryDetailController = LauncherCategoryDetailController(
-            activity = this,
-            binding = binding,
-            categoryDetailAdapter = categoryDetailAdapter,
-            keyboardController = keyboardController,
-            dismissAppOptions = { appOptionsController.dismiss() },
-            clearPageIndicatorCallbacks = { indicatorHandler.removeCallbacks(hideIndicatorRunnable) },
-            applySystemUi = { applyLauncherSystemUi() }
-        )
-        folderContentAdapter = LauncherIconAdapter(
-            onIconClicked = { item -> presenter.onOpenAppOptionClicked(item.app) },
-            onIconLongClicked = { item, anchor ->
-                hideFolderOverlay()
-                showAnchoredAppOptions(item, anchor)
-                true
-            },
-            onRemoveClicked = { item -> showRemoveAppDialog(item.app) },
-            onDragRequested = { holder ->
-                folderExitDropCommitGuard.beginDrag()
-                if (::folderItemTouchHelper.isInitialized) {
-                    folderItemTouchHelper.startDrag(holder)
-                }
-            },
-            onOrderChanged = { items -> handleOpenFolderItemsChanged(items) }
-        )
-        folderController = LauncherFolderController(
-            activity = this,
-            binding = binding,
-            folderContentAdapter = folderContentAdapter,
-            visualEffectsController = visualEffectsController,
-            dismissAppOptions = { appOptionsController.dismiss() },
-            clearPageIndicatorCallbacks = { indicatorHandler.removeCallbacks(hideIndicatorRunnable) },
-            isEditingHome = { editingHome },
-            isCurrentPageLibrary = { isLibraryPage(binding.workspace.workspacePager.currentItem) },
-            showSearchTrigger = { animated -> showSearchControlInIndicator(animated) }
-        )
-        widgetAppAdapter = WidgetAppAdapter {
-            workspacePageAdapter.addSuggestionsWidget()
-            hideWidgetSheet()
-        }
-
-        binding.workspace.workspacePager.apply {
-            adapter = workspacePageAdapter
-            offscreenPageLimit = 1
-            clipChildren = true
-            clipToPadding = true
-            setPageTransformer(null)
-            post {
-                (getChildAt(0) as? RecyclerView)?.apply {
-                    clipChildren = true
-                    clipToPadding = true
-                    overScrollMode = View.OVER_SCROLL_NEVER
-                }
-            }
-            registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                override fun onPageScrolled(
-                    position: Int,
-                    positionOffset: Float,
-                    positionOffsetPixels: Int
-                ) {
-                    updatePageIndicatorScroll(position, positionOffset)
-                }
-
-                override fun onPageSelected(position: Int) {
-                    val wasWidgetPage = isWidgetPage(lastWorkspacePagePosition)
-                    lastWorkspacePagePosition = position
-                    if (editingHome && wasWidgetPage && !isWidgetPage(position)) {
-                        setHomeEditing(false)
-                    }
-                    updateWorkspaceChromeForPage(position)
-                    showPageIndicator(position)
-                }
-
-                override fun onPageScrollStateChanged(state: Int) {
-                    if (state == ViewPager2.SCROLL_STATE_IDLE) {
-                        restorePageIndicatorAfterEdgeScroll()
-                    }
-                }
-            })
-        }
-        binding.workspace.root.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
-            if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
-                applyResponsiveWorkspaceLayout()
-            }
-        }
-        searchController.install()
-        binding.workspace.searchPillGlassSurface.visibility = View.GONE
-        binding.workspace.pageIndicator.setOnClickListener {
-            if (indicatorMode == IndicatorMode.SEARCH) {
-                showSearchOverlay()
-            }
-        }
-        showSearchControlInIndicator(animated = false)
-        binding.workspace.editOptionsButton.text = getString(R.string.launcher_widget_add)
-        binding.workspace.editOptionsButton.textSize = 18f
-        binding.workspace.editOptionsButton.setOnClickListener {
-            showWidgetSheet()
-        }
-        binding.workspace.doneEditButton.setOnClickListener {
-            setHomeEditing(false)
-        }
-        binding.workspace.editWidgetPrompt.setOnClickListener {
-            hideEditWidgetPrompt()
-            showWidgetSheet()
-        }
-        binding.workspace.widgetSheetOverlay.setOnClickListener {
-            hideWidgetSheet()
-        }
-        val widgetSheetDragTouchListener = View.OnTouchListener { _, event ->
-            handleWidgetSheetDrag(event)
-        }
-        binding.workspace.widgetSheetGrabber.setOnTouchListener(widgetSheetDragTouchListener)
-        expandWidgetSheetGrabberTouchTarget()
-        binding.workspace.widgetWeatherOption.setOnClickListener {
-            workspacePageAdapter.addWeatherWidget()
-            hideWidgetSheet()
-        }
-        binding.workspace.widgetBatteryOption.setOnClickListener {
-            workspacePageAdapter.addBatteryWidget()
-            hideWidgetSheet()
-        }
-        binding.workspace.widgetPictureOption.setOnClickListener {
-            workspacePageAdapter.addPictureWidget()
-            hideWidgetSheet()
-        }
-        binding.workspace.categoryDetailOverlay.setOnClickListener {
-            hideCategoryDetail()
-        }
-        binding.workspace.categoryDetailContent.setOnClickListener {
-            hideCategoryDetail()
-        }
-        binding.workspace.categoryDetailRecyclerView.setOnClickListener {
-            hideCategoryDetail()
-        }
-        binding.workspace.contextOverlay.setOnClickListener {
-            appOptionsController.dismiss()
-        }
-
-        binding.workspace.dockRecyclerView.apply {
-            layoutManager = GridLayoutManager(this@IOSLauncherActivity, DOCK_APP_COUNT)
-            adapter = dockAdapter
-            setHasFixedSize(true)
-            clipChildren = false
-            clipToPadding = false
-            itemAnimator = DefaultItemAnimator().apply {
-                supportsChangeAnimations = false
-                addDuration = 140L
-                moveDuration = 160L
-            }
-            setOnTouchListener { _, event ->
-                dockAdapter.updateActiveTouch(event.rawX, event.rawY)
-                false
-            }
-            dockItemTouchHelper = ItemTouchHelper(
-                LauncherDockDragCallback(
-                    adapter = dockAdapter,
-                    isDragCenterInDock = { centerX, centerY ->
-                        isPointInsideView(binding.workspace.dockRecyclerView, centerX, centerY)
-                    },
-                    onDragMoved = { item, viewHolder, centerX, centerY ->
-                        handleDockDragMoved(item, viewHolder, centerX, centerY)
-                    },
-                    onDragEnded = { item, _, centerX, centerY ->
-                        handleDockDragEnded(item, centerX, centerY)
-                    }
-                )
-            )
-            dockItemTouchHelper.attachToRecyclerView(this)
-        }
-        binding.workspace.root.post {
-            applyResponsiveWorkspaceLayout()
-        }
-        binding.workspace.categoryDetailRecyclerView.apply {
-            layoutManager = GridLayoutManager(this@IOSLauncherActivity, SEARCH_COLUMNS)
-            adapter = categoryDetailAdapter
-            itemAnimator = null
-            setHasFixedSize(true)
-            post {
-                categoryDetailAdapter.setItemHeight(dp(SEARCH_ICON_CELL_HEIGHT_DP))
-            }
-        }
-        binding.workspace.folderOverlay.setOnClickListener {
-            hideFolderOverlay()
-        }
-        binding.workspace.folderContentPanel.setOnClickListener {
-            // Keep outside-tap dismissal from firing when interacting with the folder contents.
-        }
-        binding.workspace.folderRecyclerView.apply {
-            layoutManager = LauncherPagedFolderGridLayoutManager()
-            adapter = folderContentAdapter
-            itemAnimator = null
-            addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                    if (newState != RecyclerView.SCROLL_STATE_IDLE) return
-
-                    val folderLayoutManager = recyclerView.layoutManager as? LauncherPagedFolderGridLayoutManager
-                    val snapDistance = folderLayoutManager?.distanceToNearestPage() ?: 0
-                    if (snapDistance != 0) {
-                        recyclerView.smoothScrollBy(snapDistance, 0)
-                    }
-                }
-            })
-            folderItemTouchHelper = ItemTouchHelper(
-                LauncherDragCallback(
-                    adapter = folderContentAdapter,
-                    allowFolderDrop = false,
-                    reorderOnMove = true,
-                    isDroppedOutside = { _, _, centerX, centerY ->
-                        isFolderDragCenterOutsidePanel(centerX, centerY)
-                    },
-                    onDragOutsideChanged = { item, _, outside, centerX, centerY ->
-                        handleFolderDragOutsideChanged(item, outside, centerX, centerY)
-                    },
-                    onDroppedOutside = { item -> handleFolderItemDroppedOutside(item) },
-                    onDragMoved = { item, _, centerX, centerY ->
-                        handleFolderDragMoved(item, centerX, centerY)
-                    },
-                    onDragEnded = { item, _, centerX, centerY ->
-                        handleFolderDragEnded(item, centerX, centerY)
-                    }
-                )
-            )
-            folderItemTouchHelper.attachToRecyclerView(this)
-            setHasFixedSize(true)
-            setOnTouchListener { _, event ->
-                folderContentAdapter.updateActiveTouch(event.rawX, event.rawY)
-                false
-            }
-            post {
-                folderContentAdapter.setIconSizeDp(FOLDER_ICON_SIZE_DP)
-                folderContentAdapter.setItemHeight(dp(FOLDER_ICON_CELL_HEIGHT_DP))
-            }
-        }
-        binding.workspace.widgetAppsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@IOSLauncherActivity)
-            adapter = widgetAppAdapter
-            itemAnimator = null
-            overScrollMode = View.OVER_SCROLL_NEVER
-            setHasFixedSize(true)
-        }
-    }
-
-    private fun handleEmptyLongPressForEdit(event: MotionEvent) {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                emptyLongPressStartX = event.rawX
-                emptyLongPressStartY = event.rawY
-                emptyLongPressArmed = canStartEmptyLongPressEdit() &&
-                    !isPointInsideLauncherIcon(event.rawX.toInt(), event.rawY.toInt())
-                if (emptyLongPressArmed) {
-                    emptyLongPressHandler.postDelayed(emptyLongPressRunnable, EMPTY_LONG_PRESS_MS)
-                }
-            }
-
-            MotionEvent.ACTION_MOVE -> {
-                if (!emptyLongPressArmed) return
-
-                val dx = abs(event.rawX - emptyLongPressStartX)
-                val dy = abs(event.rawY - emptyLongPressStartY)
-                if (dx > dp(EMPTY_LONG_PRESS_SLOP_DP) || dy > dp(EMPTY_LONG_PRESS_SLOP_DP)) {
-                    cancelEmptyLongPressEdit()
-                }
-            }
-
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> cancelEmptyLongPressEdit()
-        }
-    }
-
-    private fun canStartEmptyLongPressEdit(): Boolean {
-        return state.launcherMode &&
-            !editingHome &&
-            binding.workspace.searchOverlay.visibility != View.VISIBLE &&
-            binding.workspace.librarySearchOverlay.visibility != View.VISIBLE &&
-            binding.workspace.categoryDetailOverlay.visibility != View.VISIBLE &&
-            binding.workspace.folderOverlay.visibility != View.VISIBLE &&
-            binding.workspace.widgetSheetOverlay.visibility != View.VISIBLE &&
-            binding.workspace.contextOverlay.visibility != View.VISIBLE &&
-            !appOptionsController.isShowing() &&
-            !isWidgetPage(binding.workspace.workspacePager.currentItem) &&
-            !isLibraryPage(binding.workspace.workspacePager.currentItem)
-    }
-
-    private fun cancelEmptyLongPressEdit() {
-        emptyLongPressArmed = false
-        emptyLongPressHandler.removeCallbacks(emptyLongPressRunnable)
-    }
-
-    private fun isPointInsideLauncherIcon(rawX: Int, rawY: Int): Boolean {
-        return isPointInsideViewWithId(
-            binding.workspace.root,
-            rawX,
-            rawY,
-            setOf(R.id.iconPlate)
-        )
-    }
-
-    private fun isPointInsideView(view: View, rawX: Float, rawY: Float): Boolean {
-        if (view.visibility != View.VISIBLE) return false
-
-        val location = IntArray(2)
-        view.getLocationOnScreen(location)
-        return rawX >= location[0] &&
-            rawX <= location[0] + view.width &&
-            rawY >= location[1] &&
-            rawY <= location[1] + view.height
-    }
-
-    private fun isPointInsideViewWithId(
-        view: View,
-        rawX: Int,
-        rawY: Int,
-        targetIds: Set<Int>
-    ): Boolean {
-        if (view.visibility != View.VISIBLE) return false
-
-        val location = IntArray(2)
-        view.getLocationOnScreen(location)
-        val inside = rawX >= location[0] &&
-            rawX <= location[0] + view.width &&
-            rawY >= location[1] &&
-            rawY <= location[1] + view.height
-        if (!inside) return false
-        if (view.id in targetIds) return true
-
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) {
-                if (isPointInsideViewWithId(view.getChildAt(index), rawX, rawY, targetIds)) {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
-    private fun handlePullDownSearchGesture(event: MotionEvent): Boolean {
-        if (!state.launcherMode) return false
-        if (editingHome) return false
-        if (binding.workspace.widgetSheetOverlay.visibility == View.VISIBLE) return false
-        if (binding.workspace.editWidgetPrompt.visibility == View.VISIBLE) return false
-        if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return false
-        if (binding.workspace.librarySearchOverlay.visibility == View.VISIBLE) return false
-        if (binding.workspace.categoryDetailOverlay.visibility == View.VISIBLE) return false
-        if (binding.workspace.folderOverlay.visibility == View.VISIBLE) return false
-        if (isWidgetPage(binding.workspace.workspacePager.currentItem)) return false
-        if (isLibraryPage(binding.workspace.workspacePager.currentItem)) return false
-        if (binding.workspace.contextOverlay.visibility == View.VISIBLE || appOptionsController.isShowing()) return false
-
-        return when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                pullDownStartX = event.rawX
-                pullDownStartY = event.rawY
-                pullDownGestureArmed = true
-                false
-            }
-
-            MotionEvent.ACTION_MOVE -> {
-                if (!pullDownGestureArmed) return false
-
-                val dx = event.rawX - pullDownStartX
-                val dy = event.rawY - pullDownStartY
-                val verticalThreshold = dp(PULL_DOWN_SEARCH_THRESHOLD_DP)
-                val horizontalEscape = dp(PULL_DOWN_HORIZONTAL_ESCAPE_DP)
-
-                if (abs(dx) > horizontalEscape && abs(dx) > abs(dy) * 1.2f) {
-                    pullDownGestureArmed = false
-                    return false
-                }
-                if (dy < -dp(12)) {
-                    pullDownGestureArmed = false
-                    return false
-                }
-                if (dy > verticalThreshold && dy > abs(dx) * 1.35f) {
-                    pullDownGestureArmed = false
-                    showSearchOverlay()
-                    return true
-                }
-                false
-            }
-
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> {
-                pullDownGestureArmed = false
-                false
-            }
-
-            else -> false
-        }
-    }
-
-    private fun showPageIndicator(position: Int) {
-        if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
-        if (!isHomePage(position)) {
-            hidePageIndicatorImmediately()
-            return
-        }
-
-        suppressingEdgePageIndicator = false
-        if (homeIndicatorPageCount() <= 1) {
-            showSearchControlInIndicator(animated = false)
-            return
-        }
-        showDotsInIndicator(workspacePageAdapter.homePagePositionForAdapterPosition(position), animate = true)
-
-        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        binding.workspace.searchPillGlassSurface.visibility = View.GONE
-        if (!editingHome) {
-            indicatorHandler.postDelayed(hideIndicatorRunnable, PAGE_INDICATOR_VISIBLE_MS)
-        }
-    }
-
-    private fun hidePageIndicator() {
-        if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
-        if (editingHome) return
-
-        showSearchControlInIndicator(animated = true)
-    }
-
-    private fun updatePageIndicatorDots(selectedPosition: Int) {
-        if (indicatorMode != IndicatorMode.DOTS && !editingHome) return
-
-        val pageCount = homeIndicatorPageCount()
-        if (pageCount <= 1) return
-
-        val selectedPage = selectedPosition.coerceIn(0, pageCount - 1)
-        val markers = LauncherPageIndicatorWindowPolicy.markers(
-            pageCount = pageCount,
-            selectedPage = selectedPage
-        )
-        ensureIndicatorWheelView().setMarkers(markers, animate = false)
-    }
-
-    private fun showDotsInIndicator(position: Int, animate: Boolean) {
-        showDotsIndicatorFrame()
-        updatePageIndicatorDots(position)
-        if (animate) {
-            binding.workspace.pageIndicator.animate()
-                .alpha(1f)
-                .setDuration(120L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-    }
-
-    private fun updatePageIndicatorScroll(position: Int, positionOffset: Float) {
-        if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
-        if (!::workspacePageAdapter.isInitialized) return
-
-        val currentPageIsHome = isHomePage(position)
-        val nextPageIsHome = isHomePage(position + 1)
-        if (!LauncherPageIndicatorWindowPolicy.shouldTrackHomeScroll(currentPageIsHome, nextPageIsHome)) {
-            if (currentPageIsHome || nextPageIsHome) {
-                hidePageIndicatorForEdgeScroll()
-            }
-            return
-        }
-
-        val pageCount = homeIndicatorPageCount()
-        if (pageCount <= 1) return
-
-        suppressingEdgePageIndicator = false
-        val homePagePosition = (
-            position - workspacePageAdapter.firstHomeAdapterPosition() + positionOffset
-        ).coerceIn(0f, (pageCount - 1).toFloat())
-        showDotsIndicatorFrame()
-        ensureIndicatorWheelView().setScrollPosition(
-            pageCount = pageCount,
-            pagePosition = homePagePosition
-        )
-        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        if (!editingHome) {
-            indicatorHandler.postDelayed(hideIndicatorRunnable, PAGE_INDICATOR_VISIBLE_MS)
-        }
-    }
-
-    private fun hidePageIndicatorForEdgeScroll() {
-        suppressingEdgePageIndicator = true
-        hidePageIndicatorImmediately()
-        binding.workspace.searchPillGlassSurface.visibility = View.GONE
-    }
-
-    private fun hidePageIndicatorImmediately() {
-        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        resetPageIndicatorVisualState()
-        binding.workspace.pageIndicator.visibility = View.GONE
-    }
-
-    private fun resetPageIndicatorVisualState() {
-        binding.workspace.pageIndicator.apply {
-            animate().cancel()
-            clearAnimation()
-            alpha = 1f
-            scaleX = 1f
-            scaleY = 1f
-            translationX = 0f
-            translationY = 0f
-        }
-    }
-
-    private fun restorePageIndicatorAfterEdgeScroll() {
-        if (!suppressingEdgePageIndicator) return
-
-        suppressingEdgePageIndicator = false
-        val currentPage = binding.workspace.workspacePager.currentItem
-        updateWorkspaceChromeForPage(currentPage)
-        if (!isHomePage(currentPage)) return
-
-        if (editingHome) {
-            showDotsInIndicator(currentHomePageIndex(), animate = false)
-        } else {
-            showSearchControlInIndicator(animated = false)
-        }
-    }
-
-    private fun showDotsIndicatorFrame() {
-        indicatorMode = IndicatorMode.DOTS
-        ensureDotsIndicatorFrame()
-        ensureIndicatorWheelView()
-        binding.workspace.searchPillGlassSurface.animate().cancel()
-        binding.workspace.searchPillGlassSurface.visibility = View.GONE
-        if (homeIndicatorPageCount() <= 1) {
-            binding.workspace.pageIndicator.removeAllViews()
-            hidePageIndicatorImmediately()
-            return
-        }
-        binding.workspace.pageIndicator.apply {
-            resetPageIndicatorVisualState()
-            isClickable = false
-            visibility = View.VISIBLE
-        }
-    }
-
-    private fun showSearchControlInIndicator(animated: Boolean) {
-        if (binding.workspace.searchOverlay.visibility == View.VISIBLE) return
-        if (isWidgetPage(binding.workspace.workspacePager.currentItem)) return
-        if (isLibraryPage(binding.workspace.workspacePager.currentItem)) return
-        if (editingHome) return
-
-        indicatorMode = IndicatorMode.SEARCH
-        ensureSearchIndicatorFrame()
-        indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-        binding.workspace.searchPillGlassSurface.animate().cancel()
-        binding.workspace.searchPillGlassSurface.visibility = View.GONE
-        binding.workspace.pageIndicator.apply {
-            resetPageIndicatorVisualState()
-            isClickable = true
-            visibility = View.VISIBLE
-            removeAllViews()
-            addView(createIndicatorSearchText())
-        }
-        if (animated) {
-            val child = binding.workspace.pageIndicator.getChildAt(0) ?: return
-            child.alpha = 0f
-            child.animate()
-                .alpha(1f)
-                .setDuration(150L)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-    }
-
-    private fun createIndicatorSearchText(): TextView {
-        return TextView(this).apply {
-            text = getString(R.string.launcher_search_hint)
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-            setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search_18, 0, 0, 0)
-            compoundDrawablePadding = dp(4)
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-    }
-
-    private fun ensureDotsIndicatorFrame() {
-        binding.workspace.pageIndicator.layoutParams = binding.workspace.pageIndicator.layoutParams.apply {
-            width = dp(PAGE_INDICATOR_SEARCH_WIDTH_DP)
-            height = dp(PAGE_INDICATOR_SEARCH_HEIGHT_DP)
-        }
-        binding.workspace.pageIndicator.setPadding(
-            dp(PAGE_INDICATOR_DOT_PADDING_DP),
-            0,
-            dp(PAGE_INDICATOR_DOT_PADDING_DP),
-            0
-        )
-        binding.workspace.pageIndicator.layoutTransition = null
-    }
-
-    private fun ensureIndicatorWheelView(): LauncherPageIndicatorWheelView {
-        indicatorWheelView?.let { wheelView ->
-            if (wheelView.parent === binding.workspace.pageIndicator) return wheelView
-        }
-
-        val wheelView = LauncherPageIndicatorWheelView(this).apply {
-            layoutParams = android.widget.LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        binding.workspace.pageIndicator.removeAllViews()
-        binding.workspace.pageIndicator.addView(wheelView)
-        indicatorWheelView = wheelView
-        return wheelView
-    }
-
-    private fun ensureSearchIndicatorFrame() {
-        binding.workspace.pageIndicator.layoutParams = binding.workspace.pageIndicator.layoutParams.apply {
-            width = dp(PAGE_INDICATOR_SEARCH_WIDTH_DP)
-            height = dp(PAGE_INDICATOR_SEARCH_HEIGHT_DP)
-        }
-        binding.workspace.pageIndicator.setPadding(dp(10), 0, dp(10), 0)
-        indicatorWheelView = null
-    }
-
-    private fun homeIndicatorPageCount(): Int {
-        return workspacePageAdapter.homePageCount()
-    }
-
-    private fun updateWorkspaceChromeForPage(position: Int) {
-        val libraryPage = isLibraryPage(position)
-        val widgetPage = isWidgetPage(position)
-        binding.workspace.bottomControlSlot.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
-        binding.workspace.dockGlassSurface.visibility = if (libraryPage || widgetPage) View.GONE else View.VISIBLE
-        if (libraryPage || widgetPage) {
-            hidePageIndicatorImmediately()
-            binding.workspace.searchPillGlassSurface.visibility = View.GONE
-        } else if (editingHome) {
-            binding.workspace.searchPillGlassSurface.visibility = View.GONE
-            showDotsInIndicator(workspacePageAdapter.homePagePositionForAdapterPosition(position), animate = false)
-            binding.workspace.pageIndicator.visibility = View.VISIBLE
-        } else if (indicatorMode == IndicatorMode.SEARCH) {
-            showSearchControlInIndicator(animated = false)
-        }
-    }
-
-    private fun updatePageIndicatorDotsForAdapterPosition(position: Int) {
-        if (isHomePage(position)) {
-            updatePageIndicatorDots(workspacePageAdapter.homePagePositionForAdapterPosition(position))
-        }
-    }
-
-    private fun isLibraryPage(position: Int): Boolean {
-        return workspacePageAdapter.itemCount > 0 && position == workspacePageAdapter.itemCount - 1
-    }
-
-    private fun isWidgetPage(position: Int): Boolean {
-        return ::workspacePageAdapter.isInitialized && workspacePageAdapter.isWidgetPage(position)
-    }
-
-    private fun isHomePage(position: Int): Boolean {
-        return ::workspacePageAdapter.isInitialized && workspacePageAdapter.isHomePage(position)
-    }
-
-    private fun currentHomePageIndex(): Int {
-        return workspacePageAdapter.homePagePositionForAdapterPosition(
-            binding.workspace.workspacePager.currentItem
-        ).coerceIn(0, (workspacePageAdapter.homePageCount() - 1).coerceAtLeast(0))
-    }
-
-    private fun setHomeEditing(enabled: Boolean) {
-        if (editingHome == enabled) return
-
-        if (!enabled) {
-            cancelActiveHomeDrags()
-        }
-
-        editingHome = enabled
-        appOptionsController.dismiss()
-        workspacePageAdapter.setEditing(enabled)
-        dockAdapter.setEditing(enabled)
-        if (::folderController.isInitialized) {
-            folderController.setEditing(enabled)
-        }
-
-        if (enabled) {
-            hideSearchOverlay()
-            hideLibrarySearchOverlay()
-            hideCategoryDetail()
-            binding.workspace.editTopBar.apply {
-                animate().cancel()
-                alpha = 0f
-                translationY = -dp(12).toFloat()
-                visibility = View.VISIBLE
-                animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(160L)
-                    .start()
-            }
-            binding.workspace.searchPillGlassSurface.visibility = View.GONE
-            if (isHomePage(binding.workspace.workspacePager.currentItem)) {
-                showDotsInIndicator(currentHomePageIndex(), animate = false)
-            } else {
-                hidePageIndicatorImmediately()
-            }
-        } else {
-            hideEditWidgetPrompt()
-            hideWidgetSheet()
-            binding.workspace.editTopBar.animate()
-                .alpha(0f)
-                .translationY(-dp(12).toFloat())
-                .setDuration(130L)
-                .withEndAction {
-                    binding.workspace.editTopBar.visibility = View.GONE
-                    binding.workspace.editTopBar.translationY = 0f
-                }
-                .start()
-            hidePageIndicatorImmediately()
-            if (isHomePage(binding.workspace.workspacePager.currentItem)) {
-                showSearchControlInIndicator(animated = true)
-            }
-            workspacePageAdapter.submitItems(homeItems)
-            dockAdapter.submitItems(dockItems)
-        }
-    }
-
-    private fun cancelActiveHomeDrags() {
-        homeEdgeSwitchHandler.removeCallbacks(homeEdgeSwitchRunnable)
-        folderEdgeSwitchHandler.removeCallbacks(folderEdgeSwitchRunnable)
-
-        if (homeEdgeDragActive) {
-            hideHomeEdgeDragPreview(restoreWorkspace = true)
-        }
-        if (homeDockDragActive) {
-            hideHomeDockDragPreview()
-        }
-        if (folderExitDragActive) {
-            hideFolderExitDragPreview(restoreWorkspace = true)
-        }
-
-        resetFolderExitDragVisuals()
-        hideFolderEdgeGlows()
-        binding.workspace.workspacePager.isUserInputEnabled = true
-        forceHideSelectedIconPreview()
-    }
-
-    private fun forceHideSelectedIconPreview() {
-        binding.workspace.selectedIconPreview.animate().cancel()
-        binding.workspace.selectedIconImage.setImageDrawable(null)
-        binding.workspace.selectedIconLabel.text = ""
-        binding.workspace.selectedIconLabel.alpha = 1f
-        binding.workspace.selectedIconPreview.apply {
-            clearAnimation()
-            setLayerType(View.LAYER_TYPE_NONE, null)
-            visibility = View.GONE
-            alpha = 1f
-            scaleX = 1f
-            scaleY = 1f
-            translationX = 0f
-            translationY = 0f
-            translationZ = 0f
-            elevation = 0f
-        }
-    }
-
-    private fun toggleEditWidgetPrompt() {
-        widgetSheetController.toggleEditWidgetPrompt()
-    }
-
-    private fun hideEditWidgetPrompt() {
-        widgetSheetController.hideEditWidgetPrompt()
-    }
-
-    private fun showWidgetSheet() {
-        widgetSheetController.showWidgetSheet()
-    }
-
-    private fun hideWidgetSheet() {
-        widgetSheetController.hideWidgetSheet()
-    }
-
-    private fun handleWidgetSheetDrag(event: MotionEvent): Boolean {
-        return widgetSheetController.handleWidgetSheetDrag(event)
-    }
-
-    private fun expandWidgetSheetGrabberTouchTarget() {
-        binding.workspace.widgetSheetGrabber.post {
-            val parent = binding.workspace.widgetSheetGrabber.parent as? View ?: return@post
-            val hitRect = Rect()
-            binding.workspace.widgetSheetGrabber.getHitRect(hitRect)
-            hitRect.left = 0
-            hitRect.right = parent.width
-            hitRect.top -= dp(14)
-            hitRect.bottom += dp(18)
-            parent.touchDelegate = TouchDelegate(hitRect, binding.workspace.widgetSheetGrabber)
-        }
-    }
-
-    private fun requestWeatherLocationPermission() {
-        if (hasWeatherLocationPermission()) {
-            openWeatherDetailAfterRefresh = true
-            refreshWeatherForecast(force = true)
-        } else {
-            openWeatherDetailAfterRefresh = true
-            weatherLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-    }
-
-    private fun handleWeatherWidgetClicked() {
-        if (!hasWeatherLocationPermission()) {
-            requestWeatherLocationPermission()
-            return
-        }
-        latestWeatherForecast?.let { forecast ->
-            showWeatherDetailPage(forecast)
-            return
-        }
-        openWeatherDetailAfterRefresh = true
-        refreshWeatherForecast(force = true)
-    }
-
-    private fun updateWidgetWeatherPermissionState(fetchIfNeeded: Boolean = true) {
-        if (!::workspacePageAdapter.isInitialized) return
-        when {
-            !hasWeatherLocationPermission() -> {
-                latestWeatherForecast = null
-                workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.PermissionRequired)
-            }
-
-            !hasUsableNetwork() -> {
-                workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.NoNetwork)
-            }
-
-            latestWeatherForecast != null -> {
-                if (fetchIfNeeded && isWeatherForecastStale()) {
-                    refreshWeatherForecast(force = true)
-                } else {
-                    workspacePageAdapter.setWeatherWidgetState(
-                        WeatherWidgetUiState.Forecast(requireNotNull(latestWeatherForecast))
-                    )
-                }
-            }
-
-            fetchIfNeeded -> {
-                refreshWeatherForecast(force = false)
-            }
-
-            else -> {
-                workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.Loading)
-            }
-        }
-    }
-
-    private fun refreshWeatherForecast(force: Boolean) {
-        if (!::workspacePageAdapter.isInitialized) return
-        if (!hasWeatherLocationPermission()) {
-            workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.PermissionRequired)
-            return
-        }
-        if (!hasUsableNetwork()) {
-            workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.NoNetwork)
-            return
-        }
-        if (weatherLoadInFlight) return
-        if (!force && latestWeatherForecast != null) {
-            workspacePageAdapter.setWeatherWidgetState(
-                WeatherWidgetUiState.Forecast(requireNotNull(latestWeatherForecast))
-            )
-            return
-        }
-
-        weatherLoadInFlight = true
-        workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.Loading)
-        lifecycleScope.launch {
-            try {
-                val coordinates = WeatherLocationProvider.currentCoordinates(this@IOSLauncherActivity)
-                if (coordinates == null) {
-                    workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.PermissionRequired)
-                    showError(getString(R.string.weather_location_unavailable))
-                    return@launch
-                }
-                val locationName = withContext(Dispatchers.IO) {
-                    WeatherLocationProvider.locationName(this@IOSLauncherActivity, coordinates)
-                }
-                val forecast = OpenMeteoWeatherApi.fetchForecast(
-                    coordinates = coordinates,
-                    locationName = locationName,
-                    temperatureUnit = selectedWeatherTemperatureUnit()
-                )
-                latestWeatherForecast = forecast
-                latestWeatherRefreshUptime = SystemClock.elapsedRealtime()
-                workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.Forecast(forecast))
-                scheduleNextWeatherRefresh()
-                if (weatherDetailPanel != null || openWeatherDetailAfterRefresh) {
-                    openWeatherDetailAfterRefresh = false
-                    showWeatherDetailPage(forecast)
-                }
-            } catch (_: IOException) {
-                openWeatherDetailAfterRefresh = false
-                workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.NoNetwork)
-            } catch (_: Exception) {
-                openWeatherDetailAfterRefresh = false
-                workspacePageAdapter.setWeatherWidgetState(WeatherWidgetUiState.NoNetwork)
-                showError(getString(R.string.weather_refresh_failed))
-            } finally {
-                weatherLoadInFlight = false
-            }
-        }
-    }
-
-    private fun isWeatherForecastStale(): Boolean {
-        return latestWeatherRefreshUptime == 0L ||
-            SystemClock.elapsedRealtime() - latestWeatherRefreshUptime >= weatherAutoRefreshMs()
-    }
-
-    private fun scheduleNextWeatherRefresh() {
-        weatherRefreshHandler.removeCallbacks(weatherRefreshRunnable)
-        weatherRefreshHandler.postDelayed(weatherRefreshRunnable, weatherAutoRefreshMs())
-    }
-
-    private fun weatherAutoRefreshMs(): Long {
-        return selectedWeatherRefreshInterval().millis
-    }
-
-    private fun hasWeatherLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun hasUsableNetwork(): Boolean {
-        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            ?: return false
-        val network = manager.activeNetwork ?: return false
-        val capabilities = manager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        updateSettingsFabVisibility()
     }
 
     private fun showWeatherSettingsPage() {
@@ -6570,12 +2448,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         weatherSettingsPanel = panel
         binding.root.addView(
             panel,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
-        binding.settingsFab.visibility = View.GONE
+        updateSettingsFabVisibility()
     }
 
     private fun hideWeatherSettingsPage() {
@@ -6639,10 +2514,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             )
         }.also { row ->
-            row.layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(80)
-            )
+            row.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(80))
         }
     }
 
@@ -6663,25 +2535,18 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun weatherTemperatureUnitLabel(unit: WeatherSettingsPolicy.TemperatureUnit): String {
         return when (unit) {
-            WeatherSettingsPolicy.TemperatureUnit.CELSIUS ->
-                getString(R.string.weather_settings_unit_celsius)
-            WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT ->
-                getString(R.string.weather_settings_unit_fahrenheit)
+            WeatherSettingsPolicy.TemperatureUnit.CELSIUS -> getString(R.string.weather_settings_unit_celsius)
+            WeatherSettingsPolicy.TemperatureUnit.FAHRENHEIT -> getString(R.string.weather_settings_unit_fahrenheit)
         }
     }
 
     private fun weatherRefreshIntervalLabel(interval: WeatherSettingsPolicy.RefreshInterval): String {
         return when (interval) {
-            WeatherSettingsPolicy.RefreshInterval.HOURLY ->
-                getString(R.string.weather_settings_auto_refresh_hourly)
-            WeatherSettingsPolicy.RefreshInterval.EVERY_3_HOURS ->
-                getString(R.string.weather_settings_auto_refresh_3_hours)
-            WeatherSettingsPolicy.RefreshInterval.EVERY_6_HOURS ->
-                getString(R.string.weather_settings_auto_refresh_6_hours)
-            WeatherSettingsPolicy.RefreshInterval.EVERY_9_HOURS ->
-                getString(R.string.weather_settings_auto_refresh_9_hours)
-            WeatherSettingsPolicy.RefreshInterval.EVERY_12_HOURS ->
-                getString(R.string.weather_settings_auto_refresh_12_hours)
+            WeatherSettingsPolicy.RefreshInterval.HOURLY -> getString(R.string.weather_settings_auto_refresh_hourly)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_3_HOURS -> getString(R.string.weather_settings_auto_refresh_3_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_6_HOURS -> getString(R.string.weather_settings_auto_refresh_6_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_9_HOURS -> getString(R.string.weather_settings_auto_refresh_9_hours)
+            WeatherSettingsPolicy.RefreshInterval.EVERY_12_HOURS -> getString(R.string.weather_settings_auto_refresh_12_hours)
         }
     }
 
@@ -6699,10 +2564,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 layoutPreferences.edit()
                     .putBoolean(KEY_WEATHER_USE_METRIC, selectedUnit.useMetric)
                     .apply()
-                latestWeatherForecast = null
-                latestWeatherRefreshUptime = 0L
+                notifyLauncherDataChanged()
                 showWeatherSettingsPage()
-                refreshWeatherForecast(force = true)
             }
         )
     }
@@ -6724,9 +2587,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 layoutPreferences.edit()
                     .putString(KEY_WEATHER_REFRESH_INTERVAL, selectedInterval.preferenceValue)
                     .apply()
+                notifyLauncherDataChanged()
                 showWeatherSettingsPage()
-                scheduleNextWeatherRefresh()
-                refreshWeatherForecast(force = true)
             }
         )
     }
@@ -6754,10 +2616,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 typeface = Typeface.DEFAULT_BOLD
                 includeFontPadding = false
             },
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(18)
             }
         )
@@ -6797,10 +2656,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         dialog.window?.let { window ->
             window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             window.setDimAmount(0.62f)
-            window.setLayout(
-                (resources.displayMetrics.widthPixels * 0.86f).toInt(),
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+            window.setLayout((resources.displayMetrics.widthPixels * 0.86f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
         }
     }
 
@@ -6837,402 +2693,278 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
             )
         }.also { row ->
-            row.layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(64)
-            )
+            row.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(64))
         }
     }
 
-    private fun showWeatherDetailPage(forecast: WeatherForecast) {
-        hideWeatherDetailPage()
-        val panel = FrameLayout(this).apply {
-            fitsSystemWindows = true
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF405A77.toInt(), 0xFF7F9AB5.toInt())
-            )
-            elevation = dp(60).toFloat()
-            isClickable = true
-            isFocusable = true
-        }
+    private fun showDefaultLauncherPrompt() {
+        val dialog = Dialog(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(28), dp(116), dp(28), dp(42))
+            background = roundedBackground(Color.WHITE, 26)
+            setPadding(dp(20), dp(30), dp(20), 0)
         }
-        content.addView(createWeatherDetailHeader(forecast))
-        content.addView(createWeatherHourlyCard(forecast))
-        content.addView(createWeatherDailyCard(forecast))
-        panel.addView(
-            ScrollView(this).apply {
-                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-                addView(
-                    content,
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                )
+        content.addView(
+            ImageView(this).apply {
+                setImageResource(R.mipmap.ic_launcher)
+                contentDescription = getString(R.string.app_name)
             },
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-        weatherDetailPanel = panel
-        binding.root.addView(
-            panel,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
-    }
-
-    private fun hideWeatherDetailPage() {
-        val panel = weatherDetailPanel ?: return
-        (panel.parent as? ViewGroup)?.removeView(panel)
-        weatherDetailPanel = null
-    }
-
-    private fun createWeatherDetailHeader(forecast: WeatherForecast): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            addView(
-                TextView(context).apply {
-                    text = forecast.locationName
-                    setTextColor(Color.WHITE)
-                    textSize = 34f
-                    includeFontPadding = false
-                }
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(
-                        R.string.launcher_widget_weather_temperature_format,
-                        forecast.currentTemperatureC
-                    )
-                    setTextColor(Color.WHITE)
-                    textSize = 86f
-                    typeface = Typeface.DEFAULT_BOLD
-                    includeFontPadding = false
-                },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    topMargin = dp(34)
-                }
-            )
-            addView(
-                TextView(context).apply {
-                    text = forecast.condition
-                    setTextColor(Color.WHITE)
-                    textSize = 21f
-                    typeface = Typeface.DEFAULT_BOLD
-                    includeFontPadding = false
-                }
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(
-                        R.string.launcher_widget_weather_high_low_format,
-                        forecast.highTemperatureC,
-                        forecast.lowTemperatureC
-                    )
-                    setTextColor(Color.WHITE)
-                    textSize = 20f
-                    includeFontPadding = false
-                },
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    topMargin = dp(6)
-                    bottomMargin = dp(70)
-                }
-            )
-        }
-    }
-
-    private fun createWeatherHourlyCard(forecast: WeatherForecast): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = roundedBackground(0x99D9DEE6.toInt(), 20)
-            setPadding(dp(18), dp(18), dp(18), dp(16))
-            addView(
-                TextView(context).apply {
-                    text = getString(
-                        R.string.weather_today_summary,
-                        forecast.condition,
-                        forecast.windDirectionDegrees,
-                        forecast.windSpeedKmh,
-                        forecast.highTemperatureC,
-                        forecast.lowTemperatureC
-                    )
-                    setTextColor(Color.WHITE)
-                    textSize = 18f
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-            )
-            addView(
-                View(context).apply { setBackgroundColor(0x55FFFFFF) },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
-                    topMargin = dp(18)
-                    bottomMargin = dp(12)
-                }
-            )
-            addView(
-                HorizontalScrollView(context).apply {
-                    isHorizontalScrollBarEnabled = false
-                    addView(
-                        LinearLayout(context).apply {
-                            orientation = LinearLayout.HORIZONTAL
-                            forecast.hourly.forEach { item ->
-                                addView(
-                                    createWeatherHourlyColumn(
-                                        label = item.label,
-                                        temperature = item.temperatureC
-                                    )
-                                )
-                            }
-                        }
-                    )
-                }
-            )
-        }.also { card ->
-            card.layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dp(26)
+            LinearLayout.LayoutParams(dp(72), dp(72)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
             }
-        }
-    }
+        )
+        content.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_prompt_title)
+                gravity = Gravity.CENTER
+                setTextColor(Color.BLACK)
+                textSize = 23f
+                typeface = Typeface.DEFAULT_BOLD
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(12)
+            }
+        )
+        content.addView(
+            TextView(this).apply {
+                text = getString(R.string.default_launcher_prompt_message)
+                gravity = Gravity.CENTER
+                setTextColor(0xFF222222.toInt())
+                textSize = 18f
+                setLineSpacing(dp(2).toFloat(), 1f)
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(18)
+                leftMargin = dp(6)
+                rightMargin = dp(6)
+            }
+        )
+        content.addView(
+            View(this).apply { setBackgroundColor(0xFFE2E2E2.toInt()) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
+                topMargin = dp(28)
+            }
+        )
 
-    private fun createWeatherHourlyColumn(label: String, temperature: Int): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(
-                TextView(context).apply {
-                    text = label
-                    setTextColor(Color.WHITE)
-                    textSize = 16f
-                    gravity = Gravity.CENTER
-                }
-            )
-            addView(
-                ImageView(context).apply {
-                    setImageResource(R.drawable.ic_weather_24)
-                    imageTintList = ColorStateList.valueOf(Color.WHITE)
-                },
-                LinearLayout.LayoutParams(dp(32), dp(32)).apply {
-                    topMargin = dp(6)
-                    bottomMargin = dp(4)
-                }
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(R.string.launcher_widget_weather_temperature_format, temperature)
-                    setTextColor(Color.WHITE)
-                    textSize = 21f
-                    gravity = Gravity.CENTER
-                }
-            )
-        }.also { column ->
-            column.layoutParams = LinearLayout.LayoutParams(dp(76), ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-    }
-
-    private fun createWeatherDailyCard(forecast: WeatherForecast): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = roundedBackground(0x99D9DEE6.toInt(), 20)
-            setPadding(dp(22), dp(20), dp(22), dp(20))
-            addView(
-                LinearLayout(context).apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                    addView(
-                        ImageView(context).apply {
-                            setImageResource(R.drawable.ic_grid_24)
-                            imageTintList = ColorStateList.valueOf(Color.WHITE)
-                        },
-                        LinearLayout.LayoutParams(dp(26), dp(26)).apply {
-                            marginEnd = dp(16)
-                        }
-                    )
-                    addView(
-                        TextView(context).apply {
-                            text = getString(R.string.weather_daily_forecast_title)
-                            setTextColor(Color.WHITE)
-                            textSize = 18f
-                            typeface = Typeface.DEFAULT_BOLD
-                            includeFontPadding = false
-                        }
-                    )
-                }
-            )
-            forecast.daily.forEach { day ->
-                addView(createWeatherDailyRow(day))
-            }
-        }.also { card ->
-            card.layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+        val cancelButton = TextView(this).apply {
+            text = getString(R.string.dialog_cancel)
+            gravity = Gravity.CENTER
+            setTextColor(0xFF168BFF.toInt())
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener { dialog.dismiss() }
         }
-    }
-
-    private fun createWeatherDailyRow(day: DailyWeather): View {
-        return LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(14), 0, dp(10))
-            addView(
-                TextView(context).apply {
-                    text = day.dayLabel
-                    setTextColor(Color.WHITE)
-                    textSize = 22f
-                    typeface = Typeface.DEFAULT_BOLD
-                },
-                LinearLayout.LayoutParams(dp(54), ViewGroup.LayoutParams.WRAP_CONTENT)
-            )
-            addView(
-                LinearLayout(context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-                    addView(
-                        ImageView(context).apply {
-                            setImageResource(R.drawable.ic_weather_24)
-                            imageTintList = ColorStateList.valueOf(Color.WHITE)
-                        },
-                        LinearLayout.LayoutParams(dp(34), dp(34))
-                    )
-                    addView(
-                        TextView(context).apply {
-                            text = "${day.precipitationProbability}%"
-                            setTextColor(Color.WHITE)
-                            textSize = 17f
-                            gravity = Gravity.CENTER
-                        }
-                    )
-                },
-                LinearLayout.LayoutParams(dp(58), ViewGroup.LayoutParams.WRAP_CONTENT)
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(R.string.launcher_widget_weather_temperature_format, day.minTemperatureC)
-                    setTextColor(Color.WHITE)
-                    textSize = 22f
-                    gravity = Gravity.END
-                },
-                LinearLayout.LayoutParams(dp(42), ViewGroup.LayoutParams.WRAP_CONTENT)
-            )
-            addView(
-                createTemperatureRangeBar(day),
-                LinearLayout.LayoutParams(0, dp(20), 1f).apply {
-                    leftMargin = dp(8)
-                    rightMargin = dp(8)
-                }
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(R.string.launcher_widget_weather_temperature_format, day.maxTemperatureC)
-                    setTextColor(Color.WHITE)
-                    textSize = 22f
-                },
-                LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.WRAP_CONTENT)
-            )
-        }
-    }
-
-    private fun createTemperatureRangeBar(day: DailyWeather): View {
-        val span = (day.maxTemperatureC - day.minTemperatureC).coerceAtLeast(1)
-        val fillWidth = ((span.coerceAtMost(12) / 12f) * dp(96)).toInt().coerceAtLeast(dp(28))
-        return FrameLayout(this).apply {
-            addView(
-                View(context).apply {
-                    background = roundedBackground(0x806D737B.toInt(), 3)
-                },
-                FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(5), Gravity.CENTER)
-            )
-            addView(
-                View(context).apply {
-                    background = GradientDrawable(
-                        GradientDrawable.Orientation.LEFT_RIGHT,
-                        intArrayOf(0xFFFFD426.toInt(), 0xFFFF8A00.toInt())
-                    ).apply {
-                        cornerRadius = dp(3).toFloat()
-                    }
-                },
-                FrameLayout.LayoutParams(fillWidth, dp(5), Gravity.CENTER_VERTICAL or Gravity.START)
-            )
-        }
-    }
-
-    private fun showRemoveAppDialog(app: LauncherApp) {
-        removeAppController.showRemoveAppDialog(app)
-    }
-
-    private fun launchRemoveAppUninstall(uninstallIntent: Intent, app: LauncherApp) {
-        pendingRemoveAppPackageName = app.packageName
-        runCatching {
-            removeAppUninstallLauncher.launch(uninstallIntent)
-        }.onFailure {
-            pendingRemoveAppPackageName = null
-            val packageUri = Uri.fromParts("package", app.packageName, null)
-            val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
-            runCatching { startActivity(fallbackIntent) }.onFailure {
-                showError(getString(R.string.launcher_uninstall_failed))
+        val okButton = TextView(this).apply {
+            text = getString(R.string.dialog_ok)
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFF1F2D.toInt())
+            textSize = 18f
+            typeface = Typeface.DEFAULT_BOLD
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener {
+                dialog.dismiss()
+                presenter.onSetDefaultLauncherClicked()
             }
         }
+        buttonRow.addView(cancelButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+        buttonRow.addView(
+            View(this).apply { setBackgroundColor(0xFFE2E2E2.toInt()) },
+            LinearLayout.LayoutParams(dp(1), dp(56))
+        )
+        buttonRow.addView(okButton, LinearLayout.LayoutParams(0, dp(56), 1f))
+        content.addView(buttonRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
+
+        dialog.setContentView(content)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                setDimAmount(0.52f)
+                setLayout((resources.displayMetrics.widthPixels * 0.88f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+        }
+        dialog.show()
     }
 
-    private fun verifyPendingRemoveAppUninstall() {
-        val packageName = pendingRemoveAppPackageName ?: return
-        if (!isPackageInstalled(packageName)) {
-            pendingRemoveAppPackageName = null
-            refreshWorkspaceDataIfEnabled()
-            showError(getString(R.string.launcher_uninstall_success))
+    override fun openDefaultLauncherSelection() {
+        val promptAction = LauncherDefaultSelectionPolicy.resolvePromptConfirmation(
+            isCurrentDefaultLauncher = isCurrentDefaultLauncher()
+        )
+        if (promptAction.openLauncherImmediately) {
+            Ios26DefaultWallpaperInstaller.applyWhenDefaultLauncherSelected(this)
+            showAlreadyDefaultLauncher()
+            openCopiedIos17Launcher()
+            return
+        }
+        if (!promptAction.openSystemLauncherSelection) {
+            waitingForLauncherSelection = false
+            showError(getString(R.string.launcher_default_prompt_failed))
+            return
+        }
+
+        Toast.makeText(this, R.string.launcher_default_opening, Toast.LENGTH_SHORT).show()
+        val shouldRequestHomeRoleFirst = LauncherDefaultSelectionPolicy.shouldRequestHomeRoleBeforeSettings(
+            sdkInt = Build.VERSION.SDK_INT
+        )
+        if (
+            shouldRequestHomeRoleFirst &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            requestHomeRole()
+        ) {
+            return
+        }
+        if (openHomeSettings()) {
+            return
+        }
+        if (
+            !shouldRequestHomeRoleFirst &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            requestHomeRole()
+        ) {
+            return
+        }
+
+        waitingForLauncherSelection = false
+        showError(getString(R.string.launcher_default_prompt_failed))
+    }
+
+    override fun openCopiedIos17Launcher() {
+        prepareCopiedIos17LauncherIcons()
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            component = ComponentName(
+                packageName,
+                "com.vhmsoft.launcherios26.features.launcher.LauncherActivity"
+            )
+            addCategory(Intent.CATEGORY_HOME)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+        runCatching { startActivity(intent) }.onFailure {
+            showError(getString(R.string.launcher_default_prompt_failed))
         }
     }
 
-    private fun isPackageInstalled(packageName: String): Boolean {
+    private fun prepareCopiedIos17LauncherIcons() {
+        notifyLauncherDataChanged()
+    }
+
+    private fun openHomeSettings(): Boolean {
         return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.getPackageInfo(packageName, 0)
+            waitingForLauncherSelection = true
+            homeSettingsLauncher.launch(Intent(Settings.ACTION_HOME_SETTINGS))
+        }.recoverCatching {
+            waitingForLauncherSelection = true
+            homeSettingsLauncher.launch(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+        }.isSuccess.also { opened ->
+            if (!opened) {
+                waitingForLauncherSelection = false
             }
-            true
-        }.getOrDefault(false)
+        }
     }
 
-    private fun showSearchOverlay() {
-        searchController.showSearchOverlay()
+    private fun handleDefaultLauncherSelectionReturn(showNotSelectedToast: Boolean) {
+        waitingForLauncherSelection = false
+        if (isCurrentDefaultLauncher()) {
+            Ios26DefaultWallpaperInstaller.applyWhenDefaultLauncherSelected(this)
+            openCopiedIos17Launcher()
+        } else if (showNotSelectedToast) {
+            Toast.makeText(this, R.string.launcher_default_not_selected, Toast.LENGTH_SHORT).show()
+        }
     }
 
-    private fun hideSearchOverlay(clearQuery: Boolean = true) {
-        searchController.hideSearchOverlay(clearQuery)
+    override fun showAlreadyDefaultLauncher() {
+        Toast.makeText(this, R.string.launcher_default_already, Toast.LENGTH_SHORT).show()
     }
 
-    private fun showLibrarySearchOverlay() {
-        searchController.showLibrarySearchOverlay()
+    override fun openApp(app: LauncherApp) {
+        if (app.packageName == packageName) {
+            return
+        }
+
+        val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            component = ComponentName(app.packageName, app.className)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+        runCatching {
+            startActivity(launchIntent)
+        }.onFailure {
+            showError(getString(R.string.launcher_open_app_failed, app.label))
+        }
     }
 
-    private fun hideLibrarySearchOverlay() {
-        searchController.hideLibrarySearchOverlay()
+    override fun openAppInfo(app: LauncherApp) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", app.packageName, null)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure { showError(getString(R.string.launcher_open_app_failed, app.label)) }
     }
 
-    private fun showCategoryDetail(group: AppLibraryGroupUiModel) {
-        categoryDetailController.show(group)
+    private fun openNotificationAccessSettings() {
+        runCatching {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }.onFailure {
+            showError(getString(R.string.settings_notification_access_failed))
+        }
     }
 
-    private fun hideCategoryDetail() {
-        categoryDetailController.hide()
+    private fun openExternalPackage(packageName: String) {
+        val marketIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("market://details?id=${Uri.encode(packageName)}")
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        runCatching {
+            startActivity(Intent.createChooser(marketIntent, null))
+        }.onFailure {
+            openExternalPackageSearch(packageName)
+        }
+    }
+
+    private fun openExternalPackageSearch(packageName: String) {
+        val searchIntent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+            putExtra(SearchManager.QUERY, packageName)
+        }
+        runCatching {
+            startActivity(searchIntent)
+        }.onFailure {
+            val webIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://www.google.com/search?q=${Uri.encode(packageName)}")
+            )
+            runCatching {
+                startActivity(webIntent)
+            }.onFailure {
+                showError(getString(R.string.launcher_open_app_failed, packageName))
+            }
+        }
+    }
+
+    private fun takePersistableReadPermission(uri: Uri) {
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    private fun notifyLauncherDataChanged() {
+        if (::presenter.isInitialized) {
+            presenter.clearIconCache()
+        }
+        runCatching {
+            BlissLauncher.getApplication(applicationContext).appProvider.reload(true)
+        }
     }
 
     private fun applyLayoutAppearance() {
@@ -7242,8 +2974,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         applyLiquidGlassSettingsAppearance()
         applyBlurSettingsAppearance()
         applyAnimationSettingsAppearance()
-        applyWorkspaceAppearance()
-        invalidateLauncherArtwork()
         tintLayoutSwitches()
         binding.darkModeSwitch.setOnCheckedChangeListener(null)
         binding.darkModeSwitch.isChecked = layoutDarkMode
@@ -7255,6 +2985,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.iphone8Switch.setOnCheckedChangeListener { _, checked ->
             applyIphone8Style(checked, persist = true)
         }
+        applyLauncherSystemUi()
     }
 
     private fun applySettingsAppearance() {
@@ -7264,15 +2995,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val dividerColor = themedColor(R.color.settings_divider, R.color.dark_settings_divider)
 
         binding.settingsPanel.setBackgroundColor(backgroundColor)
-        listOf(
-            binding.settingsTopCard,
-            binding.settingsMainCard,
-            binding.settingsBottomCard
-        ).forEach { card ->
-            card.background = roundedBackground(
-                cardColor,
-                LauncherSettingsMenuLayoutPolicy.CARD_RADIUS_DP
-            )
+        binding.launcher.setBackgroundColor(backgroundColor)
+        listOf(binding.settingsTopCard, binding.settingsMainCard, binding.settingsBottomCard).forEach { card ->
+            card.background = roundedBackground(cardColor, LauncherSettingsMenuLayoutPolicy.CARD_RADIUS_DP)
         }
 
         settingsRows().forEach { row ->
@@ -7281,7 +3006,6 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         applySettingsMenuLayout()
         binding.settingsDrawerPanel.setBackgroundColor(backgroundColor)
-        applyLauncherRootBackground(state.launcherMode)
     }
 
     private fun applyLayoutSettingsAppearance() {
@@ -7301,6 +3025,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         binding.layoutSettingsScroll.setBackgroundColor(backgroundColor)
         binding.layoutTopSpacer.setBackgroundColor(backgroundColor)
+        setFixedHeight(binding.layoutTopSpacer, LauncherSettingsPageHeaderPolicy.contentTopSpacerDp)
         binding.layoutOptionsCard.setBackgroundColor(cardColor)
         binding.iconSizePanel.setBackgroundColor(cardColor)
         binding.homeGridPanel.setBackgroundColor(cardColor)
@@ -7325,13 +3050,14 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         ).forEach { divider ->
             divider.setBackgroundColor(dividerColor)
         }
-        val gridIconColor = if (layoutDarkMode) 0xFF8A8A8E.toInt() else 0xFF8F8F8F.toInt()
-        binding.grid5x4Icon.setTextColor(gridIconColor)
-        binding.grid6x4Icon.setTextColor(gridIconColor)
+        val gridIconColor = layoutGridPreviewColor()
+        binding.grid5x4Icon.setPreview(LauncherLayoutGridPreviewPolicy.rows5x4, gridIconColor)
+        binding.grid6x4Icon.setPreview(LauncherLayoutGridPreviewPolicy.rows6x4, gridIconColor)
         binding.iconSizeSeekBar.progressTintList = ColorStateList.valueOf(getColor(R.color.layout_ios_blue))
         binding.iconSizeSeekBar.progressBackgroundTintList =
-            ColorStateList.valueOf(if (layoutDarkMode) 0xFF1C1C1E.toInt() else 0xFFC7C7CC.toInt())
-        binding.iconSizeSeekBar.thumbTintList = ColorStateList.valueOf(cardColor)
+            ColorStateList.valueOf(if (layoutDarkMode) 0xFF3A3A3C.toInt() else 0xFFC7C7CC.toInt())
+        binding.iconSizeSeekBar.thumbTintList = null
+        binding.iconSizeSeekBar.thumb = seekBarThumbDrawable(cardColor)
         applyHomeLayoutSettingsUi()
     }
 
@@ -7350,10 +3076,10 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
         binding.liquidGlassContent.setBackgroundColor(backgroundColor)
         binding.liquidGlassTopSpacer.setBackgroundColor(backgroundColor)
+        setFixedHeight(binding.liquidGlassTopSpacer, LauncherSettingsPageHeaderPolicy.contentTopSpacerDp)
         binding.liquidGlassOptionsCard.setBackgroundColor(cardColor)
         binding.liquidGlassOptionTitle.setTextColor(primaryTextColor)
-        binding.liquidGlassIconContainer.backgroundTintList =
-            ColorStateList.valueOf(getColor(R.color.icon_liquid))
+        binding.liquidGlassIconContainer.backgroundTintList = ColorStateList.valueOf(getColor(R.color.icon_liquid))
         binding.liquidGlassSwitch.setOnCheckedChangeListener(null)
         binding.liquidGlassSwitch.isChecked = layoutLiquidGlass
         binding.liquidGlassSwitch.setOnCheckedChangeListener { _, checked ->
@@ -7377,13 +3103,9 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.blurSettingsScroll.setBackgroundColor(backgroundColor)
         binding.blurSettingsContent.setBackgroundColor(backgroundColor)
         binding.blurTopSpacer.setBackgroundColor(backgroundColor)
+        setFixedHeight(binding.blurTopSpacer, LauncherSettingsPageHeaderPolicy.contentTopSpacerDp)
         binding.blurOptionsCard.setBackgroundColor(cardColor)
-        listOf(
-            binding.blurMasterRow,
-            binding.blurFolderRow,
-            binding.blurWidgetRow,
-            binding.blurSearchRow
-        ).forEach { row ->
+        listOf(binding.blurMasterRow, binding.blurFolderRow, binding.blurWidgetRow, binding.blurSearchRow).forEach { row ->
             row.rowTitle.setTextColor(primaryTextColor)
             row.iconContainer.backgroundTintList = ColorStateList.valueOf(getColor(R.color.icon_blur))
         }
@@ -7407,311 +3129,90 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         binding.animationSettingsScroll.setBackgroundColor(backgroundColor)
         binding.animationSettingsContent.setBackgroundColor(backgroundColor)
         binding.animationTopSpacer.setBackgroundColor(backgroundColor)
+        setFixedHeight(binding.animationTopSpacer, LauncherSettingsPageHeaderPolicy.contentTopSpacerDp)
         binding.animationOptionsCard.setBackgroundColor(cardColor)
-        listOf(
-            binding.animationUnlockRow,
-            binding.animationOpenCloseRow,
-            binding.animationParallaxRow
-        ).forEach { row ->
+        listOf(binding.animationUnlockRow, binding.animationOpenCloseRow, binding.animationParallaxRow).forEach { row ->
             row.rowTitle.setTextColor(primaryTextColor)
             row.rowDivider.setBackgroundColor(dividerColor)
         }
         applyAnimationSettingsUi()
     }
 
-    private fun applyHomeIconSize(sizeDp: Int, persist: Boolean) {
-        val boundedSize = sizeDp.coerceIn(MIN_HOME_ICON_SIZE_DP, MAX_HOME_ICON_SIZE_DP)
-        homeIconSizeDp = boundedSize
-        if (persist) {
-            layoutPreferences.edit()
-                .putInt(KEY_HOME_ICON_SIZE_DP, boundedSize)
-                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
-                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
-                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
-                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
-                .apply()
-        }
-        applyHomeLayoutSettingsUi()
-        applyResponsiveWorkspaceLayout()
-    }
-
-    private fun readMigratedHomeIconSize(): Int {
-        val rawIconSizeDp = layoutPreferences.getInt(KEY_HOME_ICON_SIZE_DP, DEFAULT_HOME_ICON_SIZE_DP)
-        val migrationApplied = layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, false)
-        val default56MigrationApplied =
-            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
-        val default60MigrationApplied =
-            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, false)
-        val default58MigrationApplied =
-            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, false)
-        val migratedIconSizeDp = LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(
-            iconSizeDp = rawIconSizeDp,
-            migrationApplied = migrationApplied,
-            default56MigrationApplied = default56MigrationApplied,
-            default60MigrationApplied = default60MigrationApplied,
-            default58MigrationApplied = default58MigrationApplied
-        )
-        if (!migrationApplied ||
-            !default56MigrationApplied ||
-            !default60MigrationApplied ||
-            !default58MigrationApplied
-        ) {
-            layoutPreferences.edit()
-                .putInt(KEY_HOME_ICON_SIZE_DP, migratedIconSizeDp)
-                .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
-                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
-                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
-                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
-                .apply()
-        }
-        return migratedIconSizeDp
-    }
-
-    private fun applyHomeGridRows(rows: Int, persist: Boolean) {
-        val boundedRows = rows.takeIf { value -> value == HOME_GRID_ROWS_5 || value == HOME_GRID_ROWS_6 }
-            ?: DEFAULT_HOME_GRID_ROWS
-        if (homeGridRows == boundedRows) {
-            applyHomeLayoutSettingsUi()
-            applyResponsiveWorkspaceLayout()
-            return
-        }
-
-        val wasLibraryPage = ::workspacePageAdapter.isInitialized &&
-            isLibraryPage(binding.workspace.workspacePager.currentItem)
-        homeGridRows = boundedRows
-        if (persist) {
-            layoutPreferences.edit()
-                .putInt(KEY_HOME_GRID_ROWS, boundedRows)
-                .apply()
-        }
-        applyHomeLayoutSettingsUi()
-        applyResponsiveWorkspaceLayout()
-        if (::workspacePageAdapter.isInitialized) {
-            val currentPage = binding.workspace.workspacePager.currentItem
-            val targetPage = when {
-                wasLibraryPage -> workspacePageAdapter.itemCount - 1
-                isWidgetPage(currentPage) -> currentPage
-                else -> workspacePageAdapter.adapterPositionForHomePage(currentHomePageIndex())
-            }
-            binding.workspace.workspacePager.setCurrentItem(targetPage.coerceAtLeast(0), false)
-            updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
-        }
-    }
-
-    private fun applyHomeLayoutSettingsUi() {
-        val previewSize = dp(homeIconSizeDp)
-        binding.iconSizePreview.layoutParams = binding.iconSizePreview.layoutParams.apply {
-            width = previewSize
-            height = previewSize
-        }
-        val iconSizeProgress = LauncherHomeIconSizePolicy.iconSizeToSliderProgress(homeIconSizeDp)
-        if (binding.iconSizeSeekBar.progress != iconSizeProgress) {
-            binding.iconSizeSeekBar.progress = iconSizeProgress
-        }
-
-        val selectedColor = getColor(R.color.layout_switch_green)
-        val unselectedColor = if (layoutDarkMode) 0xFF8A8A8E.toInt() else 0xFF8F8F8F.toInt()
-        binding.grid5x4Icon.setTextColor(if (homeGridRows == HOME_GRID_ROWS_5) selectedColor else unselectedColor)
-        binding.grid5x4Label.setTextColor(if (homeGridRows == HOME_GRID_ROWS_5) selectedColor else unselectedColor)
-        binding.grid6x4Icon.setTextColor(if (homeGridRows == HOME_GRID_ROWS_6) selectedColor else unselectedColor)
-        binding.grid6x4Label.setTextColor(if (homeGridRows == HOME_GRID_ROWS_6) selectedColor else unselectedColor)
-    }
-
-    private fun applyResponsiveWorkspaceLayout() {
-        if (!::binding.isInitialized) return
-
-        val workspaceRoot = binding.workspace.root
-        val rootHeight = workspaceRoot.height
-        if (rootHeight <= 0) {
-            workspaceRoot.post { applyResponsiveWorkspaceLayout() }
-            return
-        }
-
-        val spec = LauncherResponsiveWorkspaceLayout.resolve(
-            rootHeightPx = rootHeight,
-            density = resources.displayMetrics.density,
-            preferredRows = homeGridRows,
-            preferredIconSizeDp = homeIconSizeDp,
-            iphone8Style = layoutIphone8Style
-        )
-        val currentPage = binding.workspace.workspacePager.currentItem
-        val wasLibraryPage = ::workspacePageAdapter.isInitialized && isLibraryPage(currentPage)
-        val wasWidgetPage = ::workspacePageAdapter.isInitialized && isWidgetPage(currentPage)
-
-        effectiveHomeGridRows = spec.effectiveRows
-        effectiveHomeIconSizeDp = spec.effectiveIconSizeDp
-
-        binding.workspace.homeContent.setPadding(
-            binding.workspace.homeContent.paddingLeft,
-            dp(spec.homeTopPaddingDp),
-            binding.workspace.homeContent.paddingRight,
-            dp(spec.homeBottomPaddingDp)
-        )
-        binding.workspace.bottomControlSlot.layoutParams =
-            binding.workspace.bottomControlSlot.layoutParams.apply {
-                height = dp(spec.bottomControlHeightDp)
-                if (this is android.widget.LinearLayout.LayoutParams) {
-                    topMargin = dp(spec.bottomControlTopMarginDp)
-                    bottomMargin = dp(spec.bottomControlBottomMarginDp)
-                }
-            }
-        updateDockSize(spec)
-
-        if (::workspacePageAdapter.isInitialized) {
-            workspacePageAdapter.setHomeGridRows(spec.effectiveRows)
-            workspacePageAdapter.setIconSizeDp(spec.effectiveIconSizeDp)
-            val targetPage = if (wasLibraryPage) {
-                workspacePageAdapter.itemCount - 1
-            } else if (wasWidgetPage) {
-                currentPage
-            } else {
-                workspacePageAdapter.adapterPositionForHomePage(currentHomePageIndex())
-            }.coerceAtLeast(0)
-            if (binding.workspace.workspacePager.currentItem != targetPage) {
-                binding.workspace.workspacePager.setCurrentItem(targetPage, false)
-            }
-            updateWorkspaceChromeForPage(binding.workspace.workspacePager.currentItem)
-            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
-        }
-        if (::dockAdapter.isInitialized) {
-            dockAdapter.setIconSizeDp(spec.effectiveIconSizeDp)
-        }
-    }
-
-    private fun updateDockSize(spec: LauncherResponsiveWorkspaceSpec? = null) {
-        if (!::binding.isInitialized) return
-        binding.workspace.dockGlassSurface.layoutParams = binding.workspace.dockGlassSurface.layoutParams.apply {
-            height = dp(
-                spec?.dockHeightDp ?: (effectiveHomeIconSizeDp + if (layoutIphone8Style) {
-                    DOCK_IPHONE8_VERTICAL_EXTRA_DP
-                } else {
-                    DOCK_VERTICAL_EXTRA_DP
-                })
-            )
-            if (this is android.widget.LinearLayout.LayoutParams) {
-                marginStart = 0
-                marginEnd = 0
-                bottomMargin = 0
-            }
-        }
-        binding.workspace.dockRecyclerView.layoutParams = binding.workspace.dockRecyclerView.layoutParams.apply {
-            height = ViewGroup.LayoutParams.MATCH_PARENT
-        }
-        val horizontalPaddingDp = spec?.dockHorizontalPaddingDp ?: 14
-        val verticalPaddingDp = spec?.dockVerticalPaddingDp ?: 10
-        binding.workspace.dockRecyclerView.setPadding(
-            dp(horizontalPaddingDp),
-            dp(verticalPaddingDp),
-            dp(horizontalPaddingDp),
-            dp(verticalPaddingDp)
-        )
-    }
-
-    private fun applyWorkspaceAppearance() {
-        val blurSettings = currentBlurSettings()
-        val dockStyle = LauncherLiquidGlassStylePolicy.dock(
-            enabled = blurSettings.dockBlurActive,
-            darkMode = layoutDarkMode
-        )
-        val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
-            enabled = layoutLiquidGlass,
-            darkMode = layoutDarkMode
-        )
-        val pillStyle = LauncherLiquidGlassStylePolicy.homeSearchPill(
-            enabled = layoutLiquidGlass,
-            darkMode = layoutDarkMode
-        )
-        val indicatorStyle = LauncherLiquidGlassStylePolicy.pageIndicator(
-            enabled = layoutLiquidGlass,
-            darkMode = layoutDarkMode
-        )
-        val searchTextColor = Color.WHITE
-
-        applyWorkspaceLiquidGlassSurface(
-            surface = binding.workspace.dockGlassSurface,
-            style = dockStyle,
-            glassSurface = AndroidLiquidGlassPolicy.Surface.DOCK
-        )
-        binding.workspace.dockRecyclerView.background = null
-        applyWorkspaceLiquidGlassSurface(
-            surface = binding.workspace.searchPillGlassSurface,
-            style = pillStyle,
-            glassSurface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL
-        )
-        binding.workspace.searchPill.background = null
-        binding.workspace.searchPillText.setTextColor(searchTextColor)
-        binding.workspace.searchPillIcon.imageTintList = ColorStateList.valueOf(searchTextColor)
-        binding.workspace.pageIndicator.background = roundedBackground(
-            indicatorStyle.color,
-            indicatorStyle.radiusDp,
-            indicatorStyle.strokeColor,
-            indicatorStyle.strokeWidthDp
-        )
-        applyWorkspaceLiquidGlassSurface(
-            surface = binding.workspace.folderContentPanel,
-            style = folderStyle,
-            glassSurface = AndroidLiquidGlassPolicy.Surface.FOLDER_PANEL
-        )
-        binding.workspace.folderOverlay.setBackgroundColor(folderOverlayDimColor())
-        binding.workspace.widgetSheet.setBackgroundColor(
-            themedColor(R.color.settings_card, R.color.dark_settings_card)
-        )
-        if (::searchController.isInitialized) {
-            searchController.setDarkMode(layoutDarkMode)
-            searchController.setLiquidGlassEnabled(layoutLiquidGlass)
-        }
-
-        if (::workspacePageAdapter.isInitialized) {
-            workspacePageAdapter.setDarkMode(layoutDarkMode)
-            workspacePageAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
-        }
-        if (::dockAdapter.isInitialized) {
-            dockAdapter.setDarkMode(layoutDarkMode)
-            dockAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
-        }
-        if (::categoryDetailAdapter.isInitialized) {
-            categoryDetailAdapter.setDarkMode(layoutDarkMode)
-            categoryDetailAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
-        }
-        if (::folderContentAdapter.isInitialized) {
-            folderContentAdapter.setDarkMode(layoutDarkMode)
-            folderContentAdapter.setLiquidGlassEnabled(layoutLiquidGlass)
-        }
-        if (::workspacePageAdapter.isInitialized) {
-            updatePageIndicatorDotsForAdapterPosition(binding.workspace.workspacePager.currentItem)
-        }
-    }
-
-    private fun applyWorkspaceLiquidGlassSurface(
-        surface: AndroidLiquidGlassLayout,
-        style: LauncherLiquidGlassStylePolicy.BackgroundStyle,
-        glassSurface: AndroidLiquidGlassPolicy.Surface
+    private fun applySettingsPageHeader(
+        toolbar: FrameLayout,
+        backButton: TextView,
+        titleView: TextView,
+        toolbarColor: Int,
+        titleColor: Int
     ) {
-        surface.applyLiquidGlass(
-            enabled = layoutLiquidGlass,
-            source = binding.workspace.root,
-            profile = AndroidLiquidGlassPolicy.profileFor(
-                surface = glassSurface,
-                radiusDp = style.radiusDp
-            )
-        )
-        surface.applyFallbackBackground(
-            roundedBackground(
-                color = style.color,
-                radiusDp = style.radiusDp,
-                strokeColor = style.strokeColor,
-                strokeWidthDp = style.strokeWidthDp
-            )
+        toolbar.setBackgroundColor(toolbarColor)
+        toolbar.setPadding(0, 0, 0, 0)
+        toolbar.layoutParams = (toolbar.layoutParams ?: ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
+        )).apply {
+            height = dp(LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
+        }
+
+        backButton.apply {
+            text = getString(R.string.layout_back_settings)
+            setTextColor(LauncherRenamePickerUiPolicy.accentColor)
+            textSize = LauncherSettingsPageHeaderPolicy.backTextSizeSp
+            gravity = Gravity.CENTER_VERTICAL
+            includeFontPadding = false
+        }
+        backButton.layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(LauncherSettingsPageHeaderPolicy.toolbarRowHeightDp),
+            Gravity.START or Gravity.BOTTOM
+        ).apply {
+            leftMargin = dp(LauncherSettingsPageHeaderPolicy.backStartMarginDp)
+        }
+
+        titleView.apply {
+            setTextColor(titleColor)
+            textSize = LauncherSettingsPageHeaderPolicy.titleTextSizeSp
+            typeface = if (LauncherSettingsPageHeaderPolicy.titleIsBold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            gravity = Gravity.CENTER
+            includeFontPadding = false
+        }
+        titleView.layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(LauncherSettingsPageHeaderPolicy.toolbarRowHeightDp),
+            Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
         )
     }
 
-    private fun invalidateLauncherArtwork() {
-        homeItems.flatMap { item -> item.containedApps() }
-            .forEach { iconItem -> iconItem.icon.invalidateSelf() }
-        binding.workspace.root.invalidate()
-        binding.workspace.workspacePager.invalidate()
-        binding.workspace.dockRecyclerView.invalidate()
+    private fun createSettingsPageToolbar(
+        title: CharSequence,
+        toolbarColor: Int = LauncherRenamePickerUiPolicy.toolbarColor,
+        titleColor: Int = LauncherRenamePickerUiPolicy.primaryTextColor,
+        onBack: () -> Unit
+    ): View {
+        val toolbar = FrameLayout(this)
+        val backButton = TextView(this).apply {
+            isClickable = true
+            isFocusable = true
+            foreground = obtainStyledForeground()
+            setOnClickListener { onBack() }
+        }
+        val titleView = TextView(this).apply {
+            text = title
+        }
+        toolbar.addView(backButton)
+        toolbar.addView(titleView)
+        applySettingsPageHeader(
+            toolbar = toolbar,
+            backButton = backButton,
+            titleView = titleView,
+            toolbarColor = toolbarColor,
+            titleColor = titleColor
+        )
+        toolbar.layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
+        )
+        return toolbar
     }
 
     private fun tintLayoutSwitches() {
@@ -7728,25 +3229,86 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             binding.animationUnlockRow.rowSwitch,
             binding.animationOpenCloseRow.rowSwitch,
             binding.animationParallaxRow.rowSwitch
-        ).forEach { switch ->
-            applyIosSwitchStyle(switch)
-        }
+        ).forEach(::applyIosSwitchStyle)
     }
 
     private fun applyIosSwitchStyle(switch: SwitchCompat) {
+        val checkedState = intArrayOf(android.R.attr.state_checked)
+        val defaultState = intArrayOf()
         switch.showText = false
         switch.splitTrack = false
         switch.minWidth = dp(LauncherSettingsSwitchStylePolicy.switchViewWidthDp)
         switch.minimumWidth = dp(LauncherSettingsSwitchStylePolicy.switchViewWidthDp)
-        switch.layoutParams = switch.layoutParams?.apply {
-            width = dp(LauncherSettingsSwitchStylePolicy.switchViewWidthDp)
-            height = dp(LauncherSettingsSwitchStylePolicy.switchViewHeightDp)
-        }
         switch.thumbTintList = null
         switch.trackTintList = null
-        switch.thumbDrawable = AppCompatResources.getDrawable(this, R.drawable.bg_ios_settings_switch_thumb)
-        switch.trackDrawable = AppCompatResources.getDrawable(this, R.drawable.bg_ios_settings_switch_track)
+        switch.thumbDrawable = StateListDrawable().apply {
+            addState(
+                checkedState,
+                switchThumbDrawable(LauncherSettingsSwitchStylePolicy.CHECKED_THUMB_COLOR)
+            )
+            addState(
+                defaultState,
+                switchThumbDrawable(LauncherSettingsSwitchStylePolicy.UNCHECKED_THUMB_COLOR)
+            )
+        }
+        switch.trackDrawable = StateListDrawable().apply {
+            addState(
+                checkedState,
+                switchTrackDrawable(
+                    color = LauncherSettingsSwitchStylePolicy.CHECKED_TRACK_COLOR,
+                    strokeColor = LauncherSettingsSwitchStylePolicy.CHECKED_TRACK_STROKE_COLOR
+                )
+            )
+            addState(
+                defaultState,
+                switchTrackDrawable(
+                    color = LauncherSettingsSwitchStylePolicy.UNCHECKED_TRACK_COLOR,
+                    strokeColor = LauncherSettingsSwitchStylePolicy.UNCHECKED_TRACK_STROKE_COLOR
+                )
+            )
+        }
     }
+
+    private fun layoutGridPreviewColor(): Int =
+        if (layoutDarkMode) {
+            LauncherLayoutGridPreviewPolicy.darkCellColor
+        } else {
+            LauncherLayoutGridPreviewPolicy.lightCellColor
+        }
+
+    private fun switchTrackDrawable(color: Int, strokeColor: Int): Drawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(LauncherSettingsSwitchStylePolicy.trackHeightDp / 2).toFloat()
+            setColor(color)
+            setStroke(dp(LauncherSettingsSwitchStylePolicy.strokeWidthDp), strokeColor)
+            setSize(
+                dp(LauncherSettingsSwitchStylePolicy.trackWidthDp),
+                dp(LauncherSettingsSwitchStylePolicy.trackHeightDp)
+            )
+        }
+
+    private fun switchThumbDrawable(color: Int): Drawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+            setStroke(
+                dp(LauncherSettingsSwitchStylePolicy.strokeWidthDp),
+                LauncherSettingsSwitchStylePolicy.THUMB_STROKE_COLOR
+            )
+            setSize(
+                dp(LauncherSettingsSwitchStylePolicy.thumbSizeDp),
+                dp(LauncherSettingsSwitchStylePolicy.thumbSizeDp)
+            )
+        }
+
+    private fun seekBarThumbDrawable(color: Int): Drawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(color)
+            setStroke(dp(1), if (layoutDarkMode) 0xFF5A5A5F.toInt() else 0xFFC7C7CC.toInt())
+            setSize(dp(22), dp(22))
+        }
 
     private fun settingsRows(): List<ViewLauncherSettingRowBinding> {
         return listOf(
@@ -7770,29 +3332,72 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         )
     }
 
+    private fun setFixedHeight(view: View, heightDp: Int) {
+        view.layoutParams = view.layoutParams.apply {
+            height = dp(heightDp)
+        }
+    }
+
+    private fun updateSettingsFabVisibility() {
+        val overlayOpen = binding.layoutSettingsPanel.visibility == View.VISIBLE ||
+            binding.liquidGlassSettingsPanel.visibility == View.VISIBLE ||
+            binding.blurSettingsPanel.visibility == View.VISIBLE ||
+            binding.animationSettingsPanel.visibility == View.VISIBLE ||
+            binding.settingsDrawerOverlay.visibility == View.VISIBLE ||
+            renameAppPickerOverlay != null ||
+            changeIconPanel != null ||
+            iconCropPanel != null ||
+            wallpaperPickerPanel != null ||
+            wallpaperPreviewPanel != null ||
+            weatherSettingsPanel != null ||
+            hiddenAppsSettingsPanel != null
+        binding.settingsFab.visibility = if (
+            LauncherSettingsMenuLayoutPolicy.SHOW_FEATURED_STAR &&
+            LauncherShellModePolicy.shouldShowFullOptionsMenu() &&
+            !overlayOpen
+        ) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+    }
+
+    private fun applyLauncherSystemUi() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val decor = window.decorView
+            decor.systemUiVisibility = if (layoutDarkMode) {
+                0
+            } else {
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            }
+        }
+        window.statusBarColor = if (
+            LauncherSettingsPageHeaderPolicy.usesToolbarColorForStatusBar &&
+            isBoundSettingsPageVisible()
+        ) {
+            themedColor(R.color.settings_card, R.color.dark_settings_card)
+        } else {
+            Color.TRANSPARENT
+        }
+        window.navigationBarColor = themedColor(R.color.settings_background, R.color.dark_settings_background)
+    }
+
+    private fun isBoundSettingsPageVisible(): Boolean {
+        if (!::binding.isInitialized) return false
+        return binding.layoutSettingsPanel.visibility == View.VISIBLE ||
+            binding.liquidGlassSettingsPanel.visibility == View.VISIBLE ||
+            binding.blurSettingsPanel.visibility == View.VISIBLE ||
+            binding.animationSettingsPanel.visibility == View.VISIBLE
+    }
+
     private fun themedColor(lightColorRes: Int, darkColorRes: Int): Int {
         return getColor(if (layoutDarkMode) darkColorRes else lightColorRes)
     }
 
-    private fun folderOverlayDimColor(): Int {
-        return when {
-            layoutLiquidGlass -> 0x10000000
-            layoutDarkMode -> 0x44000000
-            else -> FOLDER_OVERLAY_DIM_COLOR
-        }
-    }
-
-    private fun roundedBackground(
-        color: Int,
-        radiusDp: Int,
-        strokeColor: Int? = null,
-        strokeWidthDp: Int = 1
-    ): GradientDrawable {
+    private fun roundedBackground(color: Int, radiusDp: Int): GradientDrawable {
         return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = dp(radiusDp).toFloat()
             setColor(color)
-            strokeColor?.let { setStroke(dp(strokeWidthDp), it) }
+            cornerRadius = dp(radiusDp).toFloat()
         }
     }
 
@@ -7803,112 +3408,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
     }
 
-    private fun applyLauncherRootBackground(showLauncherWorkspace: Boolean) {
-        if (showLauncherWorkspace) {
-            val customWallpaper = customWallpaperDrawable()
-            if (customWallpaper != null) {
-                binding.launcher.background = customWallpaper
-            } else {
-                binding.launcher.setBackgroundResource(R.drawable.bg_ios_wallpaper)
-            }
+    private fun settingsDrawerWidth(): Float {
+        val measuredWidth = binding.settingsDrawerPanel.width
+        return if (measuredWidth > 0) {
+            measuredWidth.toFloat()
         } else {
-            binding.launcher.setBackgroundColor(
-                themedColor(R.color.settings_background, R.color.dark_settings_background)
-            )
+            resources.getDimensionPixelSize(R.dimen.settings_drawer_width).toFloat()
         }
-    }
-
-    private fun customWallpaperDrawable(): Drawable? {
-        val rawUri = layoutPreferences.getString(KEY_CUSTOM_WALLPAPER_URI, null) ?: return null
-        val uri = runCatching { Uri.parse(rawUri) }.getOrNull() ?: return null
-        return runCatching {
-            contentResolver.openInputStream(uri)?.use { input ->
-                Drawable.createFromStream(input, rawUri)
-            }
-        }.getOrNull()
-    }
-
-    private fun applyLauncherSystemUi() {
-        systemUiController.applyLauncherSystemUi()
-    }
-
-    override fun showAppOptions(item: LauncherIconUiModel) {
-        showAnchoredAppOptions(item, binding.workspace.root)
-    }
-
-    private fun showAnchoredAppOptions(item: LauncherIconUiModel, anchor: android.view.View) {
-        appOptionsController.show(item, anchor)
-    }
-
-    private fun dp(value: Int): Int {
-        return (value * resources.displayMetrics.density).toInt()
-    }
-
-    private fun updateLauncherMode(forceAnimate: Boolean = false) {
-        val showLauncherWorkspace = LauncherShellModePolicy.shouldShowWorkspace(
-            isCurrentDefaultLauncher = isCurrentDefaultLauncher(),
-            forceSettingsPanel = forceSettingsPanel
-        )
-        state.launcherMode = showLauncherWorkspace
-        binding.settingsPanel.visibility = if (showLauncherWorkspace) View.GONE else View.VISIBLE
-        binding.layoutSettingsPanel.visibility = View.GONE
-        binding.liquidGlassSettingsPanel.visibility = View.GONE
-        binding.blurSettingsPanel.visibility = View.GONE
-        binding.animationSettingsPanel.visibility = View.GONE
-        binding.settingsFab.visibility = View.GONE
-        binding.workspace.root.visibility = if (showLauncherWorkspace) View.VISIBLE else View.GONE
-        applyLauncherRootBackground(showLauncherWorkspace)
-        if (showLauncherWorkspace && (forceAnimate || !lastLauncherMode)) {
-            if (currentAnimationSettings().unlockEnabled) {
-                binding.workspace.root.apply {
-                    alpha = 0f
-                    translationY = 28f
-                    animate()
-                        .alpha(1f)
-                        .translationY(0f)
-                        .setDuration(260L)
-                        .setInterpolator(DecelerateInterpolator())
-                        .start()
-                }
-            } else {
-                binding.workspace.root.apply {
-                    animate().cancel()
-                    alpha = 1f
-                    translationY = 0f
-                }
-            }
-        }
-        lastLauncherMode = showLauncherWorkspace
-    }
-
-    private fun updateSettingsFabVisibility(showLauncherWorkspace: Boolean = state.launcherMode) {
-        binding.settingsFab.visibility = if (
-            LauncherSettingsMenuLayoutPolicy.SHOW_FEATURED_STAR &&
-            !showLauncherWorkspace &&
-            LauncherShellModePolicy.shouldShowFullOptionsMenu()
-        ) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
-    }
-
-    private fun updateLauncherContentDescription() {
-        binding.launcher.contentDescription = getString(
-            R.string.launcher_installed_apps_count_a11y,
-            state.appCount
-        )
-    }
-
-    private fun shouldOpenSettingsPanel(intent: Intent?): Boolean {
-        return intent?.action == Intent.ACTION_MAIN &&
-            intent.hasCategory(Intent.CATEGORY_LAUNCHER) &&
-            !intent.hasCategory(Intent.CATEGORY_HOME)
-    }
-
-    private fun isHomeIntent(intent: Intent?): Boolean {
-        return intent?.action == Intent.ACTION_MAIN &&
-            intent.hasCategory(Intent.CATEGORY_HOME)
     }
 
     private fun isCurrentDefaultLauncher(): Boolean {
@@ -7927,105 +3433,29 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         return resolveInfo?.activityInfo?.packageName == packageName
     }
 
-    override fun openAppInfo(app: LauncherApp) {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:${app.packageName}")
-        }
-        runCatching { startActivity(intent) }.onFailure {
-            showError(getString(R.string.launcher_default_prompt_failed))
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun requestHomeRole(): Boolean {
-        val roleManager = getSystemService(RoleManager::class.java)
-        if (!roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
-            return false
-        }
-
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val roleManager = getSystemService(RoleManager::class.java) ?: return false
+        if (!roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) return false
+        if (roleManager.isRoleHeld(RoleManager.ROLE_HOME)) return false
         return runCatching {
             waitingForLauncherSelection = true
             homeRoleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
-        }.isSuccess
+            true
+        }.getOrElse {
+            waitingForLauncherSelection = false
+            false
+        }
     }
 
-    private data class HomeEdgeTargetCell(
-        val index: Int,
-        val localXInCell: Float,
-        val localYInCell: Float
-    )
-
-    private data class FolderExitDragMetrics(
-        val rootLeftOnScreen: Int,
-        val rootTopOnScreen: Int,
-        val rootWidth: Int,
-        val rootHeight: Int,
-        val previewWidth: Int,
-        val previewHeight: Int,
-        val pagerLeftInRoot: Float,
-        val pagerTopInRoot: Float,
-        val pagerWidth: Int,
-        val pagerHeight: Int,
-        val cellWidth: Float,
-        val cellHeight: Float
-    )
-
-    private enum class FolderSource {
-        HOME,
-        DOCK
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density + 0.5f).toInt()
     }
-
-    private enum class IndicatorMode {
-        DOTS,
-        SEARCH
-    }
-
-    private data class RenamePickerItem(
-        val app: LauncherApp,
-        val icon: Drawable?
-    )
-
-    private data class DockDropPreviewTarget(
-        val left: Float,
-        val top: Float
-    )
 
     private companion object {
-        const val DOCK_APP_COUNT = 4
-        const val SEARCH_COLUMNS = 4
-        const val SEARCH_ICON_CELL_HEIGHT_DP = 104
-        const val FOLDER_ICON_CELL_HEIGHT_DP = 112
-        const val FOLDER_ICON_SIZE_DP = 58
-        const val PAGE_INDICATOR_VISIBLE_MS = 2000L
-        const val PAGE_INDICATOR_SEARCH_WIDTH_DP = 104
-        const val PAGE_INDICATOR_SEARCH_HEIGHT_DP = 34
-        const val PAGE_INDICATOR_DOT_PADDING_DP = 4
-        const val PULL_DOWN_SEARCH_THRESHOLD_DP = 54
-        const val PULL_DOWN_HORIZONTAL_ESCAPE_DP = 28
-        const val FOLDER_EXIT_SLOP_DP = 28
-        const val FOLDER_EXIT_COLLAPSED_PANEL_SCALE = 0.16f
-        const val DRAG_PREVIEW_WIDTH_DP = 94
-        const val DRAG_PREVIEW_HEIGHT_DP = 118
-        const val DRAG_PREVIEW_ICON_CENTER_Y_DP = 36
-        const val DRAG_PREVIEW_ELEVATION_DP = 70
-        const val DRAG_EDGE_GLOW_FADE_MS = 110L
-        const val HOME_DOCK_DROP_IN_MS = 170L
-        const val HOME_DOCK_DROP_POP_MS = 95L
-        const val HOME_DOCK_DROP_SHRINK_SCALE = 0.72f
-        const val FOLDER_EXIT_PREVIEW_ELEVATION_DP = 88
-        const val HOME_EDGE_SWITCH_ZONE_DP = LauncherHomePageEdgeDragPolicy.DEFAULT_EDGE_ZONE_DP
-        const val HOME_EDGE_SWITCH_DELAY_MS = 420L
-        const val HOME_EDGE_SWITCH_START_DELAY_MS = 45L
-        const val HOME_EDGE_NEW_PAGE_SWITCH_START_DELAY_MS = 95L
-        const val HOME_EDGE_PAGE_SWITCH_ANIMATION_MS = 360L
-        const val HOME_EDGE_PAGE_SWITCH_SETTLE_MS = 80L
-        const val FOLDER_EDGE_SWITCH_ZONE_DP = 30
-        const val FOLDER_EDGE_SWITCH_DELAY_MS = 320L
-        const val FOLDER_OVERLAY_DIM_COLOR = 0x22000000
-        const val HOME_PAGE_COLUMNS = 4
-        const val HOME_GRID_ROWS_5 = 5
-        const val HOME_GRID_ROWS_6 = 6
-        const val DEFAULT_HOME_GRID_ROWS = HOME_GRID_ROWS_6
+        const val HOME_GRID_ROWS_5 = LauncherHomeLayoutPreferences.HOME_GRID_ROWS_5
+        const val HOME_GRID_ROWS_6 = LauncherHomeLayoutPreferences.HOME_GRID_ROWS_6
+        const val DEFAULT_HOME_GRID_ROWS = LauncherHomeLayoutPreferences.DEFAULT_HOME_GRID_ROWS
         const val MIN_HOME_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MIN_HOME_ICON_SIZE_DP
         const val DEFAULT_HOME_ICON_SIZE_DP = LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP
         const val MAX_HOME_ICON_SIZE_DP = LauncherHomeIconSizePolicy.MAX_HOME_ICON_SIZE_DP
@@ -8037,38 +3467,27 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED
         const val KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED =
             LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED
-        const val HOME_HORIZONTAL_PADDING_DP = 18
-        const val HOME_BOTTOM_PADDING_DP = 16
-        const val DOCK_VERTICAL_EXTRA_DP = 28
-        const val DOCK_IPHONE8_VERTICAL_EXTRA_DP = 58
-        const val NO_PREVIEW_INDEX = -1
-        const val EMPTY_LONG_PRESS_MS = 520L
-        const val EMPTY_LONG_PRESS_SLOP_DP = 10
         const val DRAWER_OPEN_ANIMATION_MS = 220L
         const val DRAWER_CLOSE_ANIMATION_MS = 180L
         const val DRAWER_DIM_ANIMATION_MS = 160L
-        const val APP_OPEN_PREVIEW_ANIMATION_MS = 95L
         const val PRESET_WALLPAPER_COUNT = 11
         const val WALLPAPER_PRESET_DIRECTORY = "wallpapers"
         const val WALLPAPER_PRESET_FILE_NAME = "selected_wallpaper.png"
-        const val LAYOUT_PREFERENCES_NAME = "launcher_layout_preferences"
-        const val KEY_LAYOUT_DARK_MODE = "layout_dark_mode"
+        const val KEY_LAYOUT_DARK_MODE = LauncherHomeLayoutPreferences.KEY_LAYOUT_DARK_MODE
         const val KEY_LAYOUT_IPHONE8_STYLE = "layout_iphone8_style"
-        const val KEY_LAYOUT_AUTO_ARRANGE = "layout_auto_arrange"
-        const val KEY_LAYOUT_LIQUID_GLASS = "layout_liquid_glass"
-        const val KEY_BLUR_EFFECT_ENABLED = "blur_effect_enabled"
-        const val KEY_BLUR_DOCK_ENABLED = "blur_dock_enabled"
-        const val KEY_BLUR_FOLDER_ENABLED = "blur_folder_enabled"
-        const val KEY_BLUR_WIDGET_ENABLED = "blur_widget_enabled"
-        const val KEY_BLUR_SEARCH_ENABLED = "blur_search_enabled"
+        const val KEY_LAYOUT_AUTO_ARRANGE = LauncherHomeLayoutPreferences.KEY_LAYOUT_AUTO_REARRANGE_APPS
+        const val KEY_LAYOUT_LIQUID_GLASS = LauncherHomeLayoutPreferences.KEY_LAYOUT_LIQUID_GLASS
+        const val KEY_BLUR_EFFECT_ENABLED = LauncherHomeLayoutPreferences.KEY_BLUR_EFFECT_ENABLED
+        const val KEY_BLUR_DOCK_ENABLED = LauncherHomeLayoutPreferences.KEY_BLUR_DOCK_ENABLED
+        const val KEY_BLUR_FOLDER_ENABLED = LauncherHomeLayoutPreferences.KEY_BLUR_FOLDER_ENABLED
+        const val KEY_BLUR_WIDGET_ENABLED = LauncherHomeLayoutPreferences.KEY_BLUR_WIDGET_ENABLED
+        const val KEY_BLUR_SEARCH_ENABLED = LauncherHomeLayoutPreferences.KEY_BLUR_SEARCH_ENABLED
         const val KEY_ANIMATION_UNLOCK_ENABLED = "unlock_animation"
         const val KEY_ANIMATION_OPEN_CLOSE_ENABLED = "open_close_animation"
         const val KEY_ANIMATION_PARALLAX_ZOOM_ENABLED = "parallax_zoom_animations"
-        const val KEY_CUSTOM_WALLPAPER_URI = "custom_wallpaper_uri"
-        const val KEY_HOME_ICON_SIZE_DP = "home_icon_size_dp"
-        const val KEY_HOME_GRID_ROWS = "home_grid_rows"
-        const val KEY_HOME_LAYOUT_ITEMS = "home_layout_items"
-        const val KEY_DEFAULT_LAUNCHER_WELCOME_SHOWN = "default_launcher_welcome_shown"
+        const val KEY_CUSTOM_WALLPAPER_URI = LauncherHomeLayoutPreferences.KEY_CUSTOM_WALLPAPER_URI
+        const val KEY_HOME_ICON_SIZE_DP = LauncherHomeLayoutPreferences.KEY_HOME_ICON_SIZE_DP
+        const val KEY_HOME_GRID_ROWS = LauncherHomeLayoutPreferences.KEY_HOME_GRID_ROWS
         const val KEY_WEATHER_USE_METRIC = "weather_use_metric"
         const val KEY_WEATHER_REFRESH_INTERVAL = "weather_refresh_interval"
         const val DEFAULT_ANIMATION_UNLOCK_ENABLED = true

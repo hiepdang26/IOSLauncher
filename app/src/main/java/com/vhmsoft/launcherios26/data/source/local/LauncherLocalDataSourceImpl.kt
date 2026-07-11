@@ -1,8 +1,8 @@
-package com.vhmsoft.launcherios26.data.source.local
+﻿package com.vhmsoft.launcherios26.data.source.local
 
 import android.content.Context
 import android.graphics.drawable.Drawable
-import com.cloudx.ios17.core.LauncherCustomIconPreferences
+import com.vhmsoft.launcherios26.core.LauncherCustomIconPreferences
 import com.vhmsoft.launcherios26.data.cache.AppIconCache
 import com.vhmsoft.launcherios26.data.cache.LauncherPreferences
 import com.vhmsoft.launcherios26.data.model.LauncherFolder

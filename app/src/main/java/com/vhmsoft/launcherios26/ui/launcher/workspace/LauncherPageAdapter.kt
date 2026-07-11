@@ -1,4 +1,4 @@
-package com.vhmsoft.launcherios26.ui.launcher.workspace
+﻿package com.vhmsoft.launcherios26.ui.launcher.workspace
 
 import android.animation.ObjectAnimator
 import android.content.res.ColorStateList
@@ -21,7 +21,7 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.cloudx.ios17.features.launcher.TodayWidgetDragUpdatePolicy
+import com.vhmsoft.launcherios26.features.launcher.TodayWidgetDragUpdatePolicy
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.databinding.ItemAppLibraryPageBinding
 import com.vhmsoft.launcherios26.databinding.ItemLauncherPageBinding

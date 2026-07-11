@@ -6,14 +6,17 @@ import org.junit.Test
 
 class LauncherSettingsPageHeaderPolicyTest {
     @Test
-    fun optionPages_shareOneIosHeaderStyle() {
-        assertTrue(LauncherSettingsPageHeaderPolicy.usesSharedOptionPageHeader)
-        assertEquals(112, LauncherSettingsPageHeaderPolicy.toolbarHeightDp)
+    fun optionPageHeader_usesCompactToolbarWithoutExtraTopGap() {
         assertEquals(56, LauncherSettingsPageHeaderPolicy.toolbarRowHeightDp)
-        assertEquals(10, LauncherSettingsPageHeaderPolicy.backStartMarginDp)
-        assertEquals(22f, LauncherSettingsPageHeaderPolicy.backTextSizeSp)
-        assertEquals(LauncherRenamePickerUiPolicy.backTextSizeSp, LauncherSettingsPageHeaderPolicy.backTextSizeSp)
-        assertEquals(LauncherRenamePickerUiPolicy.titleTextSizeSp, LauncherSettingsPageHeaderPolicy.titleTextSizeSp)
-        assertTrue(LauncherSettingsPageHeaderPolicy.titleIsBold)
+        assertEquals(
+            LauncherSettingsPageHeaderPolicy.toolbarRowHeightDp,
+            LauncherSettingsPageHeaderPolicy.toolbarHeightDp
+        )
+        assertTrue(LauncherSettingsPageHeaderPolicy.contentTopSpacerDp <= 8)
+    }
+
+    @Test
+    fun optionPageHeader_colorsStatusBarWithToolbarSoItLooksConnectedToNotifications() {
+        assertTrue(LauncherSettingsPageHeaderPolicy.usesToolbarColorForStatusBar)
     }
 }

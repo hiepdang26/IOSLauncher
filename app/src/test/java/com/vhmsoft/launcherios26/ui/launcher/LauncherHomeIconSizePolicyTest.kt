@@ -1,6 +1,6 @@
-package com.vhmsoft.launcherios26.ui.launcher
+﻿package com.vhmsoft.launcherios26.ui.launcher
 
-import com.cloudx.ios17.core.LauncherHomeLayoutPreferences
+import com.vhmsoft.launcherios26.core.LauncherHomeLayoutPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

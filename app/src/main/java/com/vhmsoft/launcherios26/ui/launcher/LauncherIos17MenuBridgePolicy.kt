@@ -1,6 +1,6 @@
-package com.vhmsoft.launcherios26.ui.launcher
+﻿package com.vhmsoft.launcherios26.ui.launcher
 
-import com.cloudx.ios17.core.LauncherAppRenamePolicy
+import com.vhmsoft.launcherios26.core.LauncherAppRenamePolicy
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 
 object LauncherIos17MenuBridgePolicy {

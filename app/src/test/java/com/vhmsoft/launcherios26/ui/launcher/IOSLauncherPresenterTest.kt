@@ -5,7 +5,6 @@ import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import com.vhmsoft.launcherios26.data.model.LauncherFolder
 import com.vhmsoft.launcherios26.data.repository.LauncherRepository
-import com.vhmsoft.launcherios26.ui.launcher.workspace.LauncherIconUiModel
 import com.vhmsoft.launcherios26.ui.settings.feature.LauncherExternalFeatureCode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -64,12 +63,6 @@ class IOSLauncherPresenterTest {
         var showedSettingsDrawer = false
 
         override fun showLoading(isLoading: Boolean) = Unit
-        override fun showLauncherApps(
-            apps: List<LauncherIconUiModel>,
-            folders: List<LauncherFolder>,
-            dockFolders: List<LauncherFolder>,
-            dockOrder: List<String>
-        ) = Unit
         override fun showError(message: String) = Unit
         override fun openDefaultLauncherSelection() {
             openedDefaultLauncherSelection = true
@@ -78,7 +71,6 @@ class IOSLauncherPresenterTest {
             openedCopiedIos17Launcher = true
         }
         override fun showAlreadyDefaultLauncher() = Unit
-        override fun showAppOptions(item: LauncherIconUiModel) = Unit
         override fun openApp(app: LauncherApp) = Unit
         override fun openAppInfo(app: LauncherApp) = Unit
         override fun openAppLibrarySettings() {

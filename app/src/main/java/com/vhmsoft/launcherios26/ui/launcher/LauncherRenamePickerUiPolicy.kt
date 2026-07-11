@@ -1,6 +1,6 @@
-package com.vhmsoft.launcherios26.ui.launcher
+﻿package com.vhmsoft.launcherios26.ui.launcher
 
-import com.cloudx.ios17.core.LauncherRenameUiPolicy
+import com.vhmsoft.launcherios26.core.LauncherRenameUiPolicy
 
 object LauncherRenamePickerUiPolicy {
     const val opensFullscreenPicker = true

@@ -407,7 +407,7 @@
             <FrameLayout
                 android:id="@+id/layoutSettingsToolbar"
                 android:layout_width="match_parent"
-                android:layout_height="112dp"
+                android:layout_height="56dp"
                 android:background="@color/settings_card">
 
                 <TextView
@@ -457,7 +457,7 @@
                     <View
                         android:id="@+id/layoutTopSpacer"
                         android:layout_width="match_parent"
-                        android:layout_height="40dp"
+                        android:layout_height="8dp"
                         android:background="@color/settings_background" />
 
                     <LinearLayout
@@ -632,8 +632,8 @@
                         android:background="@color/settings_card"
                         android:gravity="center"
                         android:orientation="vertical"
-                        android:paddingStart="34dp"
-                        android:paddingEnd="34dp">
+                        android:paddingStart="18dp"
+                        android:paddingEnd="18dp">
 
                         <ImageView
                             android:id="@+id/iconSizePreview"
@@ -681,14 +681,11 @@
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <TextView
+                            <com.vhmsoft.launcherios26.ui.launcher.LayoutGridPreviewView
                                 android:id="@+id/grid5x4Icon"
                                 android:layout_width="54dp"
                                 android:layout_height="54dp"
-                                android:gravity="center"
-                                android:text="@string/layout_grid_5x4_icon"
-                                android:textColor="#8F8F8F"
-                                android:textSize="21sp" />
+                                android:importantForAccessibility="no" />
 
                             <TextView
                                 android:id="@+id/grid5x4Label"
@@ -709,14 +706,11 @@
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <TextView
+                            <com.vhmsoft.launcherios26.ui.launcher.LayoutGridPreviewView
                                 android:id="@+id/grid6x4Icon"
                                 android:layout_width="54dp"
                                 android:layout_height="54dp"
-                                android:gravity="center"
-                                android:text="@string/layout_grid_6x4_icon"
-                                android:textColor="#8F8F8F"
-                                android:textSize="20sp" />
+                                android:importantForAccessibility="no" />
 
                             <TextView
                                 android:id="@+id/grid6x4Label"
@@ -745,7 +739,7 @@
             <FrameLayout
                 android:id="@+id/liquidGlassSettingsToolbar"
                 android:layout_width="match_parent"
-                android:layout_height="112dp"
+                android:layout_height="56dp"
                 android:background="@color/settings_card">
 
                 <TextView
@@ -789,7 +783,7 @@
                 <View
                     android:id="@+id/liquidGlassTopSpacer"
                     android:layout_width="match_parent"
-                    android:layout_height="20dp"
+                    android:layout_height="8dp"
                     android:background="@color/settings_background" />
 
                 <LinearLayout
@@ -852,7 +846,7 @@
             <FrameLayout
                 android:id="@+id/blurSettingsToolbar"
                 android:layout_width="match_parent"
-                android:layout_height="112dp"
+                android:layout_height="56dp"
                 android:background="@color/settings_card">
 
                 <TextView
@@ -903,7 +897,7 @@
                     <View
                         android:id="@+id/blurTopSpacer"
                         android:layout_width="match_parent"
-                        android:layout_height="32dp"
+                        android:layout_height="8dp"
                         android:background="@color/settings_background" />
 
                     <LinearLayout
@@ -945,7 +939,7 @@
             <FrameLayout
                 android:id="@+id/animationSettingsToolbar"
                 android:layout_width="match_parent"
-                android:layout_height="112dp"
+                android:layout_height="56dp"
                 android:background="@color/settings_card">
 
                 <TextView
@@ -996,7 +990,7 @@
                     <View
                         android:id="@+id/animationTopSpacer"
                         android:layout_width="match_parent"
-                        android:layout_height="32dp"
+                        android:layout_height="8dp"
                         android:background="@color/settings_background" />
 
                     <LinearLayout
@@ -1294,10 +1288,4 @@
             </LinearLayout>
         </FrameLayout>
 
-        <include
-            android:id="@+id/workspace"
-            layout="@layout/view_ios_workspace"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone" />
     </com.vhmsoft.launcherios26.launcher6.LauncherRootView>
