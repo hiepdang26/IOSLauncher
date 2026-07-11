@@ -46,13 +46,13 @@ object DockStylePolicy {
             style == Style.LIQUID_GLASS
     }
 
-    @Suppress("UNUSED_PARAMETER")
     fun usesExternalRealtimeLiquidGlass(
         style: Style,
         realtimeLiquidGlassAvailable: Boolean,
         dockBlurEnabled: Boolean
     ): Boolean {
-        return realtimeLiquidGlassAvailable &&
+        return dockBlurEnabled &&
+            realtimeLiquidGlassAvailable &&
             style == Style.LIQUID_GLASS
     }
 

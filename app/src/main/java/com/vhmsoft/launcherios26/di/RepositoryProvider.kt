@@ -17,6 +17,7 @@ object RepositoryProvider {
             context = appContext
         )
         val remoteDataSource = PackageManagerRemoteDataSource(
+            context = appContext,
             packageManager = appContext.packageManager,
             appPackageName = appContext.packageName
         )

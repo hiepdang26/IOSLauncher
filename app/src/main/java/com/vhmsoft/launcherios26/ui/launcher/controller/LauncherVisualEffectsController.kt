@@ -11,18 +11,15 @@ class LauncherVisualEffectsController(
     private var blurSettings = LauncherBlurSettings()
 
     fun setBlurEnabled(enabled: Boolean) {
-        setBlurSettings(blurSettings.copy(enabled = enabled))
+        setBlurSettings(blurSettings.copy(dockEnabled = enabled))
     }
 
     fun setBlurSettings(settings: LauncherBlurSettings) {
         blurSettings = settings
-        if (!settings.enabled) {
-            clearHomeBlur()
-        }
     }
 
     fun applyHomeBlur() {
-        applyHomeBlur(enabled = blurSettings.enabled)
+        applyHomeBlur(enabled = true)
     }
 
     fun applyFolderBlur() {

@@ -26,7 +26,7 @@ object LauncherBlurEffectPolicy {
         liquidGlassEnabled: Boolean,
         darkModeEnabled: Boolean = false
     ): Float {
-        if (liquidGlassEnabled) return 0f
+        if (liquidGlassEnabled) return 1f
         return overlayAlpha(
             masterEnabled = masterEnabled,
             targetEnabled = folderEnabled,
@@ -39,7 +39,12 @@ object LauncherBlurEffectPolicy {
         folderEnabled: Boolean,
         liquidGlassEnabled: Boolean = false,
         darkModeEnabled: Boolean = false
-    ): Float = FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
+    ): Float =
+        if (liquidGlassEnabled) {
+            FolderOpenLayoutPolicy.LIQUID_GLASS_BACKGROUND_CONTENT_ALPHA
+        } else {
+            FolderOpenLayoutPolicy.BACKGROUND_CONTENT_ALPHA
+        }
 
     fun searchBackgroundContentAlpha(masterEnabled: Boolean, searchEnabled: Boolean): Float {
         return SEARCH_BACKGROUND_CONTENT_ALPHA

@@ -50,6 +50,7 @@ object LauncherHomeLayoutPreferences {
     const val DEFAULT_ICON_SIZE_SLIDER_PROGRESS = ICON_SIZE_SLIDER_MAX / 2
     const val DEFAULT_AUTO_REARRANGE_APPS = false
     const val DEFAULT_DARK_MODE = false
+    const val DEFAULT_LIQUID_GLASS_ENABLED = true
     const val DEFAULT_BLUR_EFFECT_ENABLED = true
     const val DEFAULT_BLUR_TARGET_ENABLED = true
     private const val MIN_APP_LABEL_TEXT_SIZE_SP = 10f
@@ -190,9 +191,51 @@ object LauncherHomeLayoutPreferences {
 
     fun migrateStoredIconSizeDp(
         iconSizeDp: Int,
+        migrationApplied: Boolean
+    ): Int {
+        return migrateStoredIconSizeDp(
+            iconSizeDp = iconSizeDp,
+            migrationApplied = migrationApplied,
+            default56MigrationApplied = false,
+            default60MigrationApplied = false,
+            default58MigrationApplied = false
+        )
+    }
+
+    fun migrateStoredIconSizeDp(
+        iconSizeDp: Int,
         migrationApplied: Boolean,
-        default56MigrationApplied: Boolean = false,
-        default60MigrationApplied: Boolean = false,
+        default56MigrationApplied: Boolean
+    ): Int {
+        return migrateStoredIconSizeDp(
+            iconSizeDp = iconSizeDp,
+            migrationApplied = migrationApplied,
+            default56MigrationApplied = default56MigrationApplied,
+            default60MigrationApplied = false,
+            default58MigrationApplied = false
+        )
+    }
+
+    fun migrateStoredIconSizeDp(
+        iconSizeDp: Int,
+        migrationApplied: Boolean,
+        default56MigrationApplied: Boolean,
+        default60MigrationApplied: Boolean
+    ): Int {
+        return migrateStoredIconSizeDp(
+            iconSizeDp = iconSizeDp,
+            migrationApplied = migrationApplied,
+            default56MigrationApplied = default56MigrationApplied,
+            default60MigrationApplied = default60MigrationApplied,
+            default58MigrationApplied = false
+        )
+    }
+
+    fun migrateStoredIconSizeDp(
+        iconSizeDp: Int,
+        migrationApplied: Boolean,
+        default56MigrationApplied: Boolean,
+        default60MigrationApplied: Boolean,
         default58MigrationApplied: Boolean = false
     ): Int {
         val compactMigratedSize = if (!migrationApplied) {
@@ -235,7 +278,7 @@ object LauncherHomeLayoutPreferences {
 
     fun isLiquidGlassEnabled(context: Context): Boolean {
         return context.getSharedPreferences(LAYOUT_PREFERENCES_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_LAYOUT_LIQUID_GLASS, false)
+            .getBoolean(KEY_LAYOUT_LIQUID_GLASS, DEFAULT_LIQUID_GLASS_ENABLED)
     }
 
     fun isDarkModeEnabled(context: Context): Boolean {

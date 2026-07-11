@@ -88,7 +88,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
         lp.height = metrics.heightPx
         val dockStyle = currentDockStyle()
         val liquidGlassEnabled = isLiquidGlassEnabled()
-        val blurEnabled = isDockBlurEnabled() || liquidGlassEnabled
+        val blurEnabled = isDockBlurEnabled()
         appliedDockStyle = dockStyle
         dockBlurEnabled = blurEnabled
         when (dockStyle) {

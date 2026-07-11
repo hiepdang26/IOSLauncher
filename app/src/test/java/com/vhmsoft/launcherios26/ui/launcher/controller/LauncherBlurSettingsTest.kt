@@ -9,7 +9,7 @@ class LauncherBlurSettingsTest {
     fun dockBlurFollowsTopBlurSwitch() {
         assertTrue(
             LauncherBlurSettings(
-                enabled = true,
+                dockEnabled = true,
                 folderEnabled = false,
                 widgetEnabled = false,
                 searchEnabled = false
@@ -17,7 +17,7 @@ class LauncherBlurSettingsTest {
         )
         assertFalse(
             LauncherBlurSettings(
-                enabled = false,
+                dockEnabled = false,
                 folderEnabled = true,
                 widgetEnabled = true,
                 searchEnabled = true
@@ -26,23 +26,24 @@ class LauncherBlurSettingsTest {
     }
 
     @Test
-    fun globalDisabled_disablesEveryBlurTarget() {
+    fun dockDisabled_doesNotDisableOtherBlurTargets() {
         val settings = LauncherBlurSettings(
-            enabled = false,
+            dockEnabled = false,
             folderEnabled = true,
             widgetEnabled = true,
             searchEnabled = true
         )
 
-        assertFalse(settings.folderBlurActive)
-        assertFalse(settings.widgetBlurActive)
-        assertFalse(settings.searchBlurActive)
+        assertFalse(settings.dockBlurActive)
+        assertTrue(settings.folderBlurActive)
+        assertTrue(settings.widgetBlurActive)
+        assertTrue(settings.searchBlurActive)
     }
 
     @Test
-    fun targetSwitches_controlTheirOwnBlurWhenGlobalEnabled() {
+    fun targetSwitches_controlTheirOwnBlurIndependently() {
         val settings = LauncherBlurSettings(
-            enabled = true,
+            dockEnabled = false,
             folderEnabled = false,
             widgetEnabled = true,
             searchEnabled = false

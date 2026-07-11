@@ -17,9 +17,11 @@ class FolderOpenLayoutPolicyTest {
 
         assertEquals(780, metrics.panelWidth)
         assertEquals(260, metrics.cellWidth)
-        assertEquals(310, metrics.cellHeight)
-        assertEquals(930, metrics.gridHeight)
-        assertEquals(100, metrics.titleBottomGap)
+        assertEquals(320, metrics.cellHeight)
+        assertEquals(960, metrics.gridHeight)
+        assertEquals(60, metrics.titleBottomGap)
+        assertEquals(105, metrics.cornerRadius)
+        assertEquals(32f, metrics.titleTextSizeSp, 0.001f)
     }
 
     @Test
@@ -34,7 +36,7 @@ class FolderOpenLayoutPolicyTest {
 
         assertEquals(312, metrics.panelWidth)
         assertEquals(104, metrics.cellWidth)
-        assertEquals(124, metrics.cellHeight)
-        assertEquals(372, metrics.gridHeight)
+        assertEquals(128, metrics.cellHeight)
+        assertEquals(384, metrics.gridHeight)
     }
 }

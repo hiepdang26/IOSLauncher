@@ -3145,7 +3145,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
 
     private fun currentBlurSettings(): LauncherBlurSettings {
         return LauncherBlurSettings(
-            enabled = layoutPreferences.getBoolean(KEY_BLUR_EFFECT_ENABLED, true),
+            dockEnabled = layoutPreferences.getBoolean(KEY_BLUR_DOCK_ENABLED, true),
             folderEnabled = layoutPreferences.getBoolean(KEY_BLUR_FOLDER_ENABLED, true),
             widgetEnabled = layoutPreferences.getBoolean(KEY_BLUR_WIDGET_ENABLED, true),
             searchEnabled = layoutPreferences.getBoolean(KEY_BLUR_SEARCH_ENABLED, true)
@@ -3155,7 +3155,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun applyBlurSettings(settings: LauncherBlurSettings, persist: Boolean) {
         if (persist) {
             layoutPreferences.edit()
-                .putBoolean(KEY_BLUR_EFFECT_ENABLED, settings.enabled)
+                .putBoolean(KEY_BLUR_EFFECT_ENABLED, true)
+                .putBoolean(KEY_BLUR_DOCK_ENABLED, settings.dockEnabled)
                 .putBoolean(KEY_BLUR_FOLDER_ENABLED, settings.folderEnabled)
                 .putBoolean(KEY_BLUR_WIDGET_ENABLED, settings.widgetEnabled)
                 .putBoolean(KEY_BLUR_SEARCH_ENABLED, settings.searchEnabled)
@@ -3171,16 +3172,16 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         bindBlurSwitchRow(
             row = binding.blurMasterRow,
             titleRes = R.string.settings_blur_master,
-            checked = settings.enabled,
+            checked = settings.dockEnabled,
             enabled = true
         ) { checked ->
-            applyBlurSettings(settings.copy(enabled = checked), persist = true)
+            applyBlurSettings(settings.copy(dockEnabled = checked), persist = true)
         }
         bindBlurSwitchRow(
             row = binding.blurFolderRow,
             titleRes = R.string.settings_blur_folder,
             checked = settings.folderEnabled,
-            enabled = settings.enabled
+            enabled = true
         ) { checked ->
             applyBlurSettings(currentBlurSettings().copy(folderEnabled = checked), persist = true)
         }
@@ -3188,7 +3189,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             row = binding.blurWidgetRow,
             titleRes = R.string.settings_blur_widget,
             checked = settings.widgetEnabled,
-            enabled = settings.enabled
+            enabled = true
         ) { checked ->
             applyBlurSettings(currentBlurSettings().copy(widgetEnabled = checked), persist = true)
         }
@@ -3196,7 +3197,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             row = binding.blurSearchRow,
             titleRes = R.string.settings_blur_search,
             checked = settings.searchEnabled,
-            enabled = settings.enabled
+            enabled = true
         ) { checked ->
             applyBlurSettings(currentBlurSettings().copy(searchEnabled = checked), persist = true)
         }
@@ -5068,6 +5069,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     }
 
     override fun openCopiedIos17Launcher() {
+        prepareCopiedIos17LauncherIcons()
         val intent = Intent(Intent.ACTION_MAIN).apply {
             component = ComponentName(
                 packageName,
@@ -5079,6 +5081,13 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         }
         runCatching { startActivity(intent) }.onFailure {
             showError(getString(R.string.launcher_default_prompt_failed))
+        }
+    }
+
+    private fun prepareCopiedIos17LauncherIcons() {
+        presenter.clearIconCache()
+        runCatching {
+            BlissLauncher.getApplication(applicationContext).appProvider.reload(true)
         }
     }
 
@@ -7419,6 +7428,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
                 .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
                 .apply()
         }
         applyHomeLayoutSettingsUi()
@@ -7432,18 +7442,26 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, false)
         val default60MigrationApplied =
             layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, false)
+        val default58MigrationApplied =
+            layoutPreferences.getBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, false)
         val migratedIconSizeDp = LauncherHomeIconSizePolicy.migrateStoredIconSizeDp(
             iconSizeDp = rawIconSizeDp,
             migrationApplied = migrationApplied,
             default56MigrationApplied = default56MigrationApplied,
-            default60MigrationApplied = default60MigrationApplied
+            default60MigrationApplied = default60MigrationApplied,
+            default58MigrationApplied = default58MigrationApplied
         )
-        if (!migrationApplied || !default56MigrationApplied || !default60MigrationApplied) {
+        if (!migrationApplied ||
+            !default56MigrationApplied ||
+            !default60MigrationApplied ||
+            !default58MigrationApplied
+        ) {
             layoutPreferences.edit()
                 .putInt(KEY_HOME_ICON_SIZE_DP, migratedIconSizeDp)
                 .putBoolean(KEY_HOME_ICON_SIZE_COMPACT_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED, true)
                 .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED, true)
+                .putBoolean(KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED, true)
                 .apply()
         }
         return migratedIconSizeDp
@@ -7593,7 +7611,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private fun applyWorkspaceAppearance() {
         val blurSettings = currentBlurSettings()
         val dockStyle = LauncherLiquidGlassStylePolicy.dock(
-            enabled = blurSettings.dockBlurActive || layoutLiquidGlass,
+            enabled = blurSettings.dockBlurActive,
             darkMode = layoutDarkMode
         )
         val folderStyle = LauncherLiquidGlassStylePolicy.folderPanel(
@@ -8017,6 +8035,8 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
             LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_56_MIGRATION_APPLIED
         const val KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED =
             LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_60_MIGRATION_APPLIED
+        const val KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED =
+            LauncherHomeIconSizePolicy.KEY_HOME_ICON_SIZE_DEFAULT_58_MIGRATION_APPLIED
         const val HOME_HORIZONTAL_PADDING_DP = 18
         const val HOME_BOTTOM_PADDING_DP = 16
         const val DOCK_VERTICAL_EXTRA_DP = 28
@@ -8037,6 +8057,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         const val KEY_LAYOUT_AUTO_ARRANGE = "layout_auto_arrange"
         const val KEY_LAYOUT_LIQUID_GLASS = "layout_liquid_glass"
         const val KEY_BLUR_EFFECT_ENABLED = "blur_effect_enabled"
+        const val KEY_BLUR_DOCK_ENABLED = "blur_dock_enabled"
         const val KEY_BLUR_FOLDER_ENABLED = "blur_folder_enabled"
         const val KEY_BLUR_WIDGET_ENABLED = "blur_widget_enabled"
         const val KEY_BLUR_SEARCH_ENABLED = "blur_search_enabled"

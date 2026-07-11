@@ -13,6 +13,7 @@ import com.cloudx.ios17.core.IconsHandler
 import com.cloudx.ios17.core.LauncherCustomIconPolicy
 import com.cloudx.ios17.core.LauncherCustomIconPreferences
 import com.cloudx.ios17.core.LauncherAppRenamePreferences
+import com.cloudx.ios17.core.SystemIosIconOverridePolicy
 import com.cloudx.ios17.core.database.model.ApplicationItem
 import com.cloudx.ios17.features.launcher.AppProvider
 import java.util.LinkedHashMap
@@ -103,7 +104,18 @@ object AppUtils {
             componentName = applicationItem.componentName?.flattenToString(),
             packageName = appInfo.packageName
         )
+        val activityLabel = activityInfo.label?.toString().orEmpty()
+        val isSystemApp =
+            (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
         applicationItem.icon = LauncherCustomIconPreferences.loadCustomIcon(context, appKeys)
+            ?: SystemIosIconOverridePolicy.resolveDrawable(
+                context = context,
+                label = activityLabel,
+                packageName = appInfo.packageName,
+                className = activityInfo.componentName.className,
+                isSystemApp = isSystemApp
+            )
             ?: iconsHandler.getDrawableIconForPackage(activityInfo, user)
         val componentName = activityInfo.componentName.toString()
         applicationItem.appType =
@@ -114,7 +126,7 @@ object AppUtils {
             } else {
                 ApplicationItem.TYPE_DEFAULT
             }
-        applicationItem.title = activityInfo.label.toString()
+        applicationItem.title = activityLabel
         applicationItem.container = Constants.CONTAINER_DESKTOP.toLong()
         if (appInfo.packageName.equals("com.generalmagic.magicearth", ignoreCase = true)) {
             applicationItem.title = context.getString(R.string.app_name_maps)

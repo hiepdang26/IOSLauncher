@@ -244,7 +244,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun folderLiquidGlassProfilesMatchAppLibraryFolderTuning() {
+    fun folderLiquidGlassProfilesUsePanelSpecificTuning() {
         val appLibrary = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
             radiusDp = 20,
@@ -261,16 +261,16 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             darkMode = false
         )
 
-        listOf(folderPreview, folderPanel).forEach { profile ->
-            assertEquals(appLibrary.blurRadiusDp, profile.blurRadiusDp, 0.001f)
-            assertEquals(appLibrary.refractionHeightDp, profile.refractionHeightDp, 0.01f)
-            assertEquals(appLibrary.refractionOffsetDp, profile.refractionOffsetDp, 0.01f)
-            assertEquals(appLibrary.dispersion, profile.dispersion, 0.01f)
-            assertEquals(appLibrary.tintRed, profile.tintRed, 0.01f)
-            assertEquals(appLibrary.tintGreen, profile.tintGreen, 0.01f)
-            assertEquals(appLibrary.tintBlue, profile.tintBlue, 0.01f)
-            assertEquals(appLibrary.tintAlpha, profile.tintAlpha, 0.01f)
-        }
+        assertEquals(appLibrary.blurRadiusDp, folderPreview.blurRadiusDp, 0.001f)
+        assertEquals(appLibrary.refractionHeightDp, folderPreview.refractionHeightDp, 0.01f)
+        assertEquals(appLibrary.refractionOffsetDp, folderPreview.refractionOffsetDp, 0.01f)
+        assertEquals(appLibrary.dispersion, folderPreview.dispersion, 0.01f)
+        assertEquals(appLibrary.tintAlpha, folderPreview.tintAlpha, 0.01f)
+        assertEquals(36f, folderPanel.blurRadiusDp, 0.001f)
+        assertEquals(36f, folderPanel.refractionHeightDp, 0.01f)
+        assertEquals(96f, folderPanel.refractionOffsetDp, 0.01f)
+        assertEquals(0.75f, folderPanel.dispersion, 0.01f)
+        assertEquals(0.16f, folderPanel.tintAlpha, 0.01f)
         assertEquals(16, folderPreview.radiusDp)
         assertEquals(42, folderPanel.radiusDp)
     }

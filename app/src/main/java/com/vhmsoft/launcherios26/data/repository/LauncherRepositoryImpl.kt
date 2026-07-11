@@ -1,6 +1,7 @@
 package com.vhmsoft.launcherios26.data.repository
 
 import android.graphics.drawable.Drawable
+import com.vhmsoft.launcherios26.data.icon.SystemIosIconOverridePolicy
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import com.vhmsoft.launcherios26.data.model.LauncherAppCategory
 import com.vhmsoft.launcherios26.data.model.LauncherAppCustomizationPolicy
@@ -31,8 +32,10 @@ class LauncherRepositoryImpl(
             return customIcon
         }
 
-        localDataSource.getCachedIcon(app.iconKey)?.let { cachedIcon ->
-            return cachedIcon
+        if (!SystemIosIconOverridePolicy.hasOverride(app)) {
+            localDataSource.getCachedIcon(app.iconKey)?.let { cachedIcon ->
+                return cachedIcon
+            }
         }
 
         return remoteDataSource.getAppIcon(app).also { icon ->

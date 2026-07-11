@@ -1,6 +1,7 @@
 package com.vhmsoft.launcherios26.data.source.remote
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -8,10 +9,12 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import com.vhmsoft.launcherios26.common.coroutines.DefaultDispatcherProvider
 import com.vhmsoft.launcherios26.common.coroutines.DispatcherProvider
+import com.vhmsoft.launcherios26.data.icon.SystemIosIconOverridePolicy
 import com.vhmsoft.launcherios26.data.model.LauncherApp
 import kotlinx.coroutines.withContext
 
 class PackageManagerRemoteDataSource(
+    private val context: Context,
     private val packageManager: PackageManager,
     private val appPackageName: String,
     private val dispatcherProvider: DispatcherProvider = DefaultDispatcherProvider
@@ -60,7 +63,8 @@ class PackageManagerRemoteDataSource(
     }
 
     override suspend fun getAppIcon(app: LauncherApp): Drawable = withContext(dispatcherProvider.io) {
-        packageManager.getActivityIcon(ComponentName(app.packageName, app.className))
+        SystemIosIconOverridePolicy.resolveDrawable(context, app)
+            ?: packageManager.getActivityIcon(ComponentName(app.packageName, app.className))
     }
 
     private fun canUninstall(

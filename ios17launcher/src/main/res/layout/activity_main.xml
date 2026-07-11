@@ -198,14 +198,14 @@
             android:background="@null"
             android:imeOptions="actionDone"
             android:inputType="textNoSuggestions|textCapSentences"
-            android:layout_marginBottom="40dp"
+            android:layout_marginBottom="24dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
             android:textAlignment="center"
-            android:textColor="#D7FFFFFF"
+            android:textColor="#EAFFFFFF"
             android:hint="@string/folder_unnamed_hint"
             android:textCursorDrawable="@drawable/folder_title_text_cursor"
-            android:textSize="40sp" />
+            android:textSize="32sp" />
 
         <com.cloudx.ios17.core.customviews.LauncherRealtimeLiquidGlassLayout
             android:id="@+id/folder_bg_blur"

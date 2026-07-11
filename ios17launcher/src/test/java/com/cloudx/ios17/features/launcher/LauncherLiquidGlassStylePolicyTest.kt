@@ -193,7 +193,7 @@ class LauncherLiquidGlassStylePolicyTest {
     }
 
     @Test
-    fun liquidGlassSurfacesKeepTheirOriginalPaletteWithoutWhiteBorder() {
+    fun liquidGlassSurfacesUsePurposeBuiltFolderPanelGlass() {
         val folderPreview = LauncherLiquidGlassStylePolicy.folderPreview(
             enabled = true,
             liquidGlass = true
@@ -224,19 +224,20 @@ class LauncherLiquidGlassStylePolicyTest {
             liquidGlass = true
         )
 
-        assertEquals(appLibrary.color, folderPreview.color)
+        assertEquals(0x26FFFFFF, folderPreview.color)
         assertNull(folderPreview.strokeColor)
-        assertEquals(appLibrary.topHighlightColor, folderPreview.topHighlightColor)
-        assertEquals(appLibrary.bottomShadeColor, folderPreview.bottomShadeColor)
-        assertEquals(appLibrary.sideHighlightColor, folderPreview.sideHighlightColor)
-        assertEquals(appLibrary.edgeShadeColor, folderPreview.edgeShadeColor)
-        assertEquals(16, folderPreview.radiusDp)
-        assertEquals(appLibrary.color, folderPanel.color)
+        assertEquals(0x42FFFFFF, folderPreview.topHighlightColor)
+        assertEquals(0x18EEF8FF, folderPreview.bottomShadeColor)
+        assertEquals(0x22FFFFFF, folderPreview.sideHighlightColor)
+        assertEquals(0x18EEF8FF, folderPreview.edgeShadeColor)
+        assertEquals(13, folderPreview.radiusDp)
+        assertEquals(0x44FFFFFF, folderPanel.color)
         assertNull(folderPanel.strokeColor)
-        assertEquals(appLibrary.topHighlightColor, folderPanel.topHighlightColor)
-        assertEquals(appLibrary.bottomShadeColor, folderPanel.bottomShadeColor)
-        assertEquals(appLibrary.sideHighlightColor, folderPanel.sideHighlightColor)
-        assertEquals(appLibrary.edgeShadeColor, folderPanel.edgeShadeColor)
+        assertEquals(0x70FFFFFF, folderPanel.topHighlightColor)
+        assertEquals(0x16001F35, folderPanel.bottomShadeColor)
+        assertEquals(0x20D8F9FF, folderPanel.sideHighlightColor)
+        assertEquals(0x12001E3A, folderPanel.edgeShadeColor)
+        assertEquals(0x70FFFFFF, folderPanel.diagonalCornerStrokeColor)
         assertEquals(42, folderPanel.radiusDp)
         assertEquals(0x70DDF7FF, searchPill.color)
         assertNull(searchPill.strokeColor)
@@ -257,6 +258,22 @@ class LauncherLiquidGlassStylePolicyTest {
         assertEquals(searchPill.bottomShadeColor, pageIndicator.bottomShadeColor)
         assertEquals(searchPill.sideHighlightColor, pageIndicator.sideHighlightColor)
         assertEquals(searchPill.edgeShadeColor, pageIndicator.edgeShadeColor)
+    }
+
+    @Test
+    fun liquidGlassFolderPreviewUsesFolderColoredEdgesInsteadOfDarkCornerShading() {
+        val folderPreview = LauncherLiquidGlassStylePolicy.folderPreview(
+            enabled = true,
+            liquidGlass = true
+        )
+
+        assertEquals(0x26FFFFFF, folderPreview.color)
+        assertNull(folderPreview.strokeColor)
+        assertEquals(0x42FFFFFF, folderPreview.topHighlightColor)
+        assertEquals(0x18EEF8FF, folderPreview.bottomShadeColor)
+        assertEquals(0x22FFFFFF, folderPreview.sideHighlightColor)
+        assertEquals(0x18EEF8FF, folderPreview.edgeShadeColor)
+        assertEquals(13, folderPreview.radiusDp)
     }
 
     @Test

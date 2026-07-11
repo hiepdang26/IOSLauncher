@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.util.AttributeSet
 import androidx.appcompat.widget.AppCompatImageView
 import com.cloudx.ios17.core.DeviceProfile
+import com.cloudx.ios17.core.HomeIconRenderPolicy
 
 class SquareImageView @JvmOverloads constructor(
     context: Context,
@@ -24,14 +25,13 @@ class SquareImageView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (iconContentScale == 1f) {
-            super.onDraw(canvas)
-            return
-        }
-
         val saveCount = canvas.save()
-        canvas.clipPath(DeviceProfile.path)
-        canvas.scale(iconContentScale, iconContentScale, width / 2f, height / 2f)
+        if (HomeIconRenderPolicy.shouldClipIconDrawable(iconContentScale)) {
+            canvas.clipPath(DeviceProfile.path)
+        }
+        if (HomeIconRenderPolicy.shouldScaleIconDrawable(iconContentScale)) {
+            canvas.scale(iconContentScale, iconContentScale, width / 2f, height / 2f)
+        }
         super.onDraw(canvas)
         canvas.restoreToCount(saveCount)
     }

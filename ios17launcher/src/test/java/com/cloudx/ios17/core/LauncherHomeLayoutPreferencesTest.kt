@@ -149,6 +149,22 @@ class LauncherHomeLayoutPreferencesTest {
     }
 
     @Test
+    fun migrateStoredIconSize_keepsPreviousFourArgumentJvmSignature() {
+        val oldSignature = LauncherHomeLayoutPreferences::class.java.getDeclaredMethod(
+            "migrateStoredIconSizeDp",
+            Int::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType,
+            Boolean::class.javaPrimitiveType
+        )
+
+        assertEquals(
+            58,
+            oldSignature.invoke(LauncherHomeLayoutPreferences, 60, true, true, true)
+        )
+    }
+
+    @Test
     fun resolve_acceptsAutoArrangePreference() {
         val settings = LauncherHomeLayoutPreferences.resolve(
             iconSizeDp = 70,
@@ -164,6 +180,11 @@ class LauncherHomeLayoutPreferencesTest {
     @Test
     fun darkMode_defaultsToCurrentLightAppearance() {
         assertFalse(LauncherHomeLayoutPreferences.DEFAULT_DARK_MODE)
+    }
+
+    @Test
+    fun liquidGlass_defaultsToEnabledForReferenceAppearance() {
+        assertTrue(LauncherHomeLayoutPreferences.DEFAULT_LIQUID_GLASS_ENABLED)
     }
 
     @Test

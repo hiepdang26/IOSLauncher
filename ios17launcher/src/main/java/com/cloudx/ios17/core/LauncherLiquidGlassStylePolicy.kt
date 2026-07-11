@@ -10,7 +10,9 @@ object LauncherLiquidGlassStylePolicy {
         val topHighlightColor: Int? = null,
         val bottomShadeColor: Int? = null,
         val sideHighlightColor: Int? = null,
-        val edgeShadeColor: Int? = null
+        val edgeShadeColor: Int? = null,
+        val diagonalCornerStrokeColor: Int? = null,
+        val diagonalCornerStrokeWidthDp: Int = 1
     )
 
     private fun libraryGlassMaterial(radiusDp: Int, empty: Boolean = false): BackgroundStyle =
@@ -33,6 +35,29 @@ object LauncherLiquidGlassStylePolicy {
             bottomShadeColor = 0x18001F35,
             sideHighlightColor = 0x20D8F9FF,
             edgeShadeColor = 0x14001E3A
+        )
+
+    private fun folderPreviewLiquidGlassMaterial(radiusDp: Int): BackgroundStyle =
+        BackgroundStyle(
+            color = 0x26FFFFFF,
+            radiusDp = radiusDp,
+            strokeColor = null,
+            topHighlightColor = 0x42FFFFFF,
+            bottomShadeColor = 0x18EEF8FF,
+            sideHighlightColor = 0x22FFFFFF,
+            edgeShadeColor = 0x18EEF8FF
+        )
+
+    private fun folderPanelLiquidGlassMaterial(radiusDp: Int): BackgroundStyle =
+        BackgroundStyle(
+            color = 0x44FFFFFF,
+            radiusDp = radiusDp,
+            strokeColor = null,
+            topHighlightColor = 0x70FFFFFF,
+            bottomShadeColor = 0x16001F35,
+            sideHighlightColor = 0x20D8F9FF,
+            edgeShadeColor = 0x12001E3A,
+            diagonalCornerStrokeColor = 0x70FFFFFF
         )
 
     private fun enabledLightFrameMaterial(radiusDp: Int): BackgroundStyle =
@@ -66,7 +91,7 @@ object LauncherLiquidGlassStylePolicy {
         liquidGlass: Boolean = false
     ): BackgroundStyle {
         if (liquidGlass) {
-            return appLibraryLiquidGlassMaterial(radiusDp = 16)
+            return folderPreviewLiquidGlassMaterial(radiusDp = 13)
         }
         if (darkMode) {
             return BackgroundStyle(
@@ -86,7 +111,7 @@ object LauncherLiquidGlassStylePolicy {
         liquidGlass: Boolean = false
     ): BackgroundStyle {
         if (liquidGlass) {
-            return appLibraryLiquidGlassMaterial(radiusDp = 42)
+            return folderPanelLiquidGlassMaterial(radiusDp = 42)
         }
         if (darkMode) {
             return BackgroundStyle(

@@ -1,6 +1,7 @@
 package com.cloudx.ios17.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,5 +26,17 @@ class HomeIconRenderPolicyTest {
     fun homeScreenAppIcons_areCroppedAtDisplayTimeToHideEmbeddedBorders() {
         assertTrue(HomeIconRenderPolicy.homeScreenIconContentScale > 1f)
         assertEquals(1.18f, HomeIconRenderPolicy.homeScreenIconContentScale, 0.001f)
+    }
+
+    @Test
+    fun appIcons_areAlwaysClippedToIosMaskEvenWithoutDisplayScale() {
+        assertTrue(HomeIconRenderPolicy.shouldClipIconDrawable(1f))
+        assertTrue(HomeIconRenderPolicy.shouldClipIconDrawable(HomeIconRenderPolicy.homeScreenIconContentScale))
+    }
+
+    @Test
+    fun appIcons_areOnlyScaledWhenScaleDiffersFromDefault() {
+        assertFalse(HomeIconRenderPolicy.shouldScaleIconDrawable(1f))
+        assertTrue(HomeIconRenderPolicy.shouldScaleIconDrawable(HomeIconRenderPolicy.homeScreenIconContentScale))
     }
 }

@@ -99,7 +99,7 @@ object LauncherRealtimeLiquidGlassPolicy {
 
             Surface.FOLDER_PREVIEW -> appLibraryFolderProfile(radiusDp)
 
-            Surface.FOLDER_PANEL -> appLibraryFolderProfile(radiusDp)
+            Surface.FOLDER_PANEL -> folderPanelProfile(radiusDp)
 
             Surface.DOCK -> homeChromeProfile(radiusDp)
         }
@@ -113,6 +113,16 @@ object LauncherRealtimeLiquidGlassPolicy {
             refractionOffsetDp = 50f,
             dispersion = 0.35f,
             tintAlpha = 0.04f
+        )
+
+    private fun folderPanelProfile(radiusDp: Int): Profile =
+        Profile(
+            radiusDp = radiusDp,
+            blurRadiusDp = 36f,
+            refractionHeightDp = 36f,
+            refractionOffsetDp = 96f,
+            dispersion = 0.75f,
+            tintAlpha = 0.16f
         )
 
     private fun homeChromeProfile(radiusDp: Int): Profile =

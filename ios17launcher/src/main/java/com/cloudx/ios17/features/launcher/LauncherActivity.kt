@@ -35,6 +35,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Point
 import android.graphics.Rect
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
@@ -1031,6 +1033,7 @@ class LauncherActivity : AppCompatActivity(),
         }
         if (::mLauncherView.isInitialized) {
             applyFolderLiquidGlassAppearance(bindRealtime = isFolderWindowActive())
+            setFolderBackgroundContentBlurEnabled(isFolderWindowActive())
         }
         applySwipeSearchChromeAppearance()
         if (::darkBlurLayer.isInitialized) {
@@ -1164,7 +1167,7 @@ class LauncherActivity : AppCompatActivity(),
             R.id.dock_liquid_glass_background
         )
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = dockBlurEnabled() || liquidGlassEnabled
+        val dockBlurEnabled = dockBlurEnabled()
         val useRealtimeDock = DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1226,7 +1229,7 @@ class LauncherActivity : AppCompatActivity(),
     private fun shouldUseRealtimeDockGlass(): Boolean {
         if (!::mLauncherView.isInitialized || !::mDock.isInitialized) return false
         val dockStyle = currentDockStyle()
-        val dockBlurEnabled = dockBlurEnabled() || liquidGlassEnabled
+        val dockBlurEnabled = dockBlurEnabled()
         return DockStylePolicy.usesExternalRealtimeLiquidGlass(
             style = dockStyle,
             realtimeLiquidGlassAvailable = shouldUseRealtimeLiquidGlass(),
@@ -1382,7 +1385,7 @@ class LauncherActivity : AppCompatActivity(),
     }
 
     private fun overlayBlurMasterEnabled(): Boolean =
-        LauncherHomeLayoutPreferences.isBlurEffectEnabled(this)
+        true
 
     private fun searchOverlayBlurAlpha(): Float =
         LauncherBlurEffectPolicy.overlayAlpha(
@@ -1427,6 +1430,24 @@ class LauncherActivity : AppCompatActivity(),
         blurLayer.alpha = safeAlpha
         if (::darkBlurLayer.isInitialized) {
             darkBlurLayer.alpha = darkBlurAlphaFor(safeAlpha)
+        }
+    }
+
+    private fun setFolderBackgroundContentBlurEnabled(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return
+        }
+        val effect = if (enabled && liquidGlassEnabled) {
+            val radius = dp(FolderOpenLayoutPolicy.LIQUID_GLASS_BACKGROUND_RENDER_BLUR_RADIUS_DP).toFloat()
+            RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+        } else {
+            null
+        }
+        if (::mHorizontalPager.isInitialized) {
+            mHorizontalPager.setRenderEffect(effect)
+        }
+        if (::mDock.isInitialized) {
+            mDock.setRenderEffect(effect)
         }
     }
 
@@ -8764,7 +8785,8 @@ class LauncherActivity : AppCompatActivity(),
     private fun bindFolderTitleInput(folder: FolderItem) {
         val editableTitle = LauncherFolderTitlePolicy.editableText(folder.title?.toString())
         mFolderTitleInput.setHintTextColor(Color.argb(150, 255, 255, 255))
-        mFolderTitleInput.setTextColor(Color.argb(215, 255, 255, 255))
+        mFolderTitleInput.setTextColor(Color.argb(234, 255, 255, 255))
+        mFolderTitleInput.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL))
         mFolderTitleInput.setText(editableTitle)
         mFolderTitleInput.setSelection(editableTitle.length)
         applyFolderTitleInputState(false)
@@ -14899,6 +14921,7 @@ class LauncherActivity : AppCompatActivity(),
         return Utilities.pxFromDp(value.toFloat(), resources.displayMetrics)
     }
 
+    @SuppressLint("MissingSuperCall")
     override fun onBackPressed() {
         if (photoWidgetCropPanel != null) {
             hideHomeWidgetPhotoCropPage()
@@ -14970,6 +14993,11 @@ class LauncherActivity : AppCompatActivity(),
 
         val targetBlurAlpha = folderOverlayBlurAlpha()
         val backgroundContentAlpha = folderBackgroundContentAlpha()
+        val backgroundContentScale = if (liquidGlassEnabled) {
+            FolderOpenLayoutPolicy.LIQUID_GLASS_BACKGROUND_SCALE
+        } else {
+            1f
+        }
         val set = AnimatorSet()
         set.play(ObjectAnimator.ofFloat(mFolderWindowContainer, View.X, startBounds.left.toFloat(), finalBounds.left.toFloat()))
             .with(ObjectAnimator.ofFloat(mFolderWindowContainer, View.Y, startBounds.top.toFloat(), finalBounds.top.toFloat()))
@@ -14978,8 +15006,12 @@ class LauncherActivity : AppCompatActivity(),
             .with(ObjectAnimator.ofFloat(blurLayer, View.ALPHA, targetBlurAlpha))
             .with(ObjectAnimator.ofFloat(darkBlurLayer, View.ALPHA, darkBlurAlphaFor(targetBlurAlpha)))
             .with(ObjectAnimator.ofFloat(mHorizontalPager, View.ALPHA, backgroundContentAlpha))
+            .with(ObjectAnimator.ofFloat(mHorizontalPager, View.SCALE_X, backgroundContentScale))
+            .with(ObjectAnimator.ofFloat(mHorizontalPager, View.SCALE_Y, backgroundContentScale))
             .with(ObjectAnimator.ofFloat(mIndicator, View.ALPHA, 0f))
             .with(ObjectAnimator.ofFloat(mDock, View.ALPHA, backgroundContentAlpha))
+            .with(ObjectAnimator.ofFloat(mDock, View.SCALE_X, backgroundContentScale))
+            .with(ObjectAnimator.ofFloat(mDock, View.SCALE_Y, backgroundContentScale))
         set.duration = FolderOpenPerformancePolicy.OPEN_ANIMATION_DURATION_MS
         set.interpolator = DecelerateInterpolator()
         var openAnimationCanceled = false
@@ -14992,6 +15024,7 @@ class LauncherActivity : AppCompatActivity(),
                 mFolderWindowContainer.pivotY = 0f
                 setDockChromeVisibility(false)
                 hideHomeIndicatorForFolder()
+                setFolderBackgroundContentBlurEnabled(true)
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -15001,9 +15034,13 @@ class LauncherActivity : AppCompatActivity(),
                 currentAnimator = null
                 setBlurLayersAlpha(targetBlurAlpha)
                 mHorizontalPager.alpha = backgroundContentAlpha
+                mHorizontalPager.scaleX = backgroundContentScale
+                mHorizontalPager.scaleY = backgroundContentScale
                 setDockChromeVisibility(false)
                 hideHomeIndicatorForFolder()
                 mDock.alpha = backgroundContentAlpha
+                mDock.scaleX = backgroundContentScale
+                mDock.scaleY = backgroundContentScale
                 if (deferContentBinding) {
                     bindFolderContent(app, fadeIn = true)
                 }
@@ -15018,9 +15055,14 @@ class LauncherActivity : AppCompatActivity(),
                 mFolderWindowContainer.visibility = GONE
                 setBlurLayersAlpha(0f)
                 mHorizontalPager.alpha = 1f
+                mHorizontalPager.scaleX = 1f
+                mHorizontalPager.scaleY = 1f
                 mIndicator.alpha = 1f
                 setIndicatorChromeVisibility(true)
                 mDock.alpha = 1f
+                mDock.scaleX = 1f
+                mDock.scaleY = 1f
+                setFolderBackgroundContentBlurEnabled(false)
                 setDockChromeVisibility(shouldShowDockForPage(currentPageNumber, folderVisible = false))
             }
         })
@@ -15127,8 +15169,11 @@ class LauncherActivity : AppCompatActivity(),
         }
         folderTitleNormalTextSizeSp = metrics.titleTextSizeSp
         mFolderTitleInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, metrics.titleTextSizeSp)
-        mFolderTitleInput.setTextColor(Color.argb(215, 255, 255, 255))
-        mFolderTitleInput.setTypeface(Typeface.DEFAULT, Typeface.NORMAL)
+        mFolderTitleInput.setTextColor(Color.argb(234, 255, 255, 255))
+        mFolderTitleInput.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            mFolderTitleInput.letterSpacing = 0f
+        }
     }
 
     private fun forceHideSwipeSearchForFolder() {
@@ -15176,8 +15221,12 @@ class LauncherActivity : AppCompatActivity(),
             .with(ObjectAnimator.ofFloat(blurLayer, View.ALPHA, 0f))
             .with(ObjectAnimator.ofFloat(darkBlurLayer, View.ALPHA, 0f))
             .with(ObjectAnimator.ofFloat(mHorizontalPager, View.ALPHA, 1f))
+            .with(ObjectAnimator.ofFloat(mHorizontalPager, View.SCALE_X, 1f))
+            .with(ObjectAnimator.ofFloat(mHorizontalPager, View.SCALE_Y, 1f))
             .with(ObjectAnimator.ofFloat(mIndicator, View.ALPHA, 1f))
             .with(ObjectAnimator.ofFloat(mDock, View.ALPHA, 1f))
+            .with(ObjectAnimator.ofFloat(mDock, View.SCALE_X, 1f))
+            .with(ObjectAnimator.ofFloat(mDock, View.SCALE_Y, 1f))
         set.duration = 300
         set.interpolator = DecelerateInterpolator()
         set.addListener(object : AnimatorListenerAdapter() {
@@ -15185,6 +15234,7 @@ class LauncherActivity : AppCompatActivity(),
                 mHorizontalPager.visibility = VISIBLE
                 setDockChromeVisibility(shouldShowDockForPage(currentPageNumber, folderVisible = false))
                 setIndicatorChromeVisibility(true)
+                setFolderBackgroundContentBlurEnabled(true)
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -15192,8 +15242,13 @@ class LauncherActivity : AppCompatActivity(),
                 currentAnimator = null
                 setBlurLayersAlpha(0f)
                 mHorizontalPager.alpha = 1f
+                mHorizontalPager.scaleX = 1f
+                mHorizontalPager.scaleY = 1f
                 mIndicator.alpha = 1f
                 mDock.alpha = 1f
+                mDock.scaleX = 1f
+                mDock.scaleY = 1f
+                setFolderBackgroundContentBlurEnabled(false)
                 syncDockChromeTransform()
                 syncIndicatorChromeTransform()
             }
@@ -15203,8 +15258,13 @@ class LauncherActivity : AppCompatActivity(),
                 currentAnimator = null
                 setBlurLayersAlpha(0f)
                 mHorizontalPager.alpha = 1f
+                mHorizontalPager.scaleX = 1f
+                mHorizontalPager.scaleY = 1f
                 mIndicator.alpha = 1f
                 mDock.alpha = 1f
+                mDock.scaleX = 1f
+                mDock.scaleY = 1f
+                setFolderBackgroundContentBlurEnabled(false)
                 syncDockChromeTransform()
                 syncIndicatorChromeTransform()
             }
