@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="HorizontalPager">
+        <attr name="pageWidth" format="dimension" />
+    </declare-styleable>
+
+    <!-- PagedView specific attributes. These attributes are used to customize
+         a PagedView view in XML files. -->
+    <declare-styleable name="PagedView">
+        <!-- The page indicator for this workspace -->
+        <attr name="pageIndicator" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="InvariantDeviceProfile">
+        <attr name="name" format="string" />
+        <attr name="minWidthDps" format="float" />
+        <attr name="minHeightDps" format="float" />
+
+        <attr name="numRows" format="integer" />
+        <attr name="numColumns" format="integer" />
+        <!-- numFolderRows & numFolderColumns defaults to numRows & numColumns, if not specified -->
+        <attr name="numFolderRows" format="integer" />
+        <attr name="numFolderColumns" format="integer" />
+        <!-- numHotseatIcons defaults to numColumns, if not specified -->
+        <attr name="numHotseatIcons" format="integer" />
+
+        <attr name="iconTextSize" format="float" />
+        <!-- hotseatIconSize defaults to iconSize, if not specified -->
+        <attr name="hotseatIconSize" format="float" />
+
+        <attr name="defaultLayoutId" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="InsettableFrameLayout_Layout">
+        <attr name="layout_ignoreInsets" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="BlurLayout">
+        <attr name="blurCornerRadius" format="dimension" />
+        <attr name="blurOverlayColor" format="color" />
+        <attr name="blurOverlayOffset" format="integer" />
+    </declare-styleable>
+
+    <attr name="isWorkspaceDarkText" format="boolean" />
+    <attr name="workspaceTextColor" format="color" />
+    <attr name="dotOnColor" format="color" />
+    <attr name="dotOffColor" format="color" />
+    <attr name="widgetPrimaryTextColor" format="color" />
+    <attr name="widgetSecondaryTextColor" format="color" />
+    <attr name="widgetSettingsIconColor" format="color" />
+    <attr name="widgetRefreshIconColor" format="color" />
+    <attr name="widgetSearchIconColor" format="color" />
+    <attr name="searchBarTheme" format="reference" />
+
+</resources>
