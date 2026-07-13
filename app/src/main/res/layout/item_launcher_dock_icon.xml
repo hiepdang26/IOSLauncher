@@ -130,7 +130,7 @@
                     android:scaleType="fitCenter" />
             </GridLayout>
 
-            <FrameLayout
+            <com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout
                 android:id="@+id/removeBadge"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
@@ -149,6 +149,6 @@
                     android:layout_gravity="center"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_minus_18" />
-            </FrameLayout>
+            </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
         </com.vhmsoft.launcherios26.ui.launcher.workspace.AndroidLiquidGlassLayout>
     </FrameLayout>

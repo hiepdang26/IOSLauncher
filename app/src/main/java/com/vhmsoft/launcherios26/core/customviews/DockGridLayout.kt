@@ -174,7 +174,7 @@ constructor(private val mContext: Context, attrs: AttributeSet? = null, defStyle
                     style = LauncherLiquidGlassStylePolicy.dockMaterial(
                         enabled = blurEnabled,
                         darkMode = isDarkModeEnabled(),
-                        liquidGlass = liquidGlassEnabled
+                        liquidGlass = false
                     )
                 )
                 lp.leftMargin = dp(LauncherHomeLayoutPreferences.DOCK_HORIZONTAL_MARGIN_DP)

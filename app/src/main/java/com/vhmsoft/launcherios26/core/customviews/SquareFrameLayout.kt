@@ -85,7 +85,7 @@ class SquareFrameLayout @JvmOverloads constructor(
         val source = realtimeLiquidGlassSource() ?: return
         val style = LauncherLiquidGlassStylePolicy.folderPreview(
             enabled = true,
-            liquidGlass = true
+            liquidGlass = false
         )
         val glass = folderPreviewGlass ?: LauncherRealtimeLiquidGlassLayout(context).apply {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -97,14 +97,13 @@ class SquareFrameLayout @JvmOverloads constructor(
         glass.applyRealtimeLiquidGlass(
             enabled = true,
             source = source,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
             profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
                 radiusDp = style.radiusDp,
                 darkMode = false
             )
         )
-        glass.setLiquidMaterial(LauncherLiquidGlassDrawableFactory.create(context, style))
-
         if (glass.parent !== this) {
             addView(
                 glass,

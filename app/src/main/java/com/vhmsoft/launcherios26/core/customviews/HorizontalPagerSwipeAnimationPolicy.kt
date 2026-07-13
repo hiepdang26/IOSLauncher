@@ -6,10 +6,10 @@ import kotlin.math.min
 
 internal object HorizontalPagerSwipeAnimationPolicy {
     const val LEGACY_PAGE_SNAP_DURATION_MS = 400
-    const val PAGE_SNAP_DURATION_MS = 720
+    const val PAGE_SNAP_DURATION_MS = 360
 
     const val LEGACY_SNAP_VELOCITY_PX_PER_SECOND = 1000
-    const val SNAP_VELOCITY_PX_PER_SECOND = 1400
+    const val SNAP_VELOCITY_PX_PER_SECOND = 1000
 
     private const val DESTINATION_THRESHOLD_DIVISOR = 5
 

@@ -7,6 +7,13 @@
             android:clipChildren="false"
             android:clipToPadding="false">
 
+        <FrameLayout
+            android:id="@+id/liquid_glass_source"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_ios_wallpaper"
+            android:importantForAccessibility="no" />
+
         <LinearLayout
             android:id="@+id/homeContent"
             android:layout_width="match_parent"

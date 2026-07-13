@@ -56,6 +56,14 @@ class LauncherPageIndicatorWindowPolicyTest {
     }
 
     @Test
+    fun frameWidth_shrinksUntilFourVisibleDots() {
+        assertEquals(72, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 2))
+        assertEquals(88, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 3))
+        assertEquals(104, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 4))
+        assertEquals(104, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 7))
+    }
+
+    @Test
     fun markers_keepFirstPageActiveOnMiddleLeftDotWhenMorePagesExistOnTheRight() {
         val markers = LauncherPageIndicatorWindowPolicy.markers(
             pageCount = 6,

@@ -68,7 +68,8 @@ class AppLibraryGroupAdapter(
             binding.categoryLabel.text = item.title
             binding.folderCard.applyLiquidGlass(
                 enabled = liquidGlassEnabled,
-                source = binding.root.rootView as? ViewGroup,
+                source = binding.root.androidLiquidGlassSource(),
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 profile = AndroidLiquidGlassPolicy.profileFor(
                     surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                     radiusDp = style.radiusDp
@@ -105,7 +106,7 @@ class AppLibraryGroupAdapter(
 
         private fun folderStyle(empty: Boolean): LauncherLiquidGlassStylePolicy.BackgroundStyle {
             return LauncherLiquidGlassStylePolicy.appLibraryFolder(
-                enabled = liquidGlassEnabled,
+                enabled = false,
                 darkMode = darkMode,
                 empty = empty
             )

@@ -1625,13 +1625,14 @@ class LauncherPageAdapter(
 
         private fun applyAppearance() {
             val pillStyle = LauncherLiquidGlassStylePolicy.appLibrarySearchPill(
-                enabled = liquidGlassEnabled,
+                enabled = false,
                 darkMode = darkMode
             )
             val textColor = Color.WHITE
             binding.librarySearchPillGlassSurface.applyLiquidGlass(
                 enabled = liquidGlassEnabled,
-                source = binding.root.rootView as? ViewGroup,
+                source = binding.root.androidLiquidGlassSource(),
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
                 profile = AndroidLiquidGlassPolicy.profileFor(
                     surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
                     radiusDp = pillStyle.radiusDp

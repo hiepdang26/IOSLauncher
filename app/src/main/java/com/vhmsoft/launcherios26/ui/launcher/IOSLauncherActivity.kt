@@ -85,7 +85,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
+open class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
     private lateinit var binding: ActivityIosLauncherBinding
     private lateinit var presenter: IOSLauncherPresenter
     private lateinit var launcherRepository: LauncherRepository
@@ -2842,7 +2842,7 @@ class IOSLauncherActivity : AppCompatActivity(), IOSLauncherContract.View {
         val intent = Intent(Intent.ACTION_MAIN).apply {
             component = ComponentName(
                 packageName,
-                "com.vhmsoft.launcherios26.features.launcher.LauncherActivity"
+                "com.vhmsoft.launcherios26.features.launcher.IOSLauncherActivity"
             )
             addCategory(Intent.CATEGORY_HOME)
             addCategory(Intent.CATEGORY_DEFAULT)

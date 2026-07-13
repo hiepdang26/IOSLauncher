@@ -7,21 +7,20 @@ import org.junit.Test
 
 class HorizontalPagerSwipeAnimationPolicyTest {
     @Test
-    fun defaultPageSnap_isSmootherThanLegacySnap() {
+    fun defaultPageSnap_isFasterThanLegacySnap() {
         assertTrue(
-            HorizontalPagerSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS >
+            HorizontalPagerSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS <
                 HorizontalPagerSwipeAnimationPolicy.LEGACY_PAGE_SNAP_DURATION_MS
         )
-        assertEquals(720, HorizontalPagerSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS)
+        assertEquals(360, HorizontalPagerSwipeAnimationPolicy.PAGE_SNAP_DURATION_MS)
     }
 
     @Test
-    fun flingSnap_requiresMoreDeliberateVelocityThanLegacy() {
-        assertTrue(
-            HorizontalPagerSwipeAnimationPolicy.SNAP_VELOCITY_PX_PER_SECOND >
-                HorizontalPagerSwipeAnimationPolicy.LEGACY_SNAP_VELOCITY_PX_PER_SECOND
+    fun flingSnap_usesQuickLegacyVelocityThreshold() {
+        assertEquals(
+            HorizontalPagerSwipeAnimationPolicy.LEGACY_SNAP_VELOCITY_PX_PER_SECOND,
+            HorizontalPagerSwipeAnimationPolicy.SNAP_VELOCITY_PX_PER_SECOND
         )
-        assertEquals(1400, HorizontalPagerSwipeAnimationPolicy.SNAP_VELOCITY_PX_PER_SECOND)
     }
 
     @Test

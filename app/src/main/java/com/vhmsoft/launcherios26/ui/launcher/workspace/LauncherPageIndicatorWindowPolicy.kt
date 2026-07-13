@@ -124,6 +124,15 @@ internal object LauncherPageIndicatorWindowPolicy {
         }
     }
 
+    fun frameWidthDp(
+        pageCount: Int,
+        maxVisibleMarkers: Int = DEFAULT_MAX_VISIBLE_MARKERS
+    ): Int {
+        val visibleCount = minOf(pageCount.coerceAtLeast(0), maxVisibleMarkers.coerceAtLeast(1))
+        if (visibleCount <= 1) return 0
+        return TWO_DOT_FRAME_WIDTH_DP + (visibleCount - 2) * EXTRA_MARKER_FRAME_WIDTH_DP
+    }
+
     fun scrollFrame(
         pageCount: Int,
         pagePosition: Float
@@ -167,4 +176,6 @@ internal object LauncherPageIndicatorWindowPolicy {
     const val DEFAULT_MAX_VISIBLE_MARKERS = 4
     private const val FIRST_PAGE_ACTIVE_SLOT = 1
     private const val LAST_PAGE_ACTIVE_SLOT = 2
+    private const val TWO_DOT_FRAME_WIDTH_DP = 72
+    private const val EXTRA_MARKER_FRAME_WIDTH_DP = 16
 }

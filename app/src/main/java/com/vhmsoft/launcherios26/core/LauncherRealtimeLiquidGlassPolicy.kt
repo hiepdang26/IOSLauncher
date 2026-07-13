@@ -16,7 +16,7 @@ object LauncherRealtimeLiquidGlassPolicy {
     }
 
     data class Profile(
-        val radiusDp: Int,
+        val cornerRadius: Float,
         val blurRadiusDp: Float,
         val refractionHeightDp: Float,
         val refractionOffsetDp: Float,
@@ -35,10 +35,22 @@ object LauncherRealtimeLiquidGlassPolicy {
     fun shouldDrawFallbackBlur(realtimeLiquidGlassActive: Boolean): Boolean =
         !realtimeLiquidGlassActive
 
+    fun shouldUseTransparentSurfaceBackground(
+        surface: Surface,
+        realtimeLiquidGlassActive: Boolean
+    ): Boolean =
+        realtimeLiquidGlassActive
+
+    fun shouldDisableFallbackDrawingForExternalGlass(
+        surface: Surface,
+        realtimeLiquidGlassActive: Boolean
+    ): Boolean =
+        realtimeLiquidGlassActive
+
     fun shouldDrawMaterialOverlay(
         realtimeLiquidGlassActive: Boolean,
         hasMaterialDrawable: Boolean
-    ): Boolean = hasMaterialDrawable
+    ): Boolean = hasMaterialDrawable && !realtimeLiquidGlassActive
 
     fun shouldRefreshRealtimeOnVisibilityChanged(
         realtimeEnabled: Boolean,
@@ -53,6 +65,20 @@ object LauncherRealtimeLiquidGlassPolicy {
 
     fun shouldBindRealtimeSource(sourceContainsTarget: Boolean): Boolean =
         !sourceContainsTarget
+
+    fun shouldDrawVisibilityOverlay(
+        surface: Surface,
+        realtimeLiquidGlassActive: Boolean
+    ): Boolean =
+        realtimeLiquidGlassActive && when (surface) {
+            Surface.SEARCH_PILL,
+            Surface.SEARCH_RESULTS -> false
+            Surface.DOCK,
+            Surface.FOLDER_PREVIEW,
+            Surface.FOLDER_PANEL,
+            Surface.PAGE_INDICATOR,
+            Surface.APP_LIBRARY_FOLDER -> true
+        }
 
     fun shouldMirrorCustomWallpaperToSource(customWallpaperAvailable: Boolean): Boolean =
         customWallpaperAvailable
@@ -70,68 +96,21 @@ object LauncherRealtimeLiquidGlassPolicy {
         nextProfile: Profile
     ): Boolean = currentProfile != nextProfile
 
+    @Suppress("UNUSED_PARAMETER")
     fun profileFor(
         surface: Surface,
         radiusDp: Int,
         darkMode: Boolean
-    ): Profile {
-        return when (surface) {
-            Surface.SEARCH_PILL -> Profile(
-                radiusDp = radiusDp,
-                blurRadiusDp = 10f,
-                refractionHeightDp = 16f,
-                refractionOffsetDp = 48f,
-                dispersion = 0.35f
-            )
-
-            Surface.PAGE_INDICATOR -> homeChromeProfile(radiusDp)
-
-            Surface.SEARCH_RESULTS -> Profile(
-                radiusDp = radiusDp,
-                blurRadiusDp = 12f,
-                refractionHeightDp = 18f,
-                refractionOffsetDp = 56f,
-                dispersion = 0.4f,
-                tintAlpha = 0.06f
-            )
-
-            Surface.APP_LIBRARY_FOLDER -> appLibraryFolderProfile(radiusDp)
-
-            Surface.FOLDER_PREVIEW -> appLibraryFolderProfile(radiusDp)
-
-            Surface.FOLDER_PANEL -> folderPanelProfile(radiusDp)
-
-            Surface.DOCK -> homeChromeProfile(radiusDp)
-        }
-    }
-
-    private fun appLibraryFolderProfile(radiusDp: Int): Profile =
+    ): Profile =
         Profile(
-            radiusDp = radiusDp,
-            blurRadiusDp = 10f,
-            refractionHeightDp = 16f,
-            refractionOffsetDp = 50f,
-            dispersion = 0.35f,
-            tintAlpha = 0.04f
-        )
-
-    private fun folderPanelProfile(radiusDp: Int): Profile =
-        Profile(
-            radiusDp = radiusDp,
-            blurRadiusDp = 36f,
-            refractionHeightDp = 36f,
-            refractionOffsetDp = 96f,
-            dispersion = 0.75f,
-            tintAlpha = 0.16f
-        )
-
-    private fun homeChromeProfile(radiusDp: Int): Profile =
-        Profile(
-            radiusDp = radiusDp,
-            blurRadiusDp = 14f,
-            refractionHeightDp = 18f,
-            refractionOffsetDp = 54f,
-            dispersion = 0.35f,
-            tintAlpha = 0.03f
+            cornerRadius = LauncherLiquidGlassTuning.CORNER_RADIUS,
+            blurRadiusDp = LauncherLiquidGlassTuning.BLUR_RADIUS,
+            refractionHeightDp = LauncherLiquidGlassTuning.REFRACTION_HEIGHT,
+            refractionOffsetDp = LauncherLiquidGlassTuning.REFRACTION_OFFSET,
+            dispersion = LauncherLiquidGlassTuning.DISPERSION,
+            tintRed = LauncherLiquidGlassTuning.TINT_RED,
+            tintGreen = LauncherLiquidGlassTuning.TINT_GREEN,
+            tintBlue = LauncherLiquidGlassTuning.TINT_BLUE,
+            tintAlpha = LauncherLiquidGlassTuning.TINT_ALPHA
         )
 }

@@ -1,18 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.vhmsoft.launcherios26.core.customviews.InsettableRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.luutinhit.launcher6.LauncherRootView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/workspace"
+    android:id="@+id/launcher"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:clipChildren="false"
-    android:clipToPadding="false"
-    tools:context="com.vhmsoft.launcherios26.features.launcher.LauncherActivity">
+    android:fitsSystemWindows="false"
+    tools:context="com.vhmsoft.launcherios26.features.launcher.IOSLauncherActivity">
 
-    <com.vhmsoft.launcherios26.core.customviews.LauncherRealtimeLiquidGlassSourceLayout
-        android:id="@+id/liquid_glass_source"
+    <com.vhmsoft.launcherios26.core.customviews.InsettableRelativeLayout
+        android:id="@+id/workspace"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <com.vhmsoft.launcherios26.core.customviews.LauncherRealtimeLiquidGlassSourceLayout
+            android:id="@+id/liquid_glass_source"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/liquid_glass_wallpaper"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop" />
 
         <com.vhmsoft.launcherios26.core.customviews.BlurBackgroundView
             android:id="@+id/blur_layer"
@@ -271,4 +284,6 @@
         android:indeterminateTint="?workspaceTextColor"
         android:visibility="gone" />
 
-</com.vhmsoft.launcherios26.core.customviews.InsettableRelativeLayout>
+    </com.vhmsoft.launcherios26.core.customviews.InsettableRelativeLayout>
+
+</com.luutinhit.launcher6.LauncherRootView>

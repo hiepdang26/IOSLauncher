@@ -49,6 +49,14 @@ class LauncherPageIndicatorWindowPolicyTest {
     }
 
     @Test
+    fun frameWidthShrinksUntilFourVisibleDots() {
+        assertEquals(72, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 2))
+        assertEquals(88, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 3))
+        assertEquals(104, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 4))
+        assertEquals(104, LauncherPageIndicatorWindowPolicy.frameWidthDp(pageCount = 7))
+    }
+
+    @Test
     fun scrollFrameInterpolatesBetweenPages() {
         val frame = LauncherPageIndicatorWindowPolicy.scrollFrame(pageCount = 5, pagePosition = 1.5f)
 

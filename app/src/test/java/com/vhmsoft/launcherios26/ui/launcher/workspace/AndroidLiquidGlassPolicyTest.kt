@@ -18,9 +18,45 @@ class AndroidLiquidGlassPolicyTest {
     }
 
     @Test
-    fun fallbackBackgroundDrawsOnlyWhenRealtimeGlassIsInactive() {
-        assertFalse(AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(realtimeLiquidGlassActive = true))
-        assertTrue(AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(realtimeLiquidGlassActive = false))
+    fun everySurfaceFallbackBackgroundDrawsOnlyWhenRealtimeGlassIsInactive() {
+        AndroidLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            assertFalse(
+                AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                    surface = surface,
+                    realtimeLiquidGlassActive = true
+                )
+            )
+            assertTrue(
+                AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                    surface = surface,
+                    realtimeLiquidGlassActive = false
+                )
+            )
+        }
+    }
+
+    @Test
+    fun everySurfaceContentBackgroundIsTransparentOnlyAfterRealtimeGlassIsActive() {
+        AndroidLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            assertTrue(
+                AndroidLiquidGlassPolicy.shouldUseTransparentContentBackground(
+                    surface = surface,
+                    realtimeLiquidGlassActive = true
+                )
+            )
+            assertFalse(
+                AndroidLiquidGlassPolicy.shouldUseTransparentContentBackground(
+                    surface = surface,
+                    realtimeLiquidGlassActive = false
+                )
+            )
+        }
+    }
+
+    @Test
+    fun realtimeSourceCannotContainRealtimeTarget() {
+        assertTrue(AndroidLiquidGlassPolicy.shouldBindRealtimeSource(sourceContainsTarget = false))
+        assertFalse(AndroidLiquidGlassPolicy.shouldBindRealtimeSource(sourceContainsTarget = true))
     }
 
     @Test
@@ -29,30 +65,85 @@ class AndroidLiquidGlassPolicyTest {
             surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL,
             radiusDp = 17
         )
-        val changedProfile = AndroidLiquidGlassPolicy.profileFor(
+        val sameTestLiquidGlassProfile = AndroidLiquidGlassPolicy.profileFor(
             surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL,
             radiusDp = 22
         )
 
         assertTrue(AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(null, profile))
         assertFalse(AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(profile, profile))
-        assertTrue(AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(profile, changedProfile))
+        assertFalse(AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(profile, sameTestLiquidGlassProfile))
     }
 
     @Test
-    fun dockProfileHasMoreDepthThanSearchPill() {
-        val dock = AndroidLiquidGlassPolicy.profileFor(
-            surface = AndroidLiquidGlassPolicy.Surface.DOCK,
-            radiusDp = 38
-        )
-        val search = AndroidLiquidGlassPolicy.profileFor(
-            surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL,
-            radiusDp = 17
+    fun allWorkspaceProfilesUseTestLiquidGlassMainActivityTuning() {
+        AndroidLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            val profile = AndroidLiquidGlassPolicy.profileFor(
+                surface = surface,
+                radiusDp = 38
+            )
+
+            assertEquals(90f, profile.cornerRadius, 0.001f)
+            assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
+            assertEquals(50f, profile.refractionHeightDp, 0.01f)
+            assertEquals(120f, profile.refractionOffsetDp, 0.01f)
+            assertEquals(0.08f, profile.dispersion, 0.01f)
+            assertEquals(1f, profile.tintRed, 0.01f)
+            assertEquals(1f, profile.tintGreen, 0.01f)
+            assertEquals(1f, profile.tintBlue, 0.01f)
+            assertEquals(0.008f, profile.tintAlpha, 0.001f)
+        }
+    }
+
+    @Test
+    fun removeBadgeHasLiquidGlassProfile() {
+        val profile = AndroidLiquidGlassPolicy.profileFor(
+            surface = AndroidLiquidGlassPolicy.Surface.REMOVE_BADGE,
+            radiusDp = 12
         )
 
-        assertEquals(38, dock.radiusDp)
-        assertTrue(dock.blurRadiusDp > search.blurRadiusDp)
-        assertTrue(dock.refractionHeightDp > search.refractionHeightDp)
-        assertTrue(dock.refractionOffsetDp > search.refractionOffsetDp)
+        assertEquals(90f, profile.cornerRadius, 0.001f)
+        assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
+        assertEquals(50f, profile.refractionHeightDp, 0.01f)
+        assertEquals(120f, profile.refractionOffsetDp, 0.01f)
+        assertEquals(0.08f, profile.dispersion, 0.01f)
+        assertEquals(1f, profile.tintRed, 0.01f)
+        assertEquals(1f, profile.tintGreen, 0.01f)
+        assertEquals(1f, profile.tintBlue, 0.01f)
+        assertEquals(0.008f, profile.tintAlpha, 0.001f)
+    }
+
+    @Test
+    fun visibilityOverlaySkipsSearchButDrawsForSmallRealtimeSurfaces() {
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = AndroidLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = AndroidLiquidGlassPolicy.Surface.REMOVE_BADGE,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = AndroidLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = false
+            )
+        )
     }
 }

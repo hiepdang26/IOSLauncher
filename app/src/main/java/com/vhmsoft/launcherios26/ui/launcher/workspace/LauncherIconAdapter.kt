@@ -618,7 +618,8 @@ class LauncherIconAdapter(
             val style = folderPreviewStyle()
             binding.iconPlate.applyLiquidGlass(
                 enabled = liquidGlassEnabled && showBackground,
-                source = binding.root.rootView as? ViewGroup,
+                source = binding.root.androidLiquidGlassSource(),
+                surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
                 profile = AndroidLiquidGlassPolicy.profileFor(
                     surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
                     radiusDp = style.radiusDp
@@ -650,7 +651,7 @@ class LauncherIconAdapter(
 
         private fun folderPreviewStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle {
             return LauncherLiquidGlassStylePolicy.folderPreview(
-                enabled = liquidGlassEnabled,
+                enabled = false,
                 darkMode = darkMode
             )
         }
@@ -669,18 +670,34 @@ class LauncherIconAdapter(
         }
 
         private fun applyRemoveBadgeAppearance() {
-            binding.removeBadge.background = GradientDrawable().apply {
+            val style = LauncherLiquidGlassStylePolicy.removeBadge(
+                enabled = false,
+                darkMode = darkMode
+            )
+            binding.removeBadge.applyLiquidGlass(
+                enabled = liquidGlassEnabled,
+                source = binding.root.androidLiquidGlassSource(),
+                surface = AndroidLiquidGlassPolicy.Surface.REMOVE_BADGE,
+                profile = AndroidLiquidGlassPolicy.profileFor(
+                    surface = AndroidLiquidGlassPolicy.Surface.REMOVE_BADGE,
+                    radiusDp = style.radiusDp
+                )
+            )
+            binding.removeBadge.applyFallbackBackground(removeBadgeBackground(style))
+            binding.removeBadge.alpha = 1f
+        }
+
+        private fun removeBadgeBackground(
+            style: LauncherLiquidGlassStylePolicy.BackgroundStyle
+        ): GradientDrawable {
+            return GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dp(12).toFloat()
-                if (liquidGlassEnabled) {
-                    setColor(0x68FFFFFF)
-                    setStroke(dp(1), 0xB5FFFFFF.toInt())
-                } else {
-                    setColor(0xC8FFFFFF.toInt())
-                    setStroke(dp(1), 0xA8FFFFFF.toInt())
+                cornerRadius = dp(style.radiusDp).toFloat()
+                setColor(style.color)
+                style.strokeColor?.let { strokeColor ->
+                    setStroke(dp(style.strokeWidthDp), strokeColor)
                 }
             }
-            binding.removeBadge.alpha = if (liquidGlassEnabled) 0.72f else 1f
         }
 
         private fun folderPreviewIcons(): List<ImageView> {

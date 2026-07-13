@@ -40,8 +40,44 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun customMaterialOverlayDrawsWheneverMaterialExists() {
-        assertTrue(
+    fun everySurfaceUsesPureRealtimeGlassBackgroundAfterRealtimeGlassIsActive() {
+        LauncherRealtimeLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            assertTrue(
+                LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                    surface = surface,
+                    realtimeLiquidGlassActive = true
+                )
+            )
+            assertFalse(
+                LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                    surface = surface,
+                    realtimeLiquidGlassActive = false
+                )
+            )
+        }
+    }
+
+    @Test
+    fun everySurfaceDisablesFallbackDrawingAfterRealtimeGlassIsActive() {
+        LauncherRealtimeLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            assertTrue(
+                LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
+                    surface = surface,
+                    realtimeLiquidGlassActive = true
+                )
+            )
+            assertFalse(
+                LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
+                    surface = surface,
+                    realtimeLiquidGlassActive = false
+                )
+            )
+        }
+    }
+
+    @Test
+    fun customMaterialOverlayDoesNotDrawOverRealtimeLiquidGlass() {
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldDrawMaterialOverlay(
                 realtimeLiquidGlassActive = true,
                 hasMaterialDrawable = true
@@ -164,7 +200,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             radiusDp = 22,
             darkMode = false
         )
-        val changedProfile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+        val sameTestLiquidGlassProfile = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
             radiusDp = 24,
             darkMode = false
@@ -182,77 +218,59 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 nextProfile = profile
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 currentProfile = profile,
-                nextProfile = changedProfile
+                nextProfile = sameTestLiquidGlassProfile
             )
         )
     }
 
     @Test
-    fun searchPillProfile_usesQmDeveLiquidGlassTuning() {
+    fun searchPillProfile_usesDirectTestLiquidGlassMainActivityTuning() {
         val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
             radiusDp = 22,
             darkMode = false
         )
 
-        assertEquals(22, profile.radiusDp)
-        assertEquals(10f, profile.blurRadiusDp, 0.001f)
-        assertEquals(16f, profile.refractionHeightDp, 0.01f)
-        assertEquals(48f, profile.refractionOffsetDp, 0.01f)
-        assertEquals(0.35f, profile.dispersion, 0.01f)
+        assertEquals(90f, profile.cornerRadius, 0.001f)
+        assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
+        assertEquals(50f, profile.refractionHeightDp, 0.01f)
+        assertEquals(120f, profile.refractionOffsetDp, 0.01f)
+        assertEquals(0.08f, profile.dispersion, 0.01f)
         assertEquals(1f, profile.tintRed, 0.01f)
         assertEquals(1f, profile.tintGreen, 0.01f)
         assertEquals(1f, profile.tintBlue, 0.01f)
-        assertEquals(0.08f, profile.tintAlpha, 0.01f)
+        assertEquals(0.008f, profile.tintAlpha, 0.001f)
     }
 
     @Test
-    fun dockAndPageIndicatorProfilesKeepHomeChromeLiquidGlassTuning() {
-        val appLibrary = LauncherRealtimeLiquidGlassPolicy.profileFor(
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
-            radiusDp = 20,
-            darkMode = false
-        )
-        val homeProfiles = listOf(
-            LauncherRealtimeLiquidGlassPolicy.profileFor(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
-                radiusDp = 38,
-                darkMode = false
-            ),
-            LauncherRealtimeLiquidGlassPolicy.profileFor(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
-                radiusDp = 17,
+    fun allRealtimeProfilesUseTestLiquidGlassMainActivityTuning() {
+        LauncherRealtimeLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = surface,
+                radiusDp = 24,
                 darkMode = false
             )
-        )
 
-        homeProfiles.forEach { profile ->
-            assertEquals(14f, profile.blurRadiusDp, 0.001f)
-            assertEquals(18f, profile.refractionHeightDp, 0.01f)
-            assertEquals(54f, profile.refractionOffsetDp, 0.01f)
-            assertEquals(appLibrary.dispersion, profile.dispersion, 0.01f)
-            assertEquals(appLibrary.tintRed, profile.tintRed, 0.01f)
-            assertEquals(appLibrary.tintGreen, profile.tintGreen, 0.01f)
-            assertEquals(appLibrary.tintBlue, profile.tintBlue, 0.01f)
-            assertEquals(0.03f, profile.tintAlpha, 0.01f)
+            assertEquals(90f, profile.cornerRadius, 0.001f)
+            assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
+            assertEquals(50f, profile.refractionHeightDp, 0.01f)
+            assertEquals(120f, profile.refractionOffsetDp, 0.01f)
+            assertEquals(0.08f, profile.dispersion, 0.01f)
+            assertEquals(1f, profile.tintRed, 0.01f)
+            assertEquals(1f, profile.tintGreen, 0.01f)
+            assertEquals(1f, profile.tintBlue, 0.01f)
+            assertEquals(0.008f, profile.tintAlpha, 0.001f)
         }
-        assertEquals(38, homeProfiles[0].radiusDp)
-        assertEquals(17, homeProfiles[1].radiusDp)
     }
 
     @Test
-    fun folderLiquidGlassProfilesUsePanelSpecificTuning() {
-        val appLibrary = LauncherRealtimeLiquidGlassPolicy.profileFor(
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
-            radiusDp = 20,
-            darkMode = false
-        )
-        val folderPreview = LauncherRealtimeLiquidGlassPolicy.profileFor(
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-            radiusDp = 16,
+    fun realtimeProfilesIgnoreSurfaceRadiusAndUseTestLiquidGlassCornerRadius() {
+        val dock = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+            radiusDp = 38,
             darkMode = false
         )
         val folderPanel = LauncherRealtimeLiquidGlassPolicy.profileFor(
@@ -261,18 +279,13 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             darkMode = false
         )
 
-        assertEquals(appLibrary.blurRadiusDp, folderPreview.blurRadiusDp, 0.001f)
-        assertEquals(appLibrary.refractionHeightDp, folderPreview.refractionHeightDp, 0.01f)
-        assertEquals(appLibrary.refractionOffsetDp, folderPreview.refractionOffsetDp, 0.01f)
-        assertEquals(appLibrary.dispersion, folderPreview.dispersion, 0.01f)
-        assertEquals(appLibrary.tintAlpha, folderPreview.tintAlpha, 0.01f)
-        assertEquals(36f, folderPanel.blurRadiusDp, 0.001f)
-        assertEquals(36f, folderPanel.refractionHeightDp, 0.01f)
-        assertEquals(96f, folderPanel.refractionOffsetDp, 0.01f)
-        assertEquals(0.75f, folderPanel.dispersion, 0.01f)
-        assertEquals(0.16f, folderPanel.tintAlpha, 0.01f)
-        assertEquals(16, folderPreview.radiusDp)
-        assertEquals(42, folderPanel.radiusDp)
+        assertEquals(90f, dock.cornerRadius, 0.001f)
+        assertEquals(90f, folderPanel.cornerRadius, 0.001f)
+        assertEquals(dock.blurRadiusDp, folderPanel.blurRadiusDp, 0.001f)
+        assertEquals(dock.refractionHeightDp, folderPanel.refractionHeightDp, 0.01f)
+        assertEquals(dock.refractionOffsetDp, folderPanel.refractionOffsetDp, 0.01f)
+        assertEquals(dock.dispersion, folderPanel.dispersion, 0.01f)
+        assertEquals(dock.tintAlpha, folderPanel.tintAlpha, 0.001f)
     }
 
     @Test
@@ -288,7 +301,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             darkMode = true
         )
 
-        assertEquals(light.radiusDp, dark.radiusDp)
+        assertEquals(light.cornerRadius, dark.cornerRadius, 0.001f)
         assertEquals(light.blurRadiusDp, dark.blurRadiusDp, 0.001f)
         assertEquals(light.refractionHeightDp, dark.refractionHeightDp, 0.01f)
         assertEquals(light.refractionOffsetDp, dark.refractionOffsetDp, 0.01f)
@@ -297,5 +310,39 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         assertEquals(light.tintGreen, dark.tintGreen, 0.01f)
         assertEquals(light.tintBlue, dark.tintBlue, 0.01f)
         assertEquals(light.tintAlpha, dark.tintAlpha, 0.01f)
+    }
+
+    @Test
+    fun visibilityOverlayOnlyDrawsForSmallRealtimeSurfacesThatNeedContrast() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = false
+            )
+        )
     }
 }
