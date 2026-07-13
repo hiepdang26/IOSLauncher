@@ -24,6 +24,7 @@ class LauncherLiquidGlassStylePolicyTest {
 
         assertEquals(disabled, enabled)
         assertEquals(0x705F6663, enabled.color)
+        assertEquals(8, enabled.radiusDp)
         assertNull(enabled.strokeColor)
     }
 

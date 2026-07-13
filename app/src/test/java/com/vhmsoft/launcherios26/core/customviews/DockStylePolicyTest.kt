@@ -88,6 +88,30 @@ class DockStylePolicyTest {
     }
 
     @Test
+    fun realtimeGlassHeightUsesMeasuredDockHeightWhenLayoutIsWrapContent() {
+        assertEquals(
+            92,
+            DockStylePolicy.realtimeGlassHeightPx(
+                layoutHeightPx = -2,
+                measuredHeightPx = 92,
+                fallbackHeightPx = 88
+            )
+        )
+    }
+
+    @Test
+    fun realtimeGlassHeightFallsBackToHotseatHeightBeforeDockIsMeasured() {
+        assertEquals(
+            88,
+            DockStylePolicy.realtimeGlassHeightPx(
+                layoutHeightPx = -2,
+                measuredHeightPx = 0,
+                fallbackHeightPx = 88
+            )
+        )
+    }
+
+    @Test
     fun roundedLiquidGlassAndIphone8DrawTintAboveBlurSoEdgesStaySoft() {
         assertTrue(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.LIQUID_GLASS))
         assertTrue(DockStylePolicy.drawsStyleAboveBlur(DockStylePolicy.Style.ROUNDED))
@@ -174,7 +198,7 @@ class DockStylePolicyTest {
     }
 
     @Test
-    fun realtimeLiquidGlassDockRequiresDockBlurLiquidGlassStyleAndRealtimeAvailability() {
+    fun realtimeLiquidGlassDockIgnoresDockBlurWhenLiquidGlassStyleAndRealtimeAreAvailable() {
         assertTrue(
             DockStylePolicy.usesExternalRealtimeLiquidGlass(
                 style = DockStylePolicy.Style.LIQUID_GLASS,
@@ -182,7 +206,7 @@ class DockStylePolicyTest {
                 dockBlurEnabled = true
             )
         )
-        assertFalse(
+        assertTrue(
             DockStylePolicy.usesExternalRealtimeLiquidGlass(
                 style = DockStylePolicy.Style.LIQUID_GLASS,
                 realtimeLiquidGlassAvailable = true,

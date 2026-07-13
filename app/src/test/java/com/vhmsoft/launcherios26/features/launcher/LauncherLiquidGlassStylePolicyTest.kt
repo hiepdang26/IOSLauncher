@@ -16,7 +16,7 @@ class LauncherLiquidGlassStylePolicyTest {
         )
 
         assertEquals(0x70EEF8FF, folder.color)
-        assertEquals(13, folder.radiusDp)
+        assertEquals(8, folder.radiusDp)
         assertNull(folder.strokeColor)
     }
 
@@ -78,5 +78,19 @@ class LauncherLiquidGlassStylePolicyTest {
 
         assertEquals(0xB01A242A.toInt(), search.color)
         assertEquals(22, search.radiusDp)
+    }
+
+    @Test
+    fun searchFieldUsesLightGlassMaterialWhenEnabled() {
+        val search = LauncherLiquidGlassStylePolicy.searchField(
+            enabled = true,
+            darkMode = false,
+            liquidGlass = true
+        )
+
+        assertEquals(0x1EFFFFFF, search.color)
+        assertEquals(22, search.radiusDp)
+        assertEquals(0x34FFFFFF, search.topHighlightColor)
+        assertEquals(0x0E001F35, search.bottomShadeColor)
     }
 }

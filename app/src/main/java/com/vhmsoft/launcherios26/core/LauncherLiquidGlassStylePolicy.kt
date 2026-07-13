@@ -59,13 +59,13 @@ object LauncherLiquidGlassStylePolicy {
         if (darkMode) {
             return BackgroundStyle(
                 color = 0xA0182630.toInt(),
-                radiusDp = 13
+                radiusDp = 8
             )
         }
         if (enabled) {
-            return enabledLightFrameMaterial(radiusDp = 13)
+            return enabledLightFrameMaterial(radiusDp = 8)
         }
-        return disabledLightFrameMaterial(radiusDp = 13)
+        return disabledLightFrameMaterial(radiusDp = 8)
     }
 
     fun folderPanel(
@@ -116,7 +116,7 @@ object LauncherLiquidGlassStylePolicy {
         darkMode: Boolean = false,
         liquidGlass: Boolean = false
     ): BackgroundStyle =
-        searchPill(enabled = false, darkMode = darkMode)
+        searchPill(enabled = enabled, darkMode = darkMode, liquidGlass = liquidGlass)
 
     fun searchIndicator(
         enabled: Boolean,

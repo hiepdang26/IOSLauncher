@@ -1035,6 +1035,15 @@ open class LauncherActivity : AppCompatActivity(),
         darkModeEnabled = latestDarkModeEnabled
         applyLiquidGlassAppearance()
         refreshVisibleFolderPreviewIcons()
+        refreshAppLibraryPage()
+        refreshVisibleAppLibraryRealtimeLiquidGlass()
+        if (
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewRealtimeOnAppearanceApply(
+                realtimeEnabled = shouldUseRealtimeLiquidGlass()
+            )
+        ) {
+            refreshVisibleFolderPreviewRealtimeLiquidGlass()
+        }
     }
 
     private fun refreshVisibleFolderPreviewIcons() {
@@ -1058,6 +1067,31 @@ open class LauncherActivity : AppCompatActivity(),
         pages.forEach { page ->
             for (i in 0 until page.childCount) {
                 refreshFolderIcon(page.getChildAt(i), fromDock = false)
+            }
+        }
+    }
+
+    private fun refreshVisibleFolderPreviewRealtimeLiquidGlass() {
+        if (::mHorizontalPager.isInitialized) {
+            (mHorizontalPager.getChildAt(currentPageNumber) as? ViewGroup)?.let { page ->
+                refreshRealtimeLiquidGlassDescendants(page)
+            }
+        }
+        if (::mDock.isInitialized) {
+            refreshRealtimeLiquidGlassDescendants(mDock)
+        }
+        if (::mFolderWindowContainer.isInitialized && isFolderWindowActive()) {
+            refreshRealtimeLiquidGlassDescendants(mFolderWindowContainer)
+        }
+    }
+
+    private fun refreshVisibleAppLibraryRealtimeLiquidGlass() {
+        val page = appLibraryPage ?: return
+        if (!shouldUseRealtimeLiquidGlass()) return
+        refreshRealtimeLiquidGlassDescendants(page, realtimeEnabled = true)
+        page.post {
+            if (shouldUseRealtimeLiquidGlass()) {
+                refreshRealtimeLiquidGlassDescendants(page, realtimeEnabled = true)
             }
         }
     }
@@ -1209,7 +1243,8 @@ open class LauncherActivity : AppCompatActivity(),
         )
         return LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
             surface = surface,
-            realtimeLiquidGlassActive = container?.isRealtimeLiquidGlassActive() == true
+            realtimeLiquidGlassActive = container?.isRealtimeLiquidGlassActive() == true,
+            realtimeEnabled = realtimeEnabled
         )
     }
 
@@ -1231,9 +1266,14 @@ open class LauncherActivity : AppCompatActivity(),
 
         syncDockRealtimeGlassLayout(dockGlass)
         dockGlass.blurCornerRadius = dp(dockMaterialStyle.radiusDp).toFloat()
-        dockGlass.visibility = if (useRealtimeDock && shouldShowDockForPage(currentPageNumber)) VISIBLE else GONE
+        val dockVisible = shouldShowDockForPage(currentPageNumber) && mDock.visibility == VISIBLE
+        dockGlass.visibility = if (useRealtimeDock && dockVisible) VISIBLE else GONE
         dockGlass.translationY = mDock.translationY
-        dockGlass.alpha = mDock.alpha
+        dockGlass.alpha = LauncherRealtimeLiquidGlassPolicy.realtimeDockGlassAlphaForAppearanceApply(
+            realtimeDockEnabled = useRealtimeDock,
+            dockVisible = dockVisible,
+            dockAlpha = mDock.alpha
+        )
         dockGlass.applyRealtimeLiquidGlass(
             enabled = useRealtimeDock,
             source = realtimeLiquidGlassSource(),
@@ -1259,7 +1299,11 @@ open class LauncherActivity : AppCompatActivity(),
             as? InsettableRelativeLayout.LayoutParams ?: return
 
         glassLayoutParams.width = dockLayoutParams.width
-        glassLayoutParams.height = dockLayoutParams.height
+        glassLayoutParams.height = DockStylePolicy.realtimeGlassHeightPx(
+            layoutHeightPx = dockLayoutParams.height,
+            measuredHeightPx = mDock.height.takeIf { it > 0 } ?: mDock.measuredHeight,
+            fallbackHeightPx = mDeviceProfile.hotseatCellHeightPx
+        )
         glassLayoutParams.leftMargin = dockLayoutParams.leftMargin
         glassLayoutParams.rightMargin = dockLayoutParams.rightMargin
         glassLayoutParams.topMargin = dockLayoutParams.topMargin
@@ -1316,16 +1360,22 @@ open class LauncherActivity : AppCompatActivity(),
 
     private fun setDockChromeVisibility(visible: Boolean) {
         if (!::mDock.isInitialized) return
-        val wasVisible = mDock.visibility == VISIBLE
         mDock.visibility = if (visible) VISIBLE else GONE
         dockGlassBackground()?.let { dockGlass ->
             val desiredRealtimeDock = shouldUseRealtimeDockGlass()
-            dockGlass.visibility = if (visible && desiredRealtimeDock) VISIBLE else GONE
+            val keepRealtimeDockAttached =
+                LauncherRealtimeLiquidGlassPolicy.shouldKeepRealtimeGlassAttachedWhenChromeHidden(
+                    surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                    realtimeEnabled = desiredRealtimeDock
+                )
+            dockGlass.visibility =
+                if (desiredRealtimeDock && (visible || keepRealtimeDockAttached)) VISIBLE else GONE
+            dockGlass.alpha = if (visible) mDock.alpha else 0f
             if (
-                LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnChromeSync(
+                LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnPersistentChromeRestore(
                     realtimeEnabled = desiredRealtimeDock,
-                    wasVisible = wasVisible,
-                    nextVisible = visible
+                    nextVisible = visible,
+                    realtimeLiquidGlassActive = dockGlass.isRealtimeLiquidGlassActive()
                 )
             ) {
                 dockGlass.refreshRealtimeLiquidGlass()
@@ -1343,7 +1393,7 @@ open class LauncherActivity : AppCompatActivity(),
         if (!::mDock.isInitialized) return
         dockGlassBackground()?.let { dockGlass ->
             dockGlass.translationY = mDock.translationY
-            dockGlass.alpha = mDock.alpha
+            dockGlass.alpha = if (mDock.visibility == VISIBLE) mDock.alpha else 0f
         }
     }
 
@@ -8920,6 +8970,7 @@ open class LauncherActivity : AppCompatActivity(),
             var isViewScrolling = true
 
             override fun onScroll(scrollX: Int) {
+                isViewScrolling = true
                 updatePageIndicatorScroll(scrollX)
 
                 var progress = scrollX.toFloat() / mDeviceProfile.availableWidthPx
@@ -8941,19 +8992,19 @@ open class LauncherActivity : AppCompatActivity(),
                         mDeviceProfile.availableWidthPx
                     setBlurLayersAlpha(fraction)
                 }
-                if (isViewScrolling) {
-                    dragDropEnabled = false
-                }
+                dragDropEnabled = false
             }
 
-            override fun onViewScrollFinished(page: Int) {
+            override fun onViewScrollFinished(currentPage: Int) {
+                val wasViewScrolling = isViewScrolling
+                val pageChanged = currentPageNumber != currentPage
                 isViewScrolling = false
 
-                setBlurLayersAlpha(if (page == 0 || mFolderWindowContainer.visibility == VISIBLE) 1f else 0f)
+                setBlurLayersAlpha(if (currentPage == 0 || mFolderWindowContainer.visibility == VISIBLE) 1f else 0f)
 
-                if (currentPageNumber != page) {
+                if (pageChanged) {
                     val prevPage = currentPageNumber
-                    currentPageNumber = page
+                    currentPageNumber = currentPage
                     navbarAnimator.cancel()
                     if (currentPageNumber == WIDGET_PAGE) {
                         navbarAnimator.start()
@@ -8970,36 +9021,102 @@ open class LauncherActivity : AppCompatActivity(),
                     updateWorkspaceChromeForPage(currentPageNumber)
                     showPageIndicator(currentPageNumber)
                 }
-	                if (page == WIDGET_PAGE) {
-	                    hideWidgetPageIndicator()
-	                }
-	                refreshCurrentPageRealtimeLiquidGlass()
-	            }
-	        })
-	    }
+                if (currentPage == WIDGET_PAGE) {
+                    hideWidgetPageIndicator()
+                }
+                if (
+                    LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnSettledPage(
+                        realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                        wasScrolling = wasViewScrolling,
+                        pageChanged = pageChanged
+                    )
+                ) {
+                    refreshCurrentPageRealtimeLiquidGlass(
+                        wasScrolling = wasViewScrolling,
+                        pageChanged = pageChanged
+                    )
+                }
+            }
+        })
+    }
 
-    private fun refreshCurrentPageRealtimeLiquidGlass() {
-        if (!shouldUseRealtimeLiquidGlass() || !::mHorizontalPager.isInitialized) {
+    private fun refreshCurrentPageRealtimeLiquidGlass(
+        wasScrolling: Boolean = true,
+        pageChanged: Boolean = true
+    ) {
+        val realtimeEnabled = shouldUseRealtimeLiquidGlass()
+        if (!realtimeEnabled || !::mHorizontalPager.isInitialized) {
             return
         }
         (mHorizontalPager.getChildAt(currentPageNumber) as? ViewGroup)?.let { page ->
             refreshRealtimeLiquidGlassDescendants(page)
         }
-        dockGlassBackground()?.refreshRealtimeLiquidGlass()
-        indicatorGlassBackground()?.refreshRealtimeLiquidGlass()
+        postRefreshCurrentPageRealtimeLiquidGlass(currentPageNumber)
+        if (
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeEnabled = realtimeEnabled,
+                wasScrolling = wasScrolling,
+                pageChanged = pageChanged
+            )
+        ) {
+            dockGlassBackground()?.refreshRealtimeLiquidGlass()
+        }
+        if (
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
+                realtimeEnabled = realtimeEnabled,
+                wasScrolling = wasScrolling,
+                pageChanged = pageChanged
+            )
+        ) {
+            indicatorGlassBackground()?.refreshRealtimeLiquidGlass()
+        }
         if (isFolderWindowActive()) {
             refreshRealtimeLiquidGlassDescendants(mFolderWindowContainer)
         }
     }
 
-    private fun refreshRealtimeLiquidGlassDescendants(viewGroup: ViewGroup) {
+    private fun postRefreshCurrentPageRealtimeLiquidGlass(pageNumber: Int) {
+        mHorizontalPager.post {
+            if (!shouldUseRealtimeLiquidGlass() || pageNumber != currentPageNumber) {
+                return@post
+            }
+            (mHorizontalPager.getChildAt(pageNumber) as? ViewGroup)?.let { page ->
+                refreshRealtimeLiquidGlassDescendants(page, realtimeEnabled = true)
+            }
+            if (isFolderWindowActive()) {
+                refreshRealtimeLiquidGlassDescendants(mFolderWindowContainer, realtimeEnabled = true)
+            }
+        }
+    }
+
+    private fun refreshRealtimeLiquidGlassDescendants(
+        viewGroup: ViewGroup,
+        realtimeEnabled: Boolean = shouldUseRealtimeLiquidGlass()
+    ) {
         for (index in 0 until viewGroup.childCount) {
             val child = viewGroup.getChildAt(index)
-            if (child is LauncherRealtimeLiquidGlassLayout && child.isShown) {
+            if (
+                child is SquareFrameLayout &&
+                LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewHostOnPageRestore(
+                    realtimeEnabled = realtimeEnabled,
+                    folderPreviewRealtimeEnabled = child.hasRealtimeLiquidGlassFolderPreview()
+                )
+            ) {
+                child.refreshRealtimeLiquidGlassFolderPreview()
+            }
+            if (
+                child is LauncherRealtimeLiquidGlassLayout &&
+                LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeDescendant(
+                    realtimeEnabled = realtimeEnabled,
+                    descendantShown = child.isShown
+                )
+            ) {
                 child.refreshRealtimeLiquidGlass()
             }
             if (child is ViewGroup) {
-                refreshRealtimeLiquidGlassDescendants(child)
+                refreshRealtimeLiquidGlassDescendants(child, realtimeEnabled)
             }
         }
     }
@@ -9357,10 +9474,11 @@ open class LauncherActivity : AppCompatActivity(),
     }
 
     private fun createAppLibrarySearchPill(): View {
+        val realtimeGlassEnabled = shouldUseRealtimeLiquidGlass()
         val searchStyle = LauncherLiquidGlassStylePolicy.searchField(
-            enabled = false,
+            enabled = realtimeGlassEnabled,
             darkMode = styleDarkModeForLiquidGlass(),
-            liquidGlass = false
+            liquidGlass = realtimeGlassEnabled
         )
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -9438,11 +9556,12 @@ open class LauncherActivity : AppCompatActivity(),
         surface: LauncherRealtimeLiquidGlassPolicy.Surface,
         content: View
     ): FrameLayout {
+        val realtimeGlassEnabled = shouldUseRealtimeLiquidGlass()
         val container = if (liquidGlassEnabled || darkModeEnabled) {
             LauncherRealtimeLiquidGlassLayout(this).apply {
                 blurCornerRadius = dp(style.radiusDp).toFloat()
                 applyRealtimeLiquidGlass(
-                    enabled = shouldUseRealtimeLiquidGlass(),
+                    enabled = realtimeGlassEnabled,
                     source = realtimeLiquidGlassSource(),
                     surface = surface,
                     profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
@@ -9455,11 +9574,22 @@ open class LauncherActivity : AppCompatActivity(),
         } else {
             FrameLayout(this)
         }
-        if (container is LauncherRealtimeLiquidGlassLayout && shouldUseRealtimeLiquidGlass()) {
+        if (container is LauncherRealtimeLiquidGlassLayout && realtimeGlassEnabled) {
+            container.background = if (
+                LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                    surface = surface,
+                    realtimeEnabled = true
+                )
+            ) {
+                roundedRectangle(style)
+            } else {
+                null
+            }
             content.background = if (
                 LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
                     surface = surface,
-                    realtimeLiquidGlassActive = container.isRealtimeLiquidGlassActive()
+                    realtimeLiquidGlassActive = container.isRealtimeLiquidGlassActive(),
+                    realtimeEnabled = true
                 )
             ) {
                 ColorDrawable(Color.TRANSPARENT)
@@ -9484,11 +9614,12 @@ open class LauncherActivity : AppCompatActivity(),
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setPadding(dp(0), 0, dp(0), 0)
 
+            val realtimeGlassEnabled = shouldUseRealtimeLiquidGlass()
             val folderStyle = LauncherLiquidGlassStylePolicy.appLibraryFolder(
-                enabled = false,
+                enabled = realtimeGlassEnabled,
                 empty = group.apps.isEmpty(),
                 darkMode = styleDarkModeForLiquidGlass(),
-                liquidGlass = false
+                liquidGlass = realtimeGlassEnabled
             )
             val cardContent = FrameLayout(context).apply {
                 background = roundedRectangle(folderStyle)
@@ -9947,10 +10078,11 @@ open class LauncherActivity : AppCompatActivity(),
         }
         appLibrarySearchInput = editText
 
+        val realtimeGlassEnabled = shouldUseRealtimeLiquidGlass()
         val fieldStyle = LauncherLiquidGlassStylePolicy.searchField(
-            enabled = false,
+            enabled = realtimeGlassEnabled,
             darkMode = styleDarkModeForLiquidGlass(),
-            liquidGlass = false
+            liquidGlass = realtimeGlassEnabled
         )
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -15218,6 +15350,7 @@ open class LauncherActivity : AppCompatActivity(),
                 setDockChromeVisibility(false)
                 hideHomeIndicatorForFolder()
                 setFolderBackgroundContentBlurEnabled(true)
+                refreshFolderPanelRealtimeLiquidGlassIfVisible()
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -15240,6 +15373,7 @@ open class LauncherActivity : AppCompatActivity(),
                 if (deferRealtimeGlassBinding) {
                     scheduleDeferredFolderRealtimeGlass(app, openGeneration)
                 }
+                refreshFolderPanelRealtimeLiquidGlassIfVisible()
             }
 
             override fun onAnimationCancel(animation: Animator) {
@@ -15466,6 +15600,17 @@ open class LauncherActivity : AppCompatActivity(),
         })
         set.start()
         currentAnimator = set
+    }
+
+    private fun refreshFolderPanelRealtimeLiquidGlassIfVisible() {
+        if (
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeOnOpenVisible(
+                realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                folderVisible = mFolderWindowContainer.visibility == VISIBLE
+            )
+        ) {
+            binding.folderBgBlur.refreshRealtimeLiquidGlass()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -25,6 +25,7 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     private var glassSurface: LauncherRealtimeLiquidGlassPolicy.Surface? = null
     private var glassProfile: LauncherRealtimeLiquidGlassPolicy.Profile? = null
     private var configuredProfile: LauncherRealtimeLiquidGlassPolicy.Profile? = null
+    private var forceRecreateOnNextUpdate: Boolean = false
 
     fun applyRealtimeLiquidGlass(
         enabled: Boolean,
@@ -66,7 +67,6 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
         if (
-            changedView === this &&
             LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
                 realtimeEnabled = realtimeEnabled,
                 visible = visibility == VISIBLE
@@ -77,6 +77,11 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     }
 
     fun refreshRealtimeLiquidGlass() {
+        forceRecreateOnNextUpdate = forceRecreateOnNextUpdate ||
+            LauncherRealtimeLiquidGlassPolicy.shouldForceRecreateRealtimeViewOnRefresh(
+                surface = glassSurface,
+                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+            )
         updateGlass()
     }
 
@@ -111,11 +116,16 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
         if (blurCornerRadius != profile.cornerRadius) {
             blurCornerRadius = profile.cornerRadius
         }
+        val forceRecreate = forceRecreateOnNextUpdate
+        forceRecreateOnNextUpdate = false
 
         val glass = if (
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = glassSurface,
                 currentProfile = configuredProfile,
-                nextProfile = profile
+                nextProfile = profile,
+                forceRefresh = forceRecreate,
+                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
             )
         ) {
             glassView?.takeIf { it.parent === this }?.let { removeView(it) }
@@ -141,7 +151,7 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             )
-        } else if (indexOfChild(glass) != 0 && configuredProfile == null) {
+        } else if (indexOfChild(glass) != 0) {
             removeView(glass)
             addView(
                 glass,
@@ -260,16 +270,10 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     private fun visibilityOverlayDrawable(
         profile: LauncherRealtimeLiquidGlassPolicy.Profile
     ): GradientDrawable =
-        GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(
-                0x22FFFFFF,
-                0x0CFFFFFF,
-                0x1200273C
-            )
-        ).apply {
+        GradientDrawable().apply {
             cornerRadius = profile.cornerRadius
-            setStroke(dp(1), 0x2AFFFFFF)
+            setColor(0x00000000)
+            setStroke(dp(1), 0x24FFFFFF)
         }
 
     private fun measureDecorationToBounds(view: View?) {

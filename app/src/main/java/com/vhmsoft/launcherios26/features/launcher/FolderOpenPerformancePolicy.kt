@@ -8,8 +8,9 @@ object FolderOpenPerformancePolicy {
     fun shouldDeferContentBinding(openedByDragHover: Boolean): Boolean =
         !openedByDragHover
 
+    @Suppress("UNUSED_PARAMETER")
     fun shouldDeferRealtimeGlassBinding(
         openedByDragHover: Boolean,
         liquidGlassEnabled: Boolean
-    ): Boolean = liquidGlassEnabled && !openedByDragHover
+    ): Boolean = false
 }

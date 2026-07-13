@@ -79,8 +79,7 @@ object DockStylePolicy {
         realtimeLiquidGlassAvailable: Boolean,
         dockBlurEnabled: Boolean
     ): Boolean {
-        return dockBlurEnabled &&
-            realtimeLiquidGlassAvailable &&
+        return realtimeLiquidGlassAvailable &&
             style == Style.LIQUID_GLASS
     }
 
@@ -90,5 +89,18 @@ object DockStylePolicy {
             heightPx = hotseatCellHeightPx,
             bottomPaddingPx = 0
         )
+    }
+
+    fun realtimeGlassHeightPx(
+        layoutHeightPx: Int,
+        measuredHeightPx: Int,
+        fallbackHeightPx: Int
+    ): Int {
+        return when {
+            measuredHeightPx > 0 -> measuredHeightPx
+            layoutHeightPx > 0 -> layoutHeightPx
+            fallbackHeightPx > 0 -> fallbackHeightPx
+            else -> 0
+        }
     }
 }

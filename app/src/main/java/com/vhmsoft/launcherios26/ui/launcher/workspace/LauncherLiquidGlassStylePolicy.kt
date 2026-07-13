@@ -40,7 +40,7 @@ object LauncherLiquidGlassStylePolicy {
     fun folderPreview(enabled: Boolean, darkMode: Boolean): BackgroundStyle {
         return BackgroundStyle(
             color = if (darkMode) 0x5A42484B else 0x705F6663,
-            radiusDp = 16
+            radiusDp = 8
         )
     }
 

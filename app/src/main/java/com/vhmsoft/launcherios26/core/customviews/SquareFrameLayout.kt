@@ -60,6 +60,14 @@ class SquareFrameLayout @JvmOverloads constructor(
         updateRealtimeLiquidGlassFolderPreview()
     }
 
+    fun hasRealtimeLiquidGlassFolderPreview(): Boolean =
+        folderPreviewRealtimeEnabled
+
+    fun refreshRealtimeLiquidGlassFolderPreview() {
+        updateRealtimeLiquidGlassFolderPreview()
+        folderPreviewGlass?.refreshRealtimeLiquidGlass()
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         updateRealtimeLiquidGlassFolderPreview()
@@ -93,17 +101,6 @@ class SquareFrameLayout @JvmOverloads constructor(
             isFocusable = false
         }.also { folderPreviewGlass = it }
 
-        glass.blurCornerRadius = dp(style.radiusDp).toFloat()
-        glass.applyRealtimeLiquidGlass(
-            enabled = true,
-            source = source,
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-            profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-                radiusDp = style.radiusDp,
-                darkMode = false
-            )
-        )
         if (glass.parent !== this) {
             addView(
                 glass,
@@ -124,6 +121,19 @@ class SquareFrameLayout @JvmOverloads constructor(
                 )
             )
         }
+        glass.visibility = View.VISIBLE
+        glass.alpha = 1f
+        glass.blurCornerRadius = dp(style.radiusDp).toFloat()
+        glass.applyRealtimeLiquidGlass(
+            enabled = true,
+            source = source,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+            profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                radiusDp = style.radiusDp,
+                darkMode = false
+            )
+        )
         invalidate()
     }
 

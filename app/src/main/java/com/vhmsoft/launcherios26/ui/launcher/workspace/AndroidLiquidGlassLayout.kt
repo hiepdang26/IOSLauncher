@@ -26,6 +26,7 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
     private var glassProfile: AndroidLiquidGlassPolicy.Profile? = null
     private var configuredProfile: AndroidLiquidGlassPolicy.Profile? = null
     private var fallbackBackgroundDrawable: Drawable? = null
+    private var forceRecreateOnNextUpdate = false
 
     fun applyLiquidGlass(
         enabled: Boolean,
@@ -40,6 +41,11 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
         glassSource = source
         glassSurface = surface
         glassProfile = profile
+        forceRecreateOnNextUpdate = forceRecreateOnNextUpdate ||
+            AndroidLiquidGlassPolicy.shouldForceRecreateRealtimeViewOnApply(
+                surface = surface,
+                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+            )
         updateGlass()
     }
 
@@ -96,11 +102,16 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
             logGlassState("hide reason=${hideReason(profile, source, sourceContainsTarget)}")
             return
         }
+        val forceRecreate = forceRecreateOnNextUpdate
+        forceRecreateOnNextUpdate = false
 
         val glass = if (
             AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = glassSurface,
                 currentProfile = configuredProfile,
-                nextProfile = profile
+                nextProfile = profile,
+                forceRefresh = forceRecreate,
+                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
             )
         ) {
             glassView?.takeIf { it.parent === this }?.let { removeView(it) }
@@ -125,7 +136,7 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             )
-        } else if (indexOfChild(glass) != 0 && configuredProfile == null) {
+        } else if (indexOfChild(glass) != 0) {
             removeView(glass)
             addView(
                 glass,

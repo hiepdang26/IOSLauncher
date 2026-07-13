@@ -24,8 +24,8 @@ class FolderOpenPerformancePolicyTest {
     }
 
     @Test
-    fun realtimeGlassBindingDefersOnlyForNormalLiquidGlassFolderOpen() {
-        assertTrue(
+    fun realtimeGlassBindingDoesNotDeferSoLiquidGlassIsVisibleWhenFolderOpens() {
+        assertFalse(
             FolderOpenPerformancePolicy.shouldDeferRealtimeGlassBinding(
                 openedByDragHover = false,
                 liquidGlassEnabled = true

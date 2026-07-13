@@ -76,14 +76,54 @@ class AndroidLiquidGlassPolicyTest {
     }
 
     @Test
-    fun allWorkspaceProfilesUseTestLiquidGlassMainActivityTuning() {
+    fun appLibraryFolderRecreatesRealtimeViewWhenHolderIsRebound() {
+        val profile = AndroidLiquidGlassPolicy.profileFor(
+            surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+            radiusDp = 38
+        )
+
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true,
+                realtimeLiquidGlassActive = false
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = AndroidLiquidGlassPolicy.Surface.DOCK,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true
+            )
+        )
+    }
+
+    @Test
+    fun allWorkspaceProfilesUseTestLiquidGlassMainActivityTuningExceptFolderPreviewShape() {
         AndroidLiquidGlassPolicy.Surface.entries.forEach { surface ->
             val profile = AndroidLiquidGlassPolicy.profileFor(
                 surface = surface,
                 radiusDp = 38
             )
 
-            assertEquals(90f, profile.cornerRadius, 0.001f)
+            val expectedCornerRadius = if (surface == AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW) {
+                38f
+            } else {
+                90f
+            }
+            assertEquals(expectedCornerRadius, profile.cornerRadius, 0.001f)
             assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
             assertEquals(50f, profile.refractionHeightDp, 0.01f)
             assertEquals(120f, profile.refractionOffsetDp, 0.01f)
@@ -93,6 +133,20 @@ class AndroidLiquidGlassPolicyTest {
             assertEquals(1f, profile.tintBlue, 0.01f)
             assertEquals(0.008f, profile.tintAlpha, 0.001f)
         }
+    }
+
+    @Test
+    fun workspaceFolderPreviewProfileUsesIconCornerRadiusInsteadOfPillRadius() {
+        val profile = AndroidLiquidGlassPolicy.profileFor(
+            surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+            radiusDp = 8
+        )
+
+        assertEquals(8f, profile.cornerRadius, 0.001f)
+        assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
+        assertEquals(50f, profile.refractionHeightDp, 0.01f)
+        assertEquals(120f, profile.refractionOffsetDp, 0.01f)
+        assertEquals(0.08f, profile.dispersion, 0.01f)
     }
 
     @Test
@@ -114,36 +168,20 @@ class AndroidLiquidGlassPolicyTest {
     }
 
     @Test
-    fun visibilityOverlaySkipsSearchButDrawsForSmallRealtimeSurfaces() {
-        assertFalse(
-            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL,
-                realtimeLiquidGlassActive = true
+    fun visibilityOverlayNeverDrawsOverQmDeveRealtimeLiquidGlass() {
+        AndroidLiquidGlassPolicy.Surface.entries.forEach { surface ->
+            assertFalse(
+                AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                    surface = surface,
+                    realtimeLiquidGlassActive = true
+                )
             )
-        )
-        assertFalse(
-            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_RESULTS,
-                realtimeLiquidGlassActive = true
+            assertFalse(
+                AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                    surface = surface,
+                    realtimeLiquidGlassActive = false
+                )
             )
-        )
-        assertTrue(
-            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = AndroidLiquidGlassPolicy.Surface.DOCK,
-                realtimeLiquidGlassActive = true
-            )
-        )
-        assertTrue(
-            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = AndroidLiquidGlassPolicy.Surface.REMOVE_BADGE,
-                realtimeLiquidGlassActive = true
-            )
-        )
-        assertFalse(
-            AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = AndroidLiquidGlassPolicy.Surface.DOCK,
-                realtimeLiquidGlassActive = false
-            )
-        )
+        }
     }
 }

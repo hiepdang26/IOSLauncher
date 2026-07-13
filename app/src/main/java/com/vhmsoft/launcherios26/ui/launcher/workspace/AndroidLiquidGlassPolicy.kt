@@ -53,28 +53,39 @@ object AndroidLiquidGlassPolicy {
     fun shouldDrawVisibilityOverlay(
         surface: Surface,
         realtimeLiquidGlassActive: Boolean
+    ): Boolean = false
+
+    fun shouldForceRecreateRealtimeViewOnApply(
+        surface: Surface?,
+        realtimeLiquidGlassActive: Boolean = false
     ): Boolean =
-        realtimeLiquidGlassActive && when (surface) {
-            Surface.SEARCH_PILL,
-            Surface.SEARCH_FIELD,
-            Surface.SEARCH_RESULTS,
-            Surface.APP_LIBRARY_SEARCH -> false
-            Surface.DOCK,
-            Surface.FOLDER_PREVIEW,
-            Surface.FOLDER_PANEL,
-            Surface.APP_LIBRARY_FOLDER,
-            Surface.REMOVE_BADGE -> true
-        }
+        surface == Surface.APP_LIBRARY_FOLDER && !realtimeLiquidGlassActive
 
     fun shouldRecreateRealtimeView(
         currentProfile: Profile?,
         nextProfile: Profile
-    ): Boolean = currentProfile != nextProfile
+    ): Boolean =
+        shouldRecreateRealtimeView(
+            surface = null,
+            currentProfile = currentProfile,
+            nextProfile = nextProfile,
+            forceRefresh = false
+        )
+
+    fun shouldRecreateRealtimeView(
+        surface: Surface?,
+        currentProfile: Profile?,
+        nextProfile: Profile,
+        forceRefresh: Boolean,
+        realtimeLiquidGlassActive: Boolean = false
+    ): Boolean =
+        currentProfile != nextProfile ||
+            (forceRefresh && shouldForceRecreateRealtimeViewOnApply(surface, realtimeLiquidGlassActive))
 
     @Suppress("UNUSED_PARAMETER")
     fun profileFor(surface: Surface, radiusDp: Int): Profile =
         Profile(
-            cornerRadius = LauncherLiquidGlassTuning.CORNER_RADIUS,
+            cornerRadius = realtimeCornerRadius(surface, radiusDp),
             blurRadiusDp = LauncherLiquidGlassTuning.BLUR_RADIUS,
             refractionHeightDp = LauncherLiquidGlassTuning.REFRACTION_HEIGHT,
             refractionOffsetDp = LauncherLiquidGlassTuning.REFRACTION_OFFSET,
@@ -84,4 +95,11 @@ object AndroidLiquidGlassPolicy {
             tintBlue = LauncherLiquidGlassTuning.TINT_BLUE,
             tintAlpha = LauncherLiquidGlassTuning.TINT_ALPHA
         )
+
+    private fun realtimeCornerRadius(surface: Surface, radiusDp: Int): Float =
+        if (surface == Surface.FOLDER_PREVIEW) {
+            radiusDp.toFloat()
+        } else {
+            LauncherLiquidGlassTuning.CORNER_RADIUS
+        }
 }

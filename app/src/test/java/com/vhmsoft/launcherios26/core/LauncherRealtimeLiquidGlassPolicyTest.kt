@@ -58,21 +58,118 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun everySurfaceDisablesFallbackDrawingAfterRealtimeGlassIsActive() {
-        LauncherRealtimeLiquidGlassPolicy.Surface.entries.forEach { surface ->
-            assertTrue(
-                LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
-                    surface = surface,
-                    realtimeLiquidGlassActive = true
-                )
+    fun realtimeGeneratedAppLibrarySurfacesUseTransparentBackgroundWhileWaitingForFirstBind() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
             )
-            assertFalse(
-                LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
-                    surface = surface,
-                    realtimeLiquidGlassActive = false
-                )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
             )
-        }
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun onlySearchRealtimeSurfacesKeepStableMaterialBehindGlass() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeEnabled = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeEnabled = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseStableMaterialBehindRealtimeGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
+                realtimeEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun dockFallbackDrawingIsDisabledWhenRealtimeGlassIsActive() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeLiquidGlassActive = false
+            )
+        )
+    }
+
+    @Test
+    fun nonDockExternalSurfacesDisableFallbackDrawingAfterRealtimeGlassIsActive() {
+        LauncherRealtimeLiquidGlassPolicy.Surface.entries
+            .filterNot { it == LauncherRealtimeLiquidGlassPolicy.Surface.DOCK }
+            .forEach { surface ->
+                assertTrue(
+                    LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
+                        surface = surface,
+                        realtimeLiquidGlassActive = true
+                    )
+                )
+                assertFalse(
+                    LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
+                        surface = surface,
+                        realtimeLiquidGlassActive = false
+                    )
+                )
+            }
     }
 
     @Test
@@ -147,6 +244,222 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 realtimeEnabled = true,
                 wasVisible = true,
                 nextVisible = false
+            )
+        )
+    }
+
+    @Test
+    fun hiddenDockKeepsRealtimeGlassAttachedSoItCanRestoreWithoutRebind() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldKeepRealtimeGlassAttachedWhenChromeHidden(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldKeepRealtimeGlassAttachedWhenChromeHidden(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldKeepRealtimeGlassAttachedWhenChromeHidden(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeEnabled = false
+            )
+        )
+    }
+
+    @Test
+    fun dockRestoreRefreshesOnlyWhenRealtimeGlassWasNotKeptActive() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnPersistentChromeRestore(
+                realtimeEnabled = true,
+                nextVisible = true,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnPersistentChromeRestore(
+                realtimeEnabled = true,
+                nextVisible = true,
+                realtimeLiquidGlassActive = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnPersistentChromeRestore(
+                realtimeEnabled = true,
+                nextVisible = false,
+                realtimeLiquidGlassActive = false
+            )
+        )
+    }
+
+    @Test
+    fun appearanceApplyRestoresVisibleRealtimeDockGlassAlphaAfterPreferenceToggle() {
+        assertEquals(
+            1f,
+            LauncherRealtimeLiquidGlassPolicy.realtimeDockGlassAlphaForAppearanceApply(
+                realtimeDockEnabled = true,
+                dockVisible = true,
+                dockAlpha = 0f
+            ),
+            0.001f
+        )
+        assertEquals(
+            0f,
+            LauncherRealtimeLiquidGlassPolicy.realtimeDockGlassAlphaForAppearanceApply(
+                realtimeDockEnabled = true,
+                dockVisible = false,
+                dockAlpha = 1f
+            ),
+            0.001f
+        )
+        assertEquals(
+            0.35f,
+            LauncherRealtimeLiquidGlassPolicy.realtimeDockGlassAlphaForAppearanceApply(
+                realtimeDockEnabled = false,
+                dockVisible = true,
+                dockAlpha = 0.35f
+            ),
+            0.001f
+        )
+    }
+
+    @Test
+    fun appearanceApplyRefreshesFolderPreviewRealtimeGlassWhenPreferenceIsEnabled() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewRealtimeOnAppearanceApply(
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewRealtimeOnAppearanceApply(
+                realtimeEnabled = false
+            )
+        )
+    }
+
+    @Test
+    fun realtimeDescendantRefreshRestoresHiddenGlassWhenLiquidGlassIsEnabled() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeDescendant(
+                realtimeEnabled = true,
+                descendantShown = false
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeDescendant(
+                realtimeEnabled = false,
+                descendantShown = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeDescendant(
+                realtimeEnabled = false,
+                descendantShown = false
+            )
+        )
+    }
+
+    @Test
+    fun pageRestoreRefreshesFolderPreviewHostOnlyWhenRealtimePreviewIsEnabled() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewHostOnPageRestore(
+                realtimeEnabled = true,
+                folderPreviewRealtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewHostOnPageRestore(
+                realtimeEnabled = true,
+                folderPreviewRealtimeEnabled = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPreviewHostOnPageRestore(
+                realtimeEnabled = false,
+                folderPreviewRealtimeEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun settledPageDoesNotRefreshRealtimeGlassEveryDraw() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnSettledPage(
+                realtimeEnabled = true,
+                wasScrolling = true,
+                pageChanged = false
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnSettledPage(
+                realtimeEnabled = true,
+                wasScrolling = false,
+                pageChanged = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnSettledPage(
+                realtimeEnabled = true,
+                wasScrolling = false,
+                pageChanged = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnSettledPage(
+                realtimeEnabled = false,
+                wasScrolling = true,
+                pageChanged = true
+            )
+        )
+    }
+
+    @Test
+    fun settledPageDoesNotRebindPersistentChromeGlass() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                realtimeEnabled = true,
+                wasScrolling = true,
+                pageChanged = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
+                realtimeEnabled = true,
+                wasScrolling = true,
+                pageChanged = true
+            )
+        )
+    }
+
+    @Test
+    fun settledPageStillRefreshesPageContentGlass() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeEnabled = true,
+                wasScrolling = true,
+                pageChanged = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                realtimeEnabled = true,
+                wasScrolling = true,
+                pageChanged = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeSurfaceOnSettledPage(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeEnabled = true,
+                wasScrolling = false,
+                pageChanged = false
             )
         )
     }
@@ -227,6 +540,58 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
+    fun explicitRefreshRecreatesFolderRealtimeViewsEvenWhenProfileIsUnchanged() {
+        val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+            radiusDp = 8,
+            darkMode = false
+        )
+
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true,
+                realtimeLiquidGlassActive = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                currentProfile = profile,
+                nextProfile = profile,
+                forceRefresh = true
+            )
+        )
+    }
+
+    @Test
     fun searchPillProfile_usesDirectTestLiquidGlassMainActivityTuning() {
         val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
@@ -246,7 +611,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun allRealtimeProfilesUseTestLiquidGlassMainActivityTuning() {
+    fun realtimeProfilesUseTestLiquidGlassMainActivityTuningExceptFolderPreviewShape() {
         LauncherRealtimeLiquidGlassPolicy.Surface.entries.forEach { surface ->
             val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
                 surface = surface,
@@ -254,7 +619,12 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 darkMode = false
             )
 
-            assertEquals(90f, profile.cornerRadius, 0.001f)
+            val expectedCornerRadius = if (surface == LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW) {
+                24f
+            } else {
+                90f
+            }
+            assertEquals(expectedCornerRadius, profile.cornerRadius, 0.001f)
             assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
             assertEquals(50f, profile.refractionHeightDp, 0.01f)
             assertEquals(120f, profile.refractionOffsetDp, 0.01f)
@@ -264,6 +634,21 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             assertEquals(1f, profile.tintBlue, 0.01f)
             assertEquals(0.008f, profile.tintAlpha, 0.001f)
         }
+    }
+
+    @Test
+    fun folderPreviewProfileUsesIconCornerRadiusInsteadOfPillRadius() {
+        val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+            radiusDp = 8,
+            darkMode = false
+        )
+
+        assertEquals(8f, profile.cornerRadius, 0.001f)
+        assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
+        assertEquals(50f, profile.refractionHeightDp, 0.01f)
+        assertEquals(120f, profile.refractionOffsetDp, 0.01f)
+        assertEquals(0.08f, profile.dispersion, 0.01f)
     }
 
     @Test
@@ -286,6 +671,28 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         assertEquals(dock.refractionOffsetDp, folderPanel.refractionOffsetDp, 0.01f)
         assertEquals(dock.dispersion, folderPanel.dispersion, 0.01f)
         assertEquals(dock.tintAlpha, folderPanel.tintAlpha, 0.001f)
+    }
+
+    @Test
+    fun folderPanelRefreshesRealtimeGlassWhenOpenContainerBecomesVisible() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeOnOpenVisible(
+                realtimeEnabled = true,
+                folderVisible = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeOnOpenVisible(
+                realtimeEnabled = true,
+                folderVisible = false
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeOnOpenVisible(
+                realtimeEnabled = false,
+                folderVisible = true
+            )
+        )
     }
 
     @Test
@@ -313,25 +720,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun visibilityOverlayOnlyDrawsForSmallRealtimeSurfacesThatNeedContrast() {
-        assertFalse(
-            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
-                realtimeLiquidGlassActive = true
-            )
-        )
-        assertFalse(
-            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
-                realtimeLiquidGlassActive = true
-            )
-        )
-        assertTrue(
-            LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
-                realtimeLiquidGlassActive = true
-            )
-        )
+    fun appLibraryFolderUsesOpticalEdgeOverlayOnlyWhenRealtimeGlassIsActive() {
         assertTrue(
             LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
@@ -340,9 +729,19 @@ class LauncherRealtimeLiquidGlassPolicyTest {
         )
         assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 realtimeLiquidGlassActive = false
             )
         )
+        LauncherRealtimeLiquidGlassPolicy.Surface.entries
+            .filterNot { it == LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER }
+            .forEach { surface ->
+                assertFalse(
+                    LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
+                        surface = surface,
+                        realtimeLiquidGlassActive = true
+                    )
+                )
+            }
     }
 }
