@@ -23,6 +23,8 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
     private var glassSurface: AndroidLiquidGlassPolicy.Surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL
     private var glassProfile: AndroidLiquidGlassPolicy.Profile? = null
     private var configuredProfile: AndroidLiquidGlassPolicy.Profile? = null
+    private var boundSource: ViewGroup? = null
+    private var sourceBoundWhileVisible = false
     private var fallbackBackgroundDrawable: Drawable? = null
     private var forceRecreateOnNextUpdate = false
 
@@ -65,7 +67,15 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         glassView?.visibility = GONE
+        sourceBoundWhileVisible = false
         super.onDetachedFromWindow()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (changedView === this && visibility != VISIBLE) {
+            sourceBoundWhileVisible = false
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -95,12 +105,14 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
             )
         ) {
             glassView?.takeIf { it.parent === this }?.visibility = GONE
+            sourceBoundWhileVisible = false
             updateFallbackBackground()
             logGlassState("hide reason=${hideReason(profile, source, sourceContainsTarget)}")
             return
         }
         val forceRecreate = forceRecreateOnNextUpdate
         forceRecreateOnNextUpdate = false
+        val activeBeforeUpdate = isRealtimeLiquidGlassActive()
 
         val glass = if (
             AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
@@ -108,10 +120,12 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
                 currentProfile = configuredProfile,
                 nextProfile = profile,
                 forceRefresh = forceRecreate,
-                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+                realtimeLiquidGlassActive = activeBeforeUpdate
             )
         ) {
             glassView?.takeIf { it.parent === this }?.let { removeView(it) }
+            boundSource = null
+            sourceBoundWhileVisible = false
             createGlass().also { newGlass ->
                 configureGlass(newGlass, profile)
                 glassView = newGlass
@@ -145,12 +159,22 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
             )
         }
 
+        val sourceChanged = boundSource !== source
+        val shouldBindSource = AndroidLiquidGlassPolicy.shouldBindRealtimeViewSource(
+            sourceChanged = sourceChanged,
+            realtimeLiquidGlassActive = activeBeforeUpdate,
+            sourceBoundWhileVisible = sourceBoundWhileVisible
+        )
         glass.visibility = VISIBLE
-        glass.bind(source)
+        if (shouldBindSource) {
+            glass.bind(source)
+            boundSource = source
+            sourceBoundWhileVisible = isShown
+        }
         layoutGlassToBounds(glass)
         glass.invalidate()
         updateFallbackBackground()
-        logGlassState("bind profile=$profile")
+        logGlassState("${if (shouldBindSource) "bind" else "reuse-bind"} profile=$profile")
     }
 
     private fun sourceContainsTarget(source: ViewGroup): Boolean {

@@ -1510,9 +1510,8 @@ open class LauncherActivity : AppCompatActivity(),
 
     private fun setIndicatorChromeVisibility(visible: Boolean) {
         if (!::mIndicator.isInitialized) return
-        val wasVisible = mIndicator.visibility == VISIBLE
         mIndicator.visibility = if (visible) VISIBLE else GONE
-        syncIndicatorChromeTransform(refreshRealtime = visible && !wasVisible)
+        syncIndicatorChromeTransform(refreshRealtime = visible)
     }
 
     private fun syncIndicatorChromeTransform(refreshRealtime: Boolean = false) {
@@ -13110,8 +13109,11 @@ open class LauncherActivity : AppCompatActivity(),
         }
         val badgeSurface = LauncherRealtimeLiquidGlassLayout(this).apply {
             blurCornerRadius = dp(badgeStyle.radiusDp).toFloat()
+            background = roundedRectangle(badgeStyle)
             applyRealtimeLiquidGlass(
-                enabled = shouldUseRealtimeLiquidGlass(),
+                enabled = LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(
+                    realtimeEnabled = shouldUseRealtimeLiquidGlass()
+                ),
                 source = realtimeLiquidGlassSource(),
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.REMOVE_BADGE,
                 profile = LauncherRealtimeLiquidGlassPolicy.profileFor(

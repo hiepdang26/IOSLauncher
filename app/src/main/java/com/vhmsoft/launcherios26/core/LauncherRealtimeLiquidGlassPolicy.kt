@@ -34,6 +34,9 @@ object LauncherRealtimeLiquidGlassPolicy {
         sdkInt: Int = Build.VERSION.SDK_INT
     ): Boolean = liquidGlassEnabled && sdkInt >= QMDEVE_MIN_SDK
 
+    @Suppress("UNUSED_PARAMETER")
+    fun shouldUseRealtimeRemoveBadge(realtimeEnabled: Boolean): Boolean = false
+
     fun shouldDrawFallbackBlur(realtimeLiquidGlassActive: Boolean): Boolean =
         !realtimeLiquidGlassActive
 
@@ -48,7 +51,6 @@ object LauncherRealtimeLiquidGlassPolicy {
     private fun shouldUseTransparentSurfaceBackgroundWhilePendingBind(surface: Surface): Boolean =
         surface == Surface.SEARCH_PILL ||
             surface == Surface.SEARCH_RESULTS ||
-            surface == Surface.PAGE_INDICATOR ||
             surface == Surface.APP_LIBRARY_SEARCH ||
             surface == Surface.APP_LIBRARY_FOLDER
 
@@ -176,6 +178,13 @@ object LauncherRealtimeLiquidGlassPolicy {
     fun shouldBindRealtimeSource(sourceContainsTarget: Boolean): Boolean =
         !sourceContainsTarget
 
+    fun shouldBindRealtimeViewSource(
+        sourceChanged: Boolean,
+        realtimeLiquidGlassActive: Boolean,
+        sourceBoundWhileVisible: Boolean = true
+    ): Boolean =
+        sourceChanged || !realtimeLiquidGlassActive || !sourceBoundWhileVisible
+
     fun shouldLayoutRealtimeViewToHostBounds(
         hostWidth: Int,
         hostHeight: Int,
@@ -202,15 +211,7 @@ object LauncherRealtimeLiquidGlassPolicy {
     fun shouldForceRecreateRealtimeViewOnRefresh(
         surface: Surface?,
         realtimeLiquidGlassActive: Boolean = false
-    ): Boolean =
-        surface == Surface.FOLDER_PREVIEW ||
-            surface == Surface.FOLDER_PANEL ||
-            surface == Surface.PAGE_INDICATOR ||
-            surface == Surface.SEARCH_PILL ||
-            surface == Surface.SEARCH_RESULTS ||
-            surface == Surface.APP_LIBRARY_SEARCH ||
-            surface == Surface.APP_LIBRARY_FOLDER ||
-            surface == Surface.REMOVE_BADGE
+    ): Boolean = false
 
     fun shouldRecreateRealtimeView(
         currentProfile: Profile?,

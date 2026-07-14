@@ -133,13 +133,13 @@ class AndroidLiquidGlassPolicyTest {
     }
 
     @Test
-    fun appLibraryFolderRecreatesRealtimeViewWhenHolderIsRebound() {
+    fun appLibraryFolderKeepsRealtimeViewWhenHolderIsReboundWithSameProfile() {
         val profile = AndroidLiquidGlassPolicy.profileFor(
             surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
             radiusDp = 38
         )
 
-        assertTrue(
+        assertFalse(
             AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 currentProfile = profile,
@@ -148,7 +148,7 @@ class AndroidLiquidGlassPolicyTest {
                 realtimeLiquidGlassActive = true
             )
         )
-        assertTrue(
+        assertFalse(
             AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 currentProfile = profile,
@@ -163,6 +163,38 @@ class AndroidLiquidGlassPolicyTest {
                 currentProfile = profile,
                 nextProfile = profile,
                 forceRefresh = true
+            )
+        )
+    }
+
+    @Test
+    fun realtimeSourceBindRunsOnlyWhenSourceChangesOrGlassIsInactive() {
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = false,
+                realtimeLiquidGlassActive = true,
+                sourceBoundWhileVisible = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = true,
+                realtimeLiquidGlassActive = true,
+                sourceBoundWhileVisible = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = false,
+                realtimeLiquidGlassActive = false,
+                sourceBoundWhileVisible = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = false,
+                realtimeLiquidGlassActive = true,
+                sourceBoundWhileVisible = false
             )
         )
     }
@@ -240,5 +272,11 @@ class AndroidLiquidGlassPolicyTest {
                 )
             )
         }
+    }
+
+    @Test
+    fun removeBadgeUsesStaticMaterialForEditModeSwipePerformance() {
+        assertFalse(AndroidLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(realtimeEnabled = true))
+        assertFalse(AndroidLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(realtimeEnabled = false))
     }
 }

@@ -685,7 +685,9 @@ class LauncherIconAdapter(
                 darkMode = darkMode
             )
             binding.removeBadge.applyLiquidGlass(
-                enabled = liquidGlassEnabled,
+                enabled = AndroidLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(
+                    realtimeEnabled = liquidGlassEnabled
+                ),
                 source = binding.root.androidLiquidGlassSource(),
                 surface = AndroidLiquidGlassPolicy.Surface.REMOVE_BADGE,
                 profile = AndroidLiquidGlassPolicy.profileFor(

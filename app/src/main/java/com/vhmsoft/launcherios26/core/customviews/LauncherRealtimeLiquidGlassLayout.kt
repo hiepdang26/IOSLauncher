@@ -23,6 +23,8 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     private var glassSurface: LauncherRealtimeLiquidGlassPolicy.Surface? = null
     private var glassProfile: LauncherRealtimeLiquidGlassPolicy.Profile? = null
     private var configuredProfile: LauncherRealtimeLiquidGlassPolicy.Profile? = null
+    private var boundSource: ViewGroup? = null
+    private var sourceBoundWhileVisible: Boolean = false
     private var forceRecreateOnNextUpdate: Boolean = false
 
     fun applyRealtimeLiquidGlass(
@@ -59,11 +61,15 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         glassView?.visibility = GONE
+        sourceBoundWhileVisible = false
         super.onDetachedFromWindow()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
+        if (changedView === this && visibility != VISIBLE) {
+            sourceBoundWhileVisible = false
+        }
         if (
             LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
                 realtimeEnabled = realtimeEnabled,
@@ -121,6 +127,7 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
         }
         val forceRecreate = forceRecreateOnNextUpdate
         forceRecreateOnNextUpdate = false
+        val activeBeforeUpdate = isRealtimeLiquidGlassActive()
 
         val glass = if (
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
@@ -128,10 +135,12 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
                 currentProfile = configuredProfile,
                 nextProfile = profile,
                 forceRefresh = forceRecreate,
-                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+                realtimeLiquidGlassActive = activeBeforeUpdate
             )
         ) {
             glassView?.takeIf { it.parent === this }?.let { removeView(it) }
+            boundSource = null
+            sourceBoundWhileVisible = false
             createGlass().also { newGlass ->
                 configureGlass(newGlass, profile)
                 glassView = newGlass
@@ -166,11 +175,21 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
             )
         }
 
+        val sourceChanged = boundSource !== source
+        val shouldBindSource = LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeViewSource(
+            sourceChanged = sourceChanged,
+            realtimeLiquidGlassActive = activeBeforeUpdate,
+            sourceBoundWhileVisible = sourceBoundWhileVisible
+        )
         glass.visibility = VISIBLE
-        glass.bind(source)
+        if (shouldBindSource) {
+            glass.bind(source)
+            boundSource = source
+            sourceBoundWhileVisible = isShown
+        }
         layoutDecorationToBounds(glass)
         glass.invalidate()
-        logGlassState("bind profile=$profile")
+        logGlassState("${if (shouldBindSource) "bind" else "reuse-bind"} profile=$profile")
         invalidate()
     }
 
@@ -188,6 +207,7 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
 
     private fun hideGlass() {
         glassView?.takeIf { it.parent === this }?.visibility = GONE
+        sourceBoundWhileVisible = false
         invalidate()
     }
 

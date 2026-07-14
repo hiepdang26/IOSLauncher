@@ -58,7 +58,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun realtimeGeneratedSurfacesUseTransparentBackgroundWhileWaitingForFirstBind() {
+    fun realtimeGeneratedSurfacesExceptIndicatorUseTransparentBackgroundWhileWaitingForFirstBind() {
         assertTrue(
             LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
@@ -80,7 +80,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 realtimeEnabled = true
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
                 realtimeLiquidGlassActive = false,
@@ -186,8 +186,8 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun pageIndicatorClearsForegroundBackgroundWhenRealtimeGlassIsEnabledOrActive() {
-        assertTrue(
+    fun pageIndicatorKeepsForegroundBackgroundUntilRealtimeGlassIsActive() {
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldClearForegroundBackgroundForExternalGlass(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
                 realtimeLiquidGlassActive = false,
@@ -678,14 +678,14 @@ class LauncherRealtimeLiquidGlassPolicyTest {
     }
 
     @Test
-    fun explicitRefreshRecreatesVolatileRealtimeViewsEvenWhenProfileIsUnchanged() {
+    fun explicitRefreshKeepsStableRealtimeViewsWhenProfileIsUnchanged() {
         val profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
             radiusDp = 8,
             darkMode = false
         )
 
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
                 currentProfile = profile,
@@ -693,7 +693,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 forceRefresh = true
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PANEL,
                 currentProfile = profile,
@@ -701,7 +701,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 forceRefresh = true
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 currentProfile = profile,
@@ -710,7 +710,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 realtimeLiquidGlassActive = true
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 currentProfile = profile,
@@ -719,7 +719,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 realtimeLiquidGlassActive = false
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
                 currentProfile = profile,
@@ -728,7 +728,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 realtimeLiquidGlassActive = true
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
                 currentProfile = profile,
@@ -737,7 +737,7 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 realtimeLiquidGlassActive = true
             )
         )
-        assertTrue(
+        assertFalse(
             LauncherRealtimeLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_RESULTS,
                 currentProfile = profile,
@@ -752,6 +752,38 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                 currentProfile = profile,
                 nextProfile = profile,
                 forceRefresh = true
+            )
+        )
+    }
+
+    @Test
+    fun realtimeSourceBindRunsOnlyWhenSourceChangesOrGlassIsInactive() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = false,
+                realtimeLiquidGlassActive = true,
+                sourceBoundWhileVisible = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = true,
+                realtimeLiquidGlassActive = true,
+                sourceBoundWhileVisible = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = false,
+                realtimeLiquidGlassActive = false,
+                sourceBoundWhileVisible = true
+            )
+        )
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldBindRealtimeViewSource(
+                sourceChanged = false,
+                realtimeLiquidGlassActive = true,
+                sourceBoundWhileVisible = false
             )
         )
     }
@@ -911,5 +943,19 @@ class LauncherRealtimeLiquidGlassPolicyTest {
                     )
                 )
             }
+    }
+
+    @Test
+    fun removeBadgeUsesStaticMaterialForEditModeSwipePerformance() {
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(
+                realtimeEnabled = false
+            )
+        )
     }
 }

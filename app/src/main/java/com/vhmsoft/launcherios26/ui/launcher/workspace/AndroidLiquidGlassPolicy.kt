@@ -35,6 +35,9 @@ object AndroidLiquidGlassPolicy {
         sdkInt: Int = Build.VERSION.SDK_INT
     ): Boolean = liquidGlassEnabled && sdkInt >= QMDEVE_MIN_SDK
 
+    @Suppress("UNUSED_PARAMETER")
+    fun shouldUseRealtimeRemoveBadge(realtimeEnabled: Boolean): Boolean = false
+
     fun shouldDrawFallbackBackground(
         surface: Surface,
         realtimeLiquidGlassActive: Boolean,
@@ -55,6 +58,13 @@ object AndroidLiquidGlassPolicy {
     fun shouldBindRealtimeSource(sourceContainsTarget: Boolean): Boolean =
         !sourceContainsTarget
 
+    fun shouldBindRealtimeViewSource(
+        sourceChanged: Boolean,
+        realtimeLiquidGlassActive: Boolean,
+        sourceBoundWhileVisible: Boolean = true
+    ): Boolean =
+        sourceChanged || !realtimeLiquidGlassActive || !sourceBoundWhileVisible
+
     fun shouldLayoutRealtimeViewToHostBounds(
         hostWidth: Int,
         hostHeight: Int,
@@ -70,8 +80,7 @@ object AndroidLiquidGlassPolicy {
     fun shouldForceRecreateRealtimeViewOnApply(
         surface: Surface?,
         realtimeLiquidGlassActive: Boolean = false
-    ): Boolean =
-        surface == Surface.APP_LIBRARY_FOLDER || surface == Surface.APP_LIBRARY_SEARCH
+    ): Boolean = false
 
     fun shouldRecreateRealtimeView(
         currentProfile: Profile?,
