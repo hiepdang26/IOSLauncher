@@ -54,18 +54,20 @@ object LauncherLiquidGlassStylePolicy {
     fun folderPreview(
         enabled: Boolean,
         darkMode: Boolean = false,
-        liquidGlass: Boolean = false
+        liquidGlass: Boolean = false,
+        iconSizeDp: Int = LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP
     ): BackgroundStyle {
+        val radiusDp = HomeIconRenderPolicy.iconCornerRadiusDp(iconSizeDp)
         if (darkMode) {
             return BackgroundStyle(
                 color = 0xA0182630.toInt(),
-                radiusDp = 8
+                radiusDp = radiusDp
             )
         }
         if (enabled) {
-            return enabledLightFrameMaterial(radiusDp = 8)
+            return enabledLightFrameMaterial(radiusDp = radiusDp)
         }
-        return disabledLightFrameMaterial(radiusDp = 8)
+        return disabledLightFrameMaterial(radiusDp = radiusDp)
     }
 
     fun folderPanel(

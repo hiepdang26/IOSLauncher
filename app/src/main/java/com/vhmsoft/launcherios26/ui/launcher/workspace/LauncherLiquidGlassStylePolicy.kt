@@ -1,5 +1,8 @@
 package com.vhmsoft.launcherios26.ui.launcher.workspace
 
+import com.vhmsoft.launcherios26.core.HomeIconRenderPolicy
+import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
+
 object LauncherLiquidGlassStylePolicy {
     data class BackgroundStyle(
         val color: Int,
@@ -37,10 +40,14 @@ object LauncherLiquidGlassStylePolicy {
         )
     }
 
-    fun folderPreview(enabled: Boolean, darkMode: Boolean): BackgroundStyle {
+    fun folderPreview(
+        enabled: Boolean,
+        darkMode: Boolean,
+        iconSizeDp: Int = LauncherHomeIconSizePolicy.DEFAULT_HOME_ICON_SIZE_DP
+    ): BackgroundStyle {
         return BackgroundStyle(
             color = if (darkMode) 0x5A42484B else 0x705F6663,
-            radiusDp = 8
+            radiusDp = HomeIconRenderPolicy.iconCornerRadiusDp(iconSizeDp)
         )
     }
 

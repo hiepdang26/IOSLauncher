@@ -41,6 +41,18 @@ class HomeIconRenderPolicyTest {
     }
 
     @Test
+    fun iconCornerRadius_scalesWithHomeIconSize() {
+        assertEquals(13, HomeIconRenderPolicy.iconCornerRadiusDp(58))
+        assertEquals(15, HomeIconRenderPolicy.iconCornerRadiusDp(70))
+    }
+
+    @Test
+    fun iconCornerRadiusPx_scalesWithRenderedIconSize() {
+        assertEquals(33f, HomeIconRenderPolicy.iconCornerRadiusPx(149), 0.001f)
+        assertEquals(45f, HomeIconRenderPolicy.iconCornerRadiusPx(204), 0.001f)
+    }
+
+    @Test
     fun appIconMask_isResizedWhenIconViewUsesADifferentSize() {
         assertTrue(
             HomeIconRenderPolicy.shouldResizeClipMaskToViewBounds(

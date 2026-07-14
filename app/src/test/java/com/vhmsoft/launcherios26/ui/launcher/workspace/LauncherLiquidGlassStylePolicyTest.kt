@@ -24,8 +24,25 @@ class LauncherLiquidGlassStylePolicyTest {
 
         assertEquals(disabled, enabled)
         assertEquals(0x705F6663, enabled.color)
-        assertEquals(8, enabled.radiusDp)
+        assertEquals(13, enabled.radiusDp)
         assertNull(enabled.strokeColor)
+    }
+
+    @Test
+    fun folderPreviewRadiusTracksAppIconCornerRadius() {
+        val compact = LauncherLiquidGlassStylePolicy.folderPreview(
+            enabled = false,
+            darkMode = false,
+            iconSizeDp = 46
+        )
+        val large = LauncherLiquidGlassStylePolicy.folderPreview(
+            enabled = false,
+            darkMode = false,
+            iconSizeDp = 70
+        )
+
+        assertEquals(10, compact.radiusDp)
+        assertEquals(15, large.radiusDp)
     }
 
     @Test

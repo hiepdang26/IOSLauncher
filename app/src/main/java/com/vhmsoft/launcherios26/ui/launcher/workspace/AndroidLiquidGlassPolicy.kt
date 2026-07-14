@@ -37,9 +37,14 @@ object AndroidLiquidGlassPolicy {
 
     fun shouldDrawFallbackBackground(
         surface: Surface,
-        realtimeLiquidGlassActive: Boolean
+        realtimeLiquidGlassActive: Boolean,
+        realtimeEnabled: Boolean = false
     ): Boolean =
-        !realtimeLiquidGlassActive
+        !realtimeLiquidGlassActive &&
+            !(
+                realtimeEnabled &&
+                    (surface == Surface.APP_LIBRARY_FOLDER || surface == Surface.APP_LIBRARY_SEARCH)
+                )
 
     fun shouldUseTransparentContentBackground(
         surface: Surface,
@@ -50,6 +55,13 @@ object AndroidLiquidGlassPolicy {
     fun shouldBindRealtimeSource(sourceContainsTarget: Boolean): Boolean =
         !sourceContainsTarget
 
+    fun shouldLayoutRealtimeViewToHostBounds(
+        hostWidth: Int,
+        hostHeight: Int,
+        realtimeLiquidGlassActive: Boolean
+    ): Boolean =
+        realtimeLiquidGlassActive && hostWidth > 0 && hostHeight > 0
+
     fun shouldDrawVisibilityOverlay(
         surface: Surface,
         realtimeLiquidGlassActive: Boolean
@@ -59,7 +71,7 @@ object AndroidLiquidGlassPolicy {
         surface: Surface?,
         realtimeLiquidGlassActive: Boolean = false
     ): Boolean =
-        surface == Surface.APP_LIBRARY_FOLDER && !realtimeLiquidGlassActive
+        surface == Surface.APP_LIBRARY_FOLDER || surface == Surface.APP_LIBRARY_SEARCH
 
     fun shouldRecreateRealtimeView(
         currentProfile: Profile?,

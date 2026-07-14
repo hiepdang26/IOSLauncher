@@ -2,7 +2,6 @@ package com.vhmsoft.launcherios26.ui.launcher.workspace
 
 import android.content.Context
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
@@ -19,7 +18,6 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
 ) : FrameLayout(context, attrs) {
 
     private var glassView: LiquidGlassView? = null
-    private var visibilityOverlay: View? = null
     private var realtimeEnabled = false
     private var glassSource: ViewGroup? = null
     private var glassSurface: AndroidLiquidGlassPolicy.Surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL
@@ -76,12 +74,12 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
         glass?.visibility = GONE
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         glassVisibility?.let { glass?.visibility = it }
-        if (glass?.parent === this && glass.visibility != GONE) {
-            glass.measure(
-                MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
-            )
-        }
+        measureGlassToBounds(glass)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        layoutGlassToBounds(glassView)
     }
 
     private fun updateGlass() {
@@ -97,7 +95,6 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
             )
         ) {
             glassView?.takeIf { it.parent === this }?.visibility = GONE
-            visibilityOverlay?.takeIf { it.parent === this }?.visibility = GONE
             updateFallbackBackground()
             logGlassState("hide reason=${hideReason(profile, source, sourceContainsTarget)}")
             return
@@ -150,9 +147,9 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
 
         glass.visibility = VISIBLE
         glass.bind(source)
+        layoutGlassToBounds(glass)
         glass.invalidate()
         updateFallbackBackground()
-        updateVisibilityOverlay(profile)
         logGlassState("bind profile=$profile")
     }
 
@@ -169,7 +166,13 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
         val realtimeActive = isRealtimeLiquidGlassActive()
         background = if (AndroidLiquidGlassPolicy.shouldUseTransparentContentBackground(glassSurface, realtimeActive)) {
             null
-        } else if (AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(glassSurface, realtimeActive)) {
+        } else if (
+            AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                surface = glassSurface,
+                realtimeLiquidGlassActive = realtimeActive,
+                realtimeEnabled = realtimeEnabled
+            )
+        ) {
             fallbackBackgroundDrawable
         } else {
             null
@@ -203,71 +206,29 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
         glass.setTintAlpha(profile.tintAlpha)
     }
 
-    private fun updateVisibilityOverlay(profile: AndroidLiquidGlassPolicy.Profile) {
+    private fun measureGlassToBounds(view: View?) {
+        if (view?.parent !== this || view.visibility == GONE) return
+        view.measure(
+            MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+        )
+    }
+
+    private fun layoutGlassToBounds(view: View?) {
         if (
-            !AndroidLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = glassSurface,
+            view?.parent !== this ||
+            view.visibility == GONE ||
+            !AndroidLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
+                hostWidth = width,
+                hostHeight = height,
                 realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
             )
         ) {
-            hideVisibilityOverlay()
             return
         }
-
-        val overlay = visibilityOverlay ?: View(context).apply {
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            isEnabled = false
-            isClickable = false
-            isFocusable = false
-        }.also { visibilityOverlay = it }
-
-        overlay.background = visibilityOverlayDrawable(profile)
-        if (overlay.parent !== this) {
-            addView(
-                overlay,
-                visibilityOverlayIndex(),
-                LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-        } else if (indexOfChild(overlay) != visibilityOverlayIndex()) {
-            removeView(overlay)
-            addView(
-                overlay,
-                visibilityOverlayIndex(),
-                LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-        }
-        overlay.visibility = VISIBLE
+        measureGlassToBounds(view)
+        view.layout(0, 0, width, height)
     }
-
-    private fun hideVisibilityOverlay() {
-        visibilityOverlay?.takeIf { it.parent === this }?.visibility = GONE
-    }
-
-    private fun visibilityOverlayIndex(): Int =
-        if (glassView?.parent === this) {
-            (indexOfChild(glassView) + 1).coerceAtLeast(1)
-        } else {
-            0
-        }
-
-    private fun visibilityOverlayDrawable(profile: AndroidLiquidGlassPolicy.Profile): GradientDrawable =
-        GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(
-                0x22FFFFFF,
-                0x0CFFFFFF,
-                0x1200273C
-            )
-        ).apply {
-            cornerRadius = profile.cornerRadius
-            setStroke(dp(1), 0x2AFFFFFF)
-        }
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density + 0.5f).toInt()

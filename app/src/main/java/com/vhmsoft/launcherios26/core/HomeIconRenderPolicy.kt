@@ -1,14 +1,23 @@
 package com.vhmsoft.launcherios26.core
 
+import kotlin.math.roundToInt
+
 object HomeIconRenderPolicy {
     const val wrapLegacyFallbackIcons = true
     const val legacyFallbackIconForegroundScale = 1.14f
     const val homeScreenIconContentScale = 1.18f
+    const val iconCornerRadiusFraction = 0.22f
     const val cacheStyleVersion = "uniform_icon_v3"
 
     fun shouldClipIconDrawable(iconContentScale: Float): Boolean = true
 
     fun shouldScaleIconDrawable(iconContentScale: Float): Boolean = iconContentScale != 1f
+
+    fun iconCornerRadiusDp(iconSizeDp: Int): Int =
+        (iconSizeDp.coerceAtLeast(1) * iconCornerRadiusFraction).roundToInt()
+
+    fun iconCornerRadiusPx(iconSizePx: Int): Float =
+        (iconSizePx.coerceAtLeast(1) * iconCornerRadiusFraction).roundToInt().toFloat()
 
     fun shouldResizeClipMaskToViewBounds(
         viewWidth: Int,

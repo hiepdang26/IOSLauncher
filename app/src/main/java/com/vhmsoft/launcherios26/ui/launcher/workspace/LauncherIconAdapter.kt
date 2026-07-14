@@ -11,6 +11,7 @@ import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
 import com.vhmsoft.launcherios26.R
+import com.vhmsoft.launcherios26.core.HomeIconRenderPolicy
 import com.vhmsoft.launcherios26.databinding.ItemLauncherIconBinding
 import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
 import java.util.Collections
@@ -622,7 +623,7 @@ class LauncherIconAdapter(
                 surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
                 profile = AndroidLiquidGlassPolicy.profileFor(
                     surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-                    radiusDp = style.radiusDp
+                    radiusDp = folderPreviewCornerRadiusPx().toInt()
                 )
             )
             binding.iconPlate.applyFallbackBackground(
@@ -652,8 +653,17 @@ class LauncherIconAdapter(
         private fun folderPreviewStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle {
             return LauncherLiquidGlassStylePolicy.folderPreview(
                 enabled = false,
-                darkMode = darkMode
+                darkMode = darkMode,
+                iconSizeDp = iconSizeDp
             )
+        }
+
+        private fun folderPreviewCornerRadiusPx(): Float {
+            val sizePx = binding.iconPlate.width
+                .takeIf { it > 0 }
+                ?: binding.iconPlate.layoutParams.width.takeIf { it > 0 }
+                ?: dp(iconSizeDp)
+            return HomeIconRenderPolicy.iconCornerRadiusPx(sizePx)
         }
 
         private fun folderPreviewBackground(

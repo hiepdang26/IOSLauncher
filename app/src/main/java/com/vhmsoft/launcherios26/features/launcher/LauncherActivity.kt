@@ -433,6 +433,9 @@ open class LauncherActivity : AppCompatActivity(),
     private var openWeatherDetailAfterRefresh = false
     private var indicatorMode = IndicatorMode.SEARCH
     private var indicatorWheelView: LauncherPageIndicatorWheelView? = null
+    private var lastAppliedIndicatorRealtimeMode: IndicatorMode? = null
+    private var lastAppliedIndicatorRealtimeWidthPx = -1
+    private var lastAppliedIndicatorRealtimeHeightPx = -1
     private lateinit var mFolderWindowContainer: ViewGroup
     private lateinit var mFolderAppsViewPager: ViewPager
     private lateinit var mFolderTitleInput: BlissInput
@@ -1127,7 +1130,7 @@ open class LauncherActivity : AppCompatActivity(),
         refreshAppLibraryPage()
     }
 
-    private fun applySwipeSearchChromeAppearance() {
+    private fun applySwipeSearchChromeAppearance(forceRealtimeRefresh: Boolean = false) {
         if (!::swipeSearchContainer.isInitialized) return
 
         val searchBinding = requireSwipeSearchContentBinding()
@@ -1148,6 +1151,9 @@ open class LauncherActivity : AppCompatActivity(),
         } else {
             roundedRectangle(searchPillStyle)
         }
+        if (forceRealtimeRefresh) {
+            searchGlassContainer?.refreshRealtimeLiquidGlass()
+        }
         val suggestionsPanel = searchBinding.suggestionRecyclerView.parent as? View
         val suggestionsStyle = LauncherLiquidGlassStylePolicy.searchResultsPanel(
             enabled = false,
@@ -1165,6 +1171,21 @@ open class LauncherActivity : AppCompatActivity(),
         } else {
             roundedRectangle(suggestionsStyle)
         }
+        if (forceRealtimeRefresh) {
+            suggestionsGlassContainer?.refreshRealtimeLiquidGlass()
+        }
+    }
+
+    private fun refreshSwipeSearchRealtimeLiquidGlassOnOpen() {
+        if (
+            !LauncherRealtimeLiquidGlassPolicy.shouldRefreshSwipeSearchRealtimeOnOpen(
+                realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                searchVisible = swipeSearchContainer.visibility == VISIBLE && swipeSearchContainer.isShown
+            )
+        ) {
+            return
+        }
+        applySwipeSearchChromeAppearance(forceRealtimeRefresh = true)
     }
 
     private fun applyFolderLiquidGlassAppearance(bindRealtime: Boolean) {
@@ -1404,16 +1425,29 @@ open class LauncherActivity : AppCompatActivity(),
             null
         }
 
-    private fun applyIndicatorRealtimeLiquidGlass() {
+    private fun applyIndicatorRealtimeLiquidGlass(forceRefresh: Boolean = false) {
         if (!::mIndicator.isInitialized) return
         val indicatorStyle = indicatorBackgroundStyle()
         val indicatorGlass = indicatorGlassBackground()
         val useRealtimeIndicator = shouldUseRealtimeIndicatorGlass()
+        val indicatorWidthPx = mIndicator.layoutParams?.width ?: mIndicator.width
+        val indicatorHeightPx = mIndicator.layoutParams?.height ?: mIndicator.height
+        val indicatorRealtimeStateChanged =
+            lastAppliedIndicatorRealtimeMode != null &&
+                (lastAppliedIndicatorRealtimeMode != indicatorMode ||
+                    lastAppliedIndicatorRealtimeWidthPx != indicatorWidthPx ||
+                    lastAppliedIndicatorRealtimeHeightPx != indicatorHeightPx)
 
         indicatorGlass?.let { glass ->
             syncIndicatorRealtimeGlassLayout(glass)
             glass.blurCornerRadius = dp(indicatorStyle.radiusDp).toFloat()
-            glass.visibility = if (mIndicator.visibility == VISIBLE && useRealtimeIndicator) VISIBLE else GONE
+            val indicatorVisible = mIndicator.visibility == VISIBLE
+            glass.alpha = LauncherRealtimeLiquidGlassPolicy.realtimeIndicatorGlassAlphaForChromeSync(
+                realtimeIndicatorEnabled = useRealtimeIndicator,
+                indicatorVisible = indicatorVisible,
+                indicatorAlpha = mIndicator.alpha
+            )
+            glass.visibility = if (indicatorVisible && useRealtimeIndicator) VISIBLE else GONE
             glass.applyRealtimeLiquidGlass(
                 enabled = useRealtimeIndicator,
                 source = realtimeLiquidGlassSource(),
@@ -1424,6 +1458,22 @@ open class LauncherActivity : AppCompatActivity(),
                     darkMode = darkModeEnabled
                 )
             )
+            if (
+                useRealtimeIndicator &&
+                (forceRefresh || indicatorRealtimeStateChanged) &&
+                glass.isRealtimeLiquidGlassActive()
+            ) {
+                glass.refreshRealtimeLiquidGlass()
+            }
+        }
+        if (useRealtimeIndicator) {
+            lastAppliedIndicatorRealtimeMode = indicatorMode
+            lastAppliedIndicatorRealtimeWidthPx = indicatorWidthPx
+            lastAppliedIndicatorRealtimeHeightPx = indicatorHeightPx
+        } else {
+            lastAppliedIndicatorRealtimeMode = null
+            lastAppliedIndicatorRealtimeWidthPx = -1
+            lastAppliedIndicatorRealtimeHeightPx = -1
         }
 
         updateIndicatorBackgroundForRealtimeState()
@@ -1433,16 +1483,14 @@ open class LauncherActivity : AppCompatActivity(),
     private fun updateIndicatorBackgroundForRealtimeState() {
         val indicatorStyle = indicatorBackgroundStyle()
         val indicatorRealtimeActive = indicatorGlassBackground()?.isRealtimeLiquidGlassActive() == true
-        mIndicator.background = if (
-            LauncherRealtimeLiquidGlassPolicy.shouldUseTransparentSurfaceBackground(
+        mIndicator.setFallbackBackground(roundedRectangle(indicatorStyle))
+        mIndicator.setExternalRealtimeLiquidGlassEnabled(
+            LauncherRealtimeLiquidGlassPolicy.shouldClearForegroundBackgroundForExternalGlass(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.PAGE_INDICATOR,
-                realtimeLiquidGlassActive = indicatorRealtimeActive
+                realtimeLiquidGlassActive = indicatorRealtimeActive,
+                realtimeEnabled = shouldUseRealtimeIndicatorGlass()
             )
-        ) {
-            ColorDrawable(Color.TRANSPARENT)
-        } else {
-            roundedRectangle(indicatorStyle)
-        }
+        )
     }
 
     private fun syncIndicatorRealtimeGlassLayout(indicatorGlass: LauncherRealtimeLiquidGlassLayout) {
@@ -1470,9 +1518,15 @@ open class LauncherActivity : AppCompatActivity(),
     private fun syncIndicatorChromeTransform(refreshRealtime: Boolean = false) {
         if (!::mIndicator.isInitialized) return
         indicatorGlassBackground()?.let { indicatorGlass ->
+            val useRealtimeIndicator = shouldUseRealtimeIndicatorGlass()
+            val indicatorVisible = mIndicator.visibility == VISIBLE
+            indicatorGlass.alpha = LauncherRealtimeLiquidGlassPolicy.realtimeIndicatorGlassAlphaForChromeSync(
+                realtimeIndicatorEnabled = useRealtimeIndicator,
+                indicatorVisible = indicatorVisible,
+                indicatorAlpha = mIndicator.alpha
+            )
             indicatorGlass.visibility =
-                if (mIndicator.visibility == VISIBLE && shouldUseRealtimeIndicatorGlass()) VISIBLE else GONE
-            indicatorGlass.alpha = mIndicator.alpha
+                if (indicatorVisible && useRealtimeIndicator) VISIBLE else GONE
             indicatorGlass.translationX = mIndicator.translationX
             indicatorGlass.translationY = mIndicator.translationY
             indicatorGlass.scaleX = mIndicator.scaleX
@@ -9512,7 +9566,7 @@ open class LauncherActivity : AppCompatActivity(),
         }
         return glassContainer(
             style = searchStyle,
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
             content = content
         ).apply {
             isClickable = true
@@ -10106,7 +10160,7 @@ open class LauncherActivity : AppCompatActivity(),
         }
         return glassContainer(
             style = fieldStyle,
-            surface = LauncherRealtimeLiquidGlassPolicy.Surface.SEARCH_PILL,
+            surface = LauncherRealtimeLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
             content = content
         )
     }
@@ -10241,6 +10295,7 @@ open class LauncherActivity : AppCompatActivity(),
             (overlay.parent as? ViewGroup)?.removeView(overlay)
             appLibraryPage?.visibility = AppLibrarySearchVisibilityPolicy.pageVisibility(searchVisible = false)
             mHorizontalPager.visibility = AppLibrarySearchVisibilityPolicy.pageVisibility(searchVisible = false)
+            refreshAppLibraryRealtimeAfterSearchDismiss()
             Unit
         }
         if (animated) {
@@ -10251,6 +10306,29 @@ open class LauncherActivity : AppCompatActivity(),
                 .start()
         } else {
             removeOverlay()
+        }
+    }
+
+    private fun refreshAppLibraryRealtimeAfterSearchDismiss() {
+        val page = appLibraryPage ?: return
+        if (
+            !LauncherRealtimeLiquidGlassPolicy.shouldRefreshAppLibraryRealtimeOnSearchDismiss(
+                realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                pageVisible = page.visibility == VISIBLE && mHorizontalPager.visibility == VISIBLE
+            )
+        ) {
+            return
+        }
+        refreshRealtimeLiquidGlassDescendants(page, realtimeEnabled = true)
+        page.post {
+            if (
+                LauncherRealtimeLiquidGlassPolicy.shouldRefreshAppLibraryRealtimeOnSearchDismiss(
+                    realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                    pageVisible = page.visibility == VISIBLE && mHorizontalPager.visibility == VISIBLE
+                )
+            ) {
+                refreshRealtimeLiquidGlassDescendants(page, realtimeEnabled = true)
+            }
         }
     }
 
@@ -13035,9 +13113,9 @@ open class LauncherActivity : AppCompatActivity(),
             applyRealtimeLiquidGlass(
                 enabled = shouldUseRealtimeLiquidGlass(),
                 source = realtimeLiquidGlassSource(),
-                surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                surface = LauncherRealtimeLiquidGlassPolicy.Surface.REMOVE_BADGE,
                 profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
-                    surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
+                    surface = LauncherRealtimeLiquidGlassPolicy.Surface.REMOVE_BADGE,
                     radiusDp = badgeStyle.radiusDp,
                     darkMode = darkModeEnabled
                 )
@@ -15120,17 +15198,21 @@ open class LauncherActivity : AppCompatActivity(),
             )
         }
 
-    private fun applyIndicatorBackgroundForCurrentMode() {
-        applyIndicatorRealtimeLiquidGlass()
+    private fun applyIndicatorBackgroundForCurrentMode(forceRealtimeRefresh: Boolean = false) {
+        applyIndicatorRealtimeLiquidGlass(forceRefresh = forceRealtimeRefresh)
     }
 
-    private fun updateIndicatorFrame(widthDp: Int, heightDp: Int) {
+    private fun updateIndicatorFrame(widthDp: Int, heightDp: Int): Boolean {
         val layoutParams = mIndicator.layoutParams
-        layoutParams.width = dp(widthDp)
-        layoutParams.height = dp(heightDp)
+        val widthPx = dp(widthDp)
+        val heightPx = dp(heightDp)
+        val frameChanged = layoutParams.width != widthPx || layoutParams.height != heightPx
+        layoutParams.width = widthPx
+        layoutParams.height = heightPx
         mIndicator.layoutParams = layoutParams
         indicatorGlassBackground()?.let(::syncIndicatorRealtimeGlassLayout)
         syncIndicatorChromeTransform()
+        return frameChanged
     }
 
     private fun openSearchFromIndicator() {
@@ -15150,11 +15232,11 @@ open class LauncherActivity : AppCompatActivity(),
     }
 
     private fun ensureDotsIndicatorFrame() {
-        updateIndicatorFrame(
+        val frameChanged = updateIndicatorFrame(
             LauncherPageIndicatorWindowPolicy.frameWidthDp(homeIndicatorPageCount()),
             PAGE_INDICATOR_SEARCH_HEIGHT_DP
         )
-        applyIndicatorBackgroundForCurrentMode()
+        applyIndicatorBackgroundForCurrentMode(forceRealtimeRefresh = frameChanged)
         mIndicator.setPadding(dp(PAGE_INDICATOR_DOT_PADDING_DP), 0, dp(PAGE_INDICATOR_DOT_PADDING_DP), 0)
         mIndicator.layoutTransition = null
     }
@@ -15180,8 +15262,8 @@ open class LauncherActivity : AppCompatActivity(),
 
     private fun ensureSearchIndicatorFrame() {
         val spec = LauncherIndicatorSearchPillPolicy.visualSpec()
-        updateIndicatorFrame(spec.widthDp, spec.heightDp)
-        applyIndicatorBackgroundForCurrentMode()
+        val frameChanged = updateIndicatorFrame(spec.widthDp, spec.heightDp)
+        applyIndicatorBackgroundForCurrentMode(forceRealtimeRefresh = frameChanged)
         mIndicator.setPadding(0, 0, 0, 0)
         indicatorWheelView = null
     }
@@ -15773,6 +15855,7 @@ open class LauncherActivity : AppCompatActivity(),
                 mDock.alpha = backgroundContentAlpha
                 setDockChromeVisibility(false)
                 syncDockChromeTransform()
+                refreshSwipeSearchRealtimeLiquidGlassOnOpen()
 
                 val searchBinding = requireSwipeSearchContentBinding()
                 val searchEditText = searchBinding.searchInput

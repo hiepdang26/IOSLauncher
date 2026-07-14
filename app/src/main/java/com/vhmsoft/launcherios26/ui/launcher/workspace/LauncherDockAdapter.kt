@@ -10,6 +10,7 @@ import android.view.animation.LinearInterpolator
 import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import androidx.recyclerview.widget.RecyclerView
+import com.vhmsoft.launcherios26.core.HomeIconRenderPolicy
 import com.vhmsoft.launcherios26.databinding.ItemLauncherDockIconBinding
 import com.vhmsoft.launcherios26.ui.launcher.LauncherHomeIconSizePolicy
 import java.util.Collections
@@ -318,8 +319,8 @@ class LauncherDockAdapter(
                     is LauncherHomeItemUiModel.Placeholder -> Unit
                 }
             }
-            bindIconArtwork(item)
             applyIconSize()
+            bindIconArtwork(item)
             applyDropTargetState(item)
             applyEditAnimation()
             applyFolderAbsorbAnimation(item)
@@ -460,7 +461,7 @@ class LauncherDockAdapter(
                 surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
                 profile = AndroidLiquidGlassPolicy.profileFor(
                     surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-                    radiusDp = style.radiusDp
+                    radiusDp = folderPreviewCornerRadiusPx().toInt()
                 )
             )
             binding.iconPlate.applyFallbackBackground(
@@ -490,8 +491,17 @@ class LauncherDockAdapter(
         private fun folderPreviewStyle(): LauncherLiquidGlassStylePolicy.BackgroundStyle {
             return LauncherLiquidGlassStylePolicy.folderPreview(
                 enabled = false,
-                darkMode = darkMode
+                darkMode = darkMode,
+                iconSizeDp = iconSizeDp
             )
+        }
+
+        private fun folderPreviewCornerRadiusPx(): Float {
+            val sizePx = binding.iconPlate.width
+                .takeIf { it > 0 }
+                ?: binding.iconPlate.layoutParams.width.takeIf { it > 0 }
+                ?: dp(iconSizeDp)
+            return HomeIconRenderPolicy.iconCornerRadiusPx(sizePx)
         }
 
         private fun folderPreviewBackground(

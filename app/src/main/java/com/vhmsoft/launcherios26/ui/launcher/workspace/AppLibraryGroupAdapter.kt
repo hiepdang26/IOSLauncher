@@ -106,7 +106,7 @@ class AppLibraryGroupAdapter(
 
         private fun folderStyle(empty: Boolean): LauncherLiquidGlassStylePolicy.BackgroundStyle {
             return LauncherLiquidGlassStylePolicy.appLibraryFolder(
-                enabled = false,
+                enabled = liquidGlassEnabled,
                 darkMode = darkMode,
                 empty = empty
             )

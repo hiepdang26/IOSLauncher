@@ -12,7 +12,9 @@ object LauncherRealtimeLiquidGlassPolicy {
         PAGE_INDICATOR,
         SEARCH_PILL,
         SEARCH_RESULTS,
-        APP_LIBRARY_FOLDER
+        APP_LIBRARY_SEARCH,
+        APP_LIBRARY_FOLDER,
+        REMOVE_BADGE
     }
 
     data class Profile(
@@ -46,6 +48,8 @@ object LauncherRealtimeLiquidGlassPolicy {
     private fun shouldUseTransparentSurfaceBackgroundWhilePendingBind(surface: Surface): Boolean =
         surface == Surface.SEARCH_PILL ||
             surface == Surface.SEARCH_RESULTS ||
+            surface == Surface.PAGE_INDICATOR ||
+            surface == Surface.APP_LIBRARY_SEARCH ||
             surface == Surface.APP_LIBRARY_FOLDER
 
     fun shouldUseStableMaterialBehindRealtimeGlass(
@@ -62,6 +66,17 @@ object LauncherRealtimeLiquidGlassPolicy {
         realtimeLiquidGlassActive: Boolean
     ): Boolean =
         realtimeLiquidGlassActive
+
+    fun shouldClearForegroundBackgroundForExternalGlass(
+        surface: Surface,
+        realtimeLiquidGlassActive: Boolean,
+        realtimeEnabled: Boolean = false
+    ): Boolean =
+        shouldUseTransparentSurfaceBackground(
+            surface = surface,
+            realtimeLiquidGlassActive = realtimeLiquidGlassActive,
+            realtimeEnabled = realtimeEnabled
+        )
 
     fun shouldDrawMaterialOverlay(
         realtimeLiquidGlassActive: Boolean,
@@ -100,6 +115,17 @@ object LauncherRealtimeLiquidGlassPolicy {
         else -> 0f
     }
 
+    fun realtimeIndicatorGlassAlphaForChromeSync(
+        realtimeIndicatorEnabled: Boolean,
+        indicatorVisible: Boolean,
+        indicatorAlpha: Float
+    ): Float =
+        realtimeDockGlassAlphaForAppearanceApply(
+            realtimeDockEnabled = realtimeIndicatorEnabled,
+            dockVisible = indicatorVisible,
+            dockAlpha = indicatorAlpha
+        )
+
     fun shouldRefreshFolderPreviewRealtimeOnAppearanceApply(
         realtimeEnabled: Boolean
     ): Boolean = realtimeEnabled
@@ -137,14 +163,30 @@ object LauncherRealtimeLiquidGlassPolicy {
         return surface != Surface.DOCK && surface != Surface.PAGE_INDICATOR
     }
 
+    fun shouldRefreshAppLibraryRealtimeOnSearchDismiss(
+        realtimeEnabled: Boolean,
+        pageVisible: Boolean
+    ): Boolean = realtimeEnabled && pageVisible
+
+    fun shouldRefreshSwipeSearchRealtimeOnOpen(
+        realtimeEnabled: Boolean,
+        searchVisible: Boolean
+    ): Boolean = realtimeEnabled && searchVisible
+
     fun shouldBindRealtimeSource(sourceContainsTarget: Boolean): Boolean =
         !sourceContainsTarget
+
+    fun shouldLayoutRealtimeViewToHostBounds(
+        hostWidth: Int,
+        hostHeight: Int,
+        realtimeLiquidGlassActive: Boolean
+    ): Boolean =
+        realtimeLiquidGlassActive && hostWidth > 0 && hostHeight > 0
 
     fun shouldDrawVisibilityOverlay(
         surface: Surface,
         realtimeLiquidGlassActive: Boolean
-    ): Boolean =
-        realtimeLiquidGlassActive && surface == Surface.APP_LIBRARY_FOLDER
+    ): Boolean = false
 
     fun shouldMirrorCustomWallpaperToSource(customWallpaperAvailable: Boolean): Boolean =
         customWallpaperAvailable
@@ -163,7 +205,12 @@ object LauncherRealtimeLiquidGlassPolicy {
     ): Boolean =
         surface == Surface.FOLDER_PREVIEW ||
             surface == Surface.FOLDER_PANEL ||
-            (surface == Surface.APP_LIBRARY_FOLDER && !realtimeLiquidGlassActive)
+            surface == Surface.PAGE_INDICATOR ||
+            surface == Surface.SEARCH_PILL ||
+            surface == Surface.SEARCH_RESULTS ||
+            surface == Surface.APP_LIBRARY_SEARCH ||
+            surface == Surface.APP_LIBRARY_FOLDER ||
+            surface == Surface.REMOVE_BADGE
 
     fun shouldRecreateRealtimeView(
         currentProfile: Profile?,

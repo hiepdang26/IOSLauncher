@@ -9,6 +9,8 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.core.DeviceProfile
+import com.vhmsoft.launcherios26.core.HomeIconRenderPolicy
+import com.vhmsoft.launcherios26.core.LauncherHomeLayoutPreferences
 import com.vhmsoft.launcherios26.core.LauncherLiquidGlassDrawableFactory
 import com.vhmsoft.launcherios26.core.LauncherLiquidGlassStylePolicy
 import com.vhmsoft.launcherios26.core.LauncherRealtimeLiquidGlassPolicy
@@ -93,7 +95,8 @@ class SquareFrameLayout @JvmOverloads constructor(
         val source = realtimeLiquidGlassSource() ?: return
         val style = LauncherLiquidGlassStylePolicy.folderPreview(
             enabled = true,
-            liquidGlass = false
+            liquidGlass = false,
+            iconSizeDp = folderPreviewIconSizeDp()
         )
         val glass = folderPreviewGlass ?: LauncherRealtimeLiquidGlassLayout(context).apply {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -123,14 +126,15 @@ class SquareFrameLayout @JvmOverloads constructor(
         }
         glass.visibility = View.VISIBLE
         glass.alpha = 1f
-        glass.blurCornerRadius = dp(style.radiusDp).toFloat()
+        val realtimeCornerRadiusPx = folderPreviewCornerRadiusPx()
+        glass.blurCornerRadius = realtimeCornerRadiusPx
         glass.applyRealtimeLiquidGlass(
             enabled = true,
             source = source,
             surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
             profile = LauncherRealtimeLiquidGlassPolicy.profileFor(
                 surface = LauncherRealtimeLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-                radiusDp = style.radiusDp,
+                radiusDp = realtimeCornerRadiusPx.toInt(),
                 darkMode = false
             )
         )
@@ -150,6 +154,17 @@ class SquareFrameLayout @JvmOverloads constructor(
     private fun realtimeLiquidGlassSource(): ViewGroup? {
         return rootView?.findViewById<ViewGroup>(R.id.liquid_glass_source)
             ?: rootView as? ViewGroup
+    }
+
+    private fun folderPreviewIconSizeDp(): Int {
+        val sizePx = minOf(width, height)
+        if (sizePx <= 0) return LauncherHomeLayoutPreferences.DEFAULT_HOME_ICON_SIZE_DP
+        return (sizePx / resources.displayMetrics.density + 0.5f).toInt()
+    }
+
+    private fun folderPreviewCornerRadiusPx(): Float {
+        val sizePx = minOf(width, height)
+        return HomeIconRenderPolicy.iconCornerRadiusPx(sizePx.takeIf { it > 0 } ?: dp(folderPreviewIconSizeDp()))
     }
 
     private fun dp(value: Int): Int =

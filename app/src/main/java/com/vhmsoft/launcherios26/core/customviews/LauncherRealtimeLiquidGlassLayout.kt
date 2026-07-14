@@ -1,7 +1,6 @@
 package com.vhmsoft.launcherios26.core.customviews
 
 import android.content.Context
-import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
@@ -19,7 +18,6 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
 ) : BlurLayout(context, attrs) {
 
     private var glassView: LiquidGlassView? = null
-    private var visibilityOverlay: View? = null
     private var realtimeEnabled: Boolean = false
     private var glassSource: ViewGroup? = null
     private var glassSurface: LauncherRealtimeLiquidGlassPolicy.Surface? = null
@@ -96,6 +94,11 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
         measureDecorationToBounds(glass)
     }
 
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        layoutDecorationToBounds(glassView)
+    }
+
     private fun updateGlass() {
         val profile = glassProfile
         val source = glassSource
@@ -165,8 +168,8 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
 
         glass.visibility = VISIBLE
         glass.bind(source)
+        layoutDecorationToBounds(glass)
         glass.invalidate()
-        updateVisibilityOverlay(profile)
         logGlassState("bind profile=$profile")
         invalidate()
     }
@@ -185,7 +188,6 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
 
     private fun hideGlass() {
         glassView?.takeIf { it.parent === this }?.visibility = GONE
-        visibilityOverlay?.takeIf { it.parent === this }?.visibility = GONE
         invalidate()
     }
 
@@ -213,74 +215,27 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
         glass.setTintAlpha(profile.tintAlpha)
     }
 
-    private fun updateVisibilityOverlay(profile: LauncherRealtimeLiquidGlassPolicy.Profile) {
-        val surface = glassSurface ?: return hideVisibilityOverlay()
-        if (
-            !LauncherRealtimeLiquidGlassPolicy.shouldDrawVisibilityOverlay(
-                surface = surface,
-                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
-            )
-        ) {
-            hideVisibilityOverlay()
-            return
-        }
-
-        val overlay = visibilityOverlay ?: View(context).apply {
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            isEnabled = false
-            isClickable = false
-            isFocusable = false
-        }.also { visibilityOverlay = it }
-
-        overlay.background = visibilityOverlayDrawable(profile)
-        if (overlay.parent !== this) {
-            addView(
-                overlay,
-                visibilityOverlayIndex(),
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-        } else if (indexOfChild(overlay) != visibilityOverlayIndex()) {
-            removeView(overlay)
-            addView(
-                overlay,
-                visibilityOverlayIndex(),
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-        }
-        overlay.visibility = VISIBLE
-    }
-
-    private fun hideVisibilityOverlay() {
-        visibilityOverlay?.takeIf { it.parent === this }?.visibility = GONE
-    }
-
-    private fun visibilityOverlayIndex(): Int =
-        if (glassView?.parent === this) {
-            (indexOfChild(glassView) + 1).coerceAtLeast(1)
-        } else {
-            0
-        }
-
-    private fun visibilityOverlayDrawable(
-        profile: LauncherRealtimeLiquidGlassPolicy.Profile
-    ): GradientDrawable =
-        GradientDrawable().apply {
-            cornerRadius = profile.cornerRadius
-            setColor(0x00000000)
-            setStroke(dp(1), 0x24FFFFFF)
-        }
-
     private fun measureDecorationToBounds(view: View?) {
         if (view?.parent !== this || view.visibility == GONE) return
         val widthSpec = View.MeasureSpec.makeMeasureSpec(measuredWidth, View.MeasureSpec.EXACTLY)
         val heightSpec = View.MeasureSpec.makeMeasureSpec(measuredHeight, View.MeasureSpec.EXACTLY)
         view.measure(widthSpec, heightSpec)
+    }
+
+    private fun layoutDecorationToBounds(view: View?) {
+        if (
+            view?.parent !== this ||
+            view.visibility == GONE ||
+            !LauncherRealtimeLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
+                hostWidth = width,
+                hostHeight = height,
+                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+            )
+        ) {
+            return
+        }
+        measureDecorationToBounds(view)
+        view.layout(0, 0, width, height)
     }
 
     private fun dp(value: Int): Int =

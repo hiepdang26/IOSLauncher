@@ -36,6 +36,38 @@ class AndroidLiquidGlassPolicyTest {
     }
 
     @Test
+    fun appLibrarySurfacesDoNotDrawFallbackMaterialWhileWaitingForQmDeveGlass() {
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_SEARCH,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = false
+            )
+        )
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldDrawFallbackBackground(
+                surface = AndroidLiquidGlassPolicy.Surface.SEARCH_PILL,
+                realtimeLiquidGlassActive = false,
+                realtimeEnabled = true
+            )
+        )
+    }
+
+    @Test
     fun everySurfaceContentBackgroundIsTransparentOnlyAfterRealtimeGlassIsActive() {
         AndroidLiquidGlassPolicy.Surface.entries.forEach { surface ->
             assertTrue(
@@ -57,6 +89,31 @@ class AndroidLiquidGlassPolicyTest {
     fun realtimeSourceCannotContainRealtimeTarget() {
         assertTrue(AndroidLiquidGlassPolicy.shouldBindRealtimeSource(sourceContainsTarget = false))
         assertFalse(AndroidLiquidGlassPolicy.shouldBindRealtimeSource(sourceContainsTarget = true))
+    }
+
+    @Test
+    fun activeRealtimeGlassIsLaidOutToNonZeroHostBounds() {
+        assertTrue(
+            AndroidLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
+                hostWidth = 424,
+                hostHeight = 457,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
+                hostWidth = 0,
+                hostHeight = 457,
+                realtimeLiquidGlassActive = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
+                hostWidth = 424,
+                hostHeight = 457,
+                realtimeLiquidGlassActive = false
+            )
+        )
     }
 
     @Test
@@ -82,7 +139,7 @@ class AndroidLiquidGlassPolicyTest {
             radiusDp = 38
         )
 
-        assertFalse(
+        assertTrue(
             AndroidLiquidGlassPolicy.shouldRecreateRealtimeView(
                 surface = AndroidLiquidGlassPolicy.Surface.APP_LIBRARY_FOLDER,
                 currentProfile = profile,
@@ -139,10 +196,10 @@ class AndroidLiquidGlassPolicyTest {
     fun workspaceFolderPreviewProfileUsesIconCornerRadiusInsteadOfPillRadius() {
         val profile = AndroidLiquidGlassPolicy.profileFor(
             surface = AndroidLiquidGlassPolicy.Surface.FOLDER_PREVIEW,
-            radiusDp = 8
+            radiusDp = 13
         )
 
-        assertEquals(8f, profile.cornerRadius, 0.001f)
+        assertEquals(13f, profile.cornerRadius, 0.001f)
         assertEquals(2.5f, profile.blurRadiusDp, 0.001f)
         assertEquals(50f, profile.refractionHeightDp, 0.01f)
         assertEquals(120f, profile.refractionOffsetDp, 0.01f)

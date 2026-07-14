@@ -1,5 +1,6 @@
 package com.vhmsoft.launcherios26.features.launcher
 
+import com.vhmsoft.launcherios26.core.HomeIconRenderPolicy
 import com.vhmsoft.launcherios26.core.database.model.LauncherItem
 import com.vhmsoft.launcherios26.core.utils.Constants
 import kotlin.math.abs
@@ -23,7 +24,7 @@ object FolderHoverOpenPolicy {
     const val PREVIEW_ANIMATION_MS = 180L
     const val DROP_ARC_ANIMATION_MS = 650L
     const val FOLDER_PREVIEW_MINI_ICON_SCALE = 0.2f
-    const val FOLDER_PREVIEW_CORNER_RADIUS_FRACTION = 0.22f
+    const val FOLDER_PREVIEW_CORNER_RADIUS_FRACTION = HomeIconRenderPolicy.iconCornerRadiusFraction
     const val FOLDER_PREVIEW_STROKE_WIDTH_DP = 2
     const val FOLDER_PREVIEW_COLUMNS = 3
     const val MAX_FOLDER_PREVIEW_ICONS = 9
