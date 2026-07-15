@@ -7,4 +7,11 @@ object SuggestedAppsViewPolicy {
     ): Boolean {
         return usageAccessPrompt != null && suggestedAppsGrid != null
     }
+
+    fun <T : Any> suggestedAppsRootForSearchTextObserver(
+        swipeSearchContainer: T,
+        usedAppsLayoutRoot: T?
+    ): T {
+        return usedAppsLayoutRoot ?: swipeSearchContainer
+    }
 }

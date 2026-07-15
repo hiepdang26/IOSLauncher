@@ -958,4 +958,86 @@ class LauncherRealtimeLiquidGlassPolicyTest {
             )
         )
     }
+
+    @Test
+    fun realtimeGlassIsActiveOnlyWhenHostAndGlassAreShownAndSized() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = true,
+                hostWidth = 120,
+                hostHeight = 80,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = true,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = false,
+                hostWidth = 120,
+                hostHeight = 80,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = true,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = true,
+                hostWidth = 0,
+                hostHeight = 80,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = true,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = true,
+                hostWidth = 120,
+                hostHeight = 80,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = false,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+    }
+
+    @Test
+    fun folderPanelRefreshesRealtimeGlassAfterVisibleContentChanges() {
+        assertTrue(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeAfterContentChange(
+                realtimeEnabled = true,
+                folderVisible = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeAfterContentChange(
+                realtimeEnabled = false,
+                folderVisible = true
+            )
+        )
+        assertFalse(
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeAfterContentChange(
+                realtimeEnabled = true,
+                folderVisible = false
+            )
+        )
+    }
 }
