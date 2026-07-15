@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import com.vhmsoft.launcherios26.BlissLauncher
 import com.vhmsoft.launcherios26.R
 import com.vhmsoft.launcherios26.core.IconsHandler
+import com.vhmsoft.launcherios26.core.LauncherSpecialAppTypePolicy
 import com.vhmsoft.launcherios26.core.LauncherCustomIconPolicy
 import com.vhmsoft.launcherios26.core.LauncherCustomIconPreferences
 import com.vhmsoft.launcherios26.core.LauncherAppRenamePreferences
@@ -118,8 +119,16 @@ object AppUtils {
             )
             ?: iconsHandler.getDrawableIconForPackage(activityInfo, user)
         val componentName = activityInfo.componentName.toString()
+        val className = activityInfo.componentName.className
         applicationItem.appType =
-            if (iconsHandler.isClock(componentName)) {
+            if (
+                iconsHandler.isClock(componentName) ||
+                LauncherSpecialAppTypePolicy.isClockApp(
+                    label = activityLabel,
+                    packageName = appInfo.packageName,
+                    className = className
+                )
+            ) {
                 ApplicationItem.TYPE_CLOCK
             } else if (iconsHandler.isCalendar(componentName)) {
                 ApplicationItem.TYPE_CALENDAR
