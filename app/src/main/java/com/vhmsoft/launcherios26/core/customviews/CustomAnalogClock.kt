@@ -2,32 +2,51 @@ package com.vhmsoft.launcherios26.core.customviews
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import android.os.Handler
 import android.util.AttributeSet
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.vhmsoft.launcherios26.BlissLauncher
 import com.vhmsoft.launcherios26.R
 import java.util.Calendar
+import java.util.TimeZone
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /** Created by falcon on 8/3/18. */
 class CustomAnalogClock : View {
 
-    private lateinit var mCalendar: Calendar
-    private lateinit var mFace: Drawable
-    private var mDialWidth = 0
+    private val calendar = Calendar.getInstance()
+    private val iconBounds = RectF()
+    private val platePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val handPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val centerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var faceDrawable: Drawable? = null
+    private var dialWidth = DEFAULT_DIAL_SIZE
+    private var dialHeight = DEFAULT_DIAL_SIZE
     private var sizeScale = 1f
-    private var mDialHeight = 0
-    private var mBottom = 0
-    private var mTop = 0
-    private var mLeft = 0
-    private var mRight = 0
-    private var mSizeChanged = false
-    private lateinit var mHandsOverlay: HandsOverlay
     private var autoUpdate = false
-    private lateinit var mContext: Context
+    private var explicitTimeMillis = System.currentTimeMillis()
+    private var tickerPosted = false
+
+    private val tickRunnable = object : Runnable {
+        override fun run() {
+            tickerPosted = false
+            if (shouldAnimate()) {
+                invalidate()
+                startTicker()
+            }
+        }
+    }
 
     constructor(context: Context, attrs: AttributeSet?, defStyle: Int) : super(context, attrs, defStyle) {
         handleAttrs(context, attrs)
@@ -54,12 +73,12 @@ class CustomAnalogClock : View {
             throw IllegalArgumentException("Scale must be bigger than 0")
         }
         sizeScale = scale
-        mHandsOverlay.withScale(sizeScale)
+        requestLayout()
         invalidate()
     }
 
     fun setFace(drawableRes: Int) {
-        setFace(resources.getDrawable(drawableRes))
+        ContextCompat.getDrawable(context, drawableRes)?.let(::setFace)
     }
 
     fun init(
@@ -72,131 +91,252 @@ class CustomAnalogClock : View {
         is24: Boolean,
         hourOnTop: Boolean
     ) {
-        mContext = context
         CustomAnalogClock.is24 = is24
-
         CustomAnalogClock.hourOnTop = hourOnTop
-        setFace(watchFace)
-        val hourDrawable = requireNotNull(ContextCompat.getDrawable(context, hourHand))
-        if (alpha > 0) {
-            hourDrawable.alpha = alpha
-        }
-
-        val minuteDrawable = ContextCompat.getDrawable(context, minuteHand)
-        val secondDrawable = ContextCompat.getDrawable(context, secHand)
-
-        mCalendar = Calendar.getInstance()
-
-        mHandsOverlay = HandsOverlay(hourDrawable, minuteDrawable, secondDrawable).withScale(sizeScale)
-        mHandsOverlay.setShowSeconds(true)
-        setScale(BlissLauncher.getApplication(mContext).deviceProfile.iconSizePx.toFloat() / mDialWidth)
+        setFace(requireNotNull(ContextCompat.getDrawable(context, watchFace)))
+        setScale(BlissLauncher.getApplication(context).deviceProfile.iconSizePx.toFloat() / dialWidth.coerceAtLeast(1))
     }
 
     fun setFace(face: Drawable) {
-        mFace = face
-        mDialHeight = mFace.intrinsicHeight
-        mDialWidth = mFace.intrinsicWidth
-        mSizeChanged = true
+        faceDrawable = face
+        dialWidth = face.intrinsicWidth.takeIf { it > 0 } ?: DEFAULT_DIAL_SIZE
+        dialHeight = face.intrinsicHeight.takeIf { it > 0 } ?: DEFAULT_DIAL_SIZE
+        requestLayout()
         invalidate()
     }
 
     fun setTime(time: Long) {
-        mCalendar.timeInMillis = time
+        explicitTimeMillis = time
+        calendar.timeInMillis = time
         invalidate()
     }
 
     fun setTime(calendar: Calendar) {
-        mCalendar = calendar
-        invalidate()
-        if (autoUpdate) {
-            Handler().postDelayed({ setTime(Calendar.getInstance()) }, 1000)
-        }
+        this.calendar.timeZone = calendar.timeZone
+        setTime(calendar.timeInMillis)
     }
 
     fun setAutoUpdate(autoUpdate: Boolean) {
         this.autoUpdate = autoUpdate
-        setTime(Calendar.getInstance())
+        if (autoUpdate) {
+            startTicker()
+        } else {
+            stopTicker()
+        }
+        invalidate()
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        mSizeChanged = true
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        startTicker()
+    }
+
+    override fun onDetachedFromWindow() {
+        stopTicker()
+        super.onDetachedFromWindow()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (changedView == this && visibility == VISIBLE) {
+            startTicker()
+        } else if (changedView == this) {
+            stopTicker()
+        }
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        if (visibility == VISIBLE) {
+            startTicker()
+        } else {
+            stopTicker()
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        val availableW = width - paddingLeft - paddingRight
+        val availableH = height - paddingTop - paddingBottom
+        if (availableW <= 0 || availableH <= 0) return
 
-        val sizeChanged = mSizeChanged
-        if (sizeChanged) {
-            mSizeChanged = false
-        }
+        val desiredSize = min(dialWidth * sizeScale, dialHeight * sizeScale)
+        val iconSize = min(min(availableW, availableH).toFloat(), desiredSize)
+        val cX = paddingLeft + availableW / 2f
+        val cY = paddingTop + availableH / 2f
+        val halfSize = iconSize / 2f
 
-        val availW = mRight - mLeft
-        val availH = mBottom - mTop
-
-        val cX = availW / 2
-        val cY = availH / 2
-
-        val w = (mDialWidth * sizeScale).toInt()
-        val h = (mDialHeight * sizeScale).toInt()
-
-        var scaled = false
-
-        if (availW < w || availH < h) {
-            scaled = true
-            val scale = min(availW.toFloat() / w.toFloat(), availH.toFloat() / h.toFloat())
-            canvas.save()
-            canvas.scale(scale, scale, cX.toFloat(), cY.toFloat())
-        }
-
-        if (sizeChanged) {
-            mFace.setBounds(cX - w / 2, cY - h / 2 - 1, cX + w / 2, cY + h / 2 + 1)
-        }
-
-        mFace.draw(canvas)
-        mHandsOverlay.onDraw(canvas, cX.toFloat(), cY.toFloat(), w, h, mCalendar, sizeChanged)
-
-        if (scaled) {
-            canvas.restore()
-        }
+        iconBounds.set(cX - halfSize, cY - halfSize, cX + halfSize, cY + halfSize)
+        drawPlate(canvas, iconSize)
+        drawTicks(canvas, cX, cY, iconSize)
+        drawNumbers(canvas, cX, cY, iconSize)
+        drawHands(canvas, cX, cY, iconSize, anglesForCurrentTime())
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
-        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
-        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
-        val heightSize = MeasureSpec.getSize(heightMeasureSpec)
-
-        var hScale = 1.0f
-        var vScale = 1.0f
-
-        if (widthMode != MeasureSpec.UNSPECIFIED && widthSize < mDialWidth) {
-            hScale = widthSize.toFloat() / mDialWidth.toFloat()
-        }
-
-        if (heightMode != MeasureSpec.UNSPECIFIED && heightSize < mDialHeight) {
-            vScale = heightSize.toFloat() / mDialHeight.toFloat()
-        }
-
-        val scale = min(hScale, vScale)
-
+        val desiredWidth = (dialWidth * sizeScale).roundToInt().coerceAtLeast(1)
+        val desiredHeight = (dialHeight * sizeScale).roundToInt().coerceAtLeast(1)
         setMeasuredDimension(
-            resolveSizeAndState((mDialWidth * scale).toInt(), widthMeasureSpec, 0),
-            resolveSizeAndState((mDialHeight * scale).toInt(), heightMeasureSpec, 0)
+            resolveSizeAndState(desiredWidth, widthMeasureSpec, 0),
+            resolveSizeAndState(desiredHeight, heightMeasureSpec, 0)
         )
     }
 
-    override fun getSuggestedMinimumHeight(): Int = (mDialHeight * sizeScale).toInt()
+    override fun getSuggestedMinimumHeight(): Int = (dialHeight * sizeScale).roundToInt()
 
-    override fun getSuggestedMinimumWidth(): Int = (mDialWidth * sizeScale).toInt()
+    override fun getSuggestedMinimumWidth(): Int = (dialWidth * sizeScale).roundToInt()
 
-    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        super.onLayout(changed, left, top, right, bottom)
-        mRight = right
-        mLeft = left
-        mTop = top
-        mBottom = bottom
+    private fun drawPlate(canvas: Canvas, iconSize: Float) {
+        val cornerRadius = iconSize * ICON_CORNER_FRACTION
+        platePaint.style = Paint.Style.FILL
+        platePaint.color = Color.WHITE
+        canvas.drawRoundRect(iconBounds, cornerRadius, cornerRadius, platePaint)
+
+        borderPaint.style = Paint.Style.STROKE
+        borderPaint.strokeWidth = (iconSize * BORDER_WIDTH_FRACTION).coerceAtLeast(1f)
+        borderPaint.color = ICON_BORDER_COLOR
+        canvas.drawRoundRect(iconBounds, cornerRadius, cornerRadius, borderPaint)
     }
+
+    private fun drawTicks(canvas: Canvas, cX: Float, cY: Float, iconSize: Float) {
+        val outerRadius = iconSize * TICK_OUTER_RADIUS_FRACTION
+        for (tick in 0 until TICK_COUNT) {
+            val isHourTick = tick % HOUR_TICK_INTERVAL == 0
+            val angle = tick * FULL_CIRCLE_DEGREES / TICK_COUNT
+            val innerRadius = outerRadius - if (isHourTick) {
+                iconSize * HOUR_TICK_LENGTH_FRACTION
+            } else {
+                iconSize * MINUTE_TICK_LENGTH_FRACTION
+            }
+            val start = pointOnClock(cX, cY, innerRadius, angle)
+            val end = pointOnClock(cX, cY, outerRadius, angle)
+            tickPaint.style = Paint.Style.STROKE
+            tickPaint.strokeCap = Paint.Cap.ROUND
+            tickPaint.strokeWidth = if (isHourTick) {
+                (iconSize * HOUR_TICK_WIDTH_FRACTION).coerceAtLeast(1.25f)
+            } else {
+                (iconSize * MINUTE_TICK_WIDTH_FRACTION).coerceAtLeast(1f)
+            }
+            tickPaint.color = if (isHourTick) HOUR_TICK_COLOR else MINUTE_TICK_COLOR
+            canvas.drawLine(start.x, start.y, end.x, end.y, tickPaint)
+        }
+    }
+
+    private fun drawNumbers(canvas: Canvas, cX: Float, cY: Float, iconSize: Float) {
+        numberPaint.style = Paint.Style.FILL
+        numberPaint.color = NUMBER_COLOR
+        numberPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        numberPaint.textAlign = Paint.Align.CENTER
+        numberPaint.textSize = iconSize * NUMBER_TEXT_SIZE_FRACTION
+
+        drawCenteredNumber(canvas, "12", cX, cY - iconSize * NUMBER_RADIUS_FRACTION)
+        drawCenteredNumber(canvas, "3", cX + iconSize * NUMBER_RADIUS_FRACTION, cY)
+        drawCenteredNumber(canvas, "6", cX, cY + iconSize * NUMBER_RADIUS_FRACTION)
+        drawCenteredNumber(canvas, "9", cX - iconSize * NUMBER_RADIUS_FRACTION, cY)
+    }
+
+    private fun drawCenteredNumber(canvas: Canvas, text: String, x: Float, y: Float) {
+        val textCenterOffset = (numberPaint.descent() + numberPaint.ascent()) / 2f
+        canvas.drawText(text, x, y - textCenterOffset, numberPaint)
+    }
+
+    private fun drawHands(canvas: Canvas, cX: Float, cY: Float, iconSize: Float, angles: ClockHandAngles) {
+        drawHand(
+            canvas = canvas,
+            cX = cX,
+            cY = cY,
+            angle = angles.hour,
+            length = iconSize * HOUR_HAND_LENGTH_FRACTION,
+            tailLength = iconSize * HOUR_HAND_TAIL_FRACTION,
+            strokeWidth = iconSize * HOUR_HAND_WIDTH_FRACTION,
+            color = HAND_COLOR
+        )
+        drawHand(
+            canvas = canvas,
+            cX = cX,
+            cY = cY,
+            angle = angles.minute,
+            length = iconSize * MINUTE_HAND_LENGTH_FRACTION,
+            tailLength = iconSize * MINUTE_HAND_TAIL_FRACTION,
+            strokeWidth = iconSize * MINUTE_HAND_WIDTH_FRACTION,
+            color = HAND_COLOR
+        )
+        drawHand(
+            canvas = canvas,
+            cX = cX,
+            cY = cY,
+            angle = angles.second,
+            length = iconSize * SECOND_HAND_LENGTH_FRACTION,
+            tailLength = iconSize * SECOND_HAND_TAIL_FRACTION,
+            strokeWidth = iconSize * SECOND_HAND_WIDTH_FRACTION,
+            color = SECOND_HAND_COLOR
+        )
+
+        centerPaint.style = Paint.Style.FILL
+        centerPaint.color = SECOND_HAND_COLOR
+        canvas.drawCircle(cX, cY, iconSize * CENTER_DOT_RADIUS_FRACTION, centerPaint)
+    }
+
+    private fun drawHand(
+        canvas: Canvas,
+        cX: Float,
+        cY: Float,
+        angle: Float,
+        length: Float,
+        tailLength: Float,
+        strokeWidth: Float,
+        color: Int
+    ) {
+        val end = pointOnClock(cX, cY, length, angle)
+        val tail = pointOnClock(cX, cY, -tailLength, angle)
+        handPaint.style = Paint.Style.STROKE
+        handPaint.strokeCap = Paint.Cap.ROUND
+        handPaint.strokeWidth = strokeWidth.coerceAtLeast(1f)
+        handPaint.color = color
+        canvas.drawLine(tail.x, tail.y, end.x, end.y, handPaint)
+    }
+
+    private fun anglesForCurrentTime(): ClockHandAngles {
+        val timeMillis = if (autoUpdate) System.currentTimeMillis() else explicitTimeMillis
+        if (autoUpdate) {
+            calendar.timeZone = TimeZone.getDefault()
+        }
+        calendar.timeInMillis = timeMillis
+        return ClockHandAnglePolicy.fromTime(
+            hourOfDay = calendar[Calendar.HOUR_OF_DAY],
+            minute = calendar[Calendar.MINUTE],
+            second = calendar[Calendar.SECOND],
+            millisecond = calendar[Calendar.MILLISECOND],
+            is24Hour = is24
+        )
+    }
+
+    private fun pointOnClock(cX: Float, cY: Float, radius: Float, angle: Float): ClockPoint {
+        val radians = Math.toRadians((angle - CLOCK_TOP_DEGREES).toDouble())
+        return ClockPoint(
+            x = cX + cos(radians).toFloat() * radius,
+            y = cY + sin(radians).toFloat() * radius
+        )
+    }
+
+    private fun shouldAnimate(): Boolean =
+        autoUpdate && isAttachedToWindow && visibility == VISIBLE && windowVisibility == VISIBLE
+
+    private fun startTicker() {
+        if (!shouldAnimate() || tickerPosted) return
+        tickerPosted = true
+        postOnAnimation(tickRunnable)
+    }
+
+    private fun stopTicker() {
+        removeCallbacks(tickRunnable)
+        tickerPosted = false
+    }
+
+    private data class ClockPoint(
+        val x: Float,
+        val y: Float
+    )
 
     companion object {
         @JvmField
@@ -205,6 +345,35 @@ class CustomAnalogClock : View {
         @JvmField
         var hourOnTop: Boolean = false
 
-        private const val TAG = "CustomAnalogClock"
+        private const val DEFAULT_DIAL_SIZE = 1024
+        private const val FULL_CIRCLE_DEGREES = 360f
+        private const val CLOCK_TOP_DEGREES = 90f
+        private const val TICK_COUNT = 60
+        private const val HOUR_TICK_INTERVAL = 5
+        private const val ICON_CORNER_FRACTION = 0.22f
+        private const val BORDER_WIDTH_FRACTION = 0.008f
+        private const val TICK_OUTER_RADIUS_FRACTION = 0.43f
+        private const val HOUR_TICK_LENGTH_FRACTION = 0.075f
+        private const val MINUTE_TICK_LENGTH_FRACTION = 0.045f
+        private const val HOUR_TICK_WIDTH_FRACTION = 0.014f
+        private const val MINUTE_TICK_WIDTH_FRACTION = 0.006f
+        private const val NUMBER_RADIUS_FRACTION = 0.275f
+        private const val NUMBER_TEXT_SIZE_FRACTION = 0.14f
+        private const val HOUR_HAND_LENGTH_FRACTION = 0.2f
+        private const val HOUR_HAND_TAIL_FRACTION = 0.035f
+        private const val HOUR_HAND_WIDTH_FRACTION = 0.032f
+        private const val MINUTE_HAND_LENGTH_FRACTION = 0.295f
+        private const val MINUTE_HAND_TAIL_FRACTION = 0.045f
+        private const val MINUTE_HAND_WIDTH_FRACTION = 0.024f
+        private const val SECOND_HAND_LENGTH_FRACTION = 0.34f
+        private const val SECOND_HAND_TAIL_FRACTION = 0.08f
+        private const val SECOND_HAND_WIDTH_FRACTION = 0.011f
+        private const val CENTER_DOT_RADIUS_FRACTION = 0.026f
+        private const val ICON_BORDER_COLOR = 0x1F000000
+        private const val HOUR_TICK_COLOR = 0xFF2C2C2E.toInt()
+        private const val MINUTE_TICK_COLOR = 0xFF8E8E93.toInt()
+        private const val NUMBER_COLOR = 0xFF3A3A3C.toInt()
+        private const val HAND_COLOR = 0xFF1C1C1E.toInt()
+        private const val SECOND_HAND_COLOR = 0xFFFF3B30.toInt()
     }
 }
