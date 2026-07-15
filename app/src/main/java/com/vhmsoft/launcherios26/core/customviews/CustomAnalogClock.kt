@@ -30,7 +30,7 @@ class CustomAnalogClock : View {
     private val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val handPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val centerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private var faceDrawable: Drawable? = null
+    private val numberTypeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
     private var dialWidth = DEFAULT_DIAL_SIZE
     private var dialHeight = DEFAULT_DIAL_SIZE
     private var sizeScale = 1f
@@ -98,7 +98,6 @@ class CustomAnalogClock : View {
     }
 
     fun setFace(face: Drawable) {
-        faceDrawable = face
         dialWidth = face.intrinsicWidth.takeIf { it > 0 } ?: DEFAULT_DIAL_SIZE
         dialHeight = face.intrinsicHeight.takeIf { it > 0 } ?: DEFAULT_DIAL_SIZE
         requestLayout()
@@ -141,6 +140,15 @@ class CustomAnalogClock : View {
         if (changedView == this && visibility == VISIBLE) {
             startTicker()
         } else if (changedView == this) {
+            stopTicker()
+        }
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (isVisible) {
+            startTicker()
+        } else {
             stopTicker()
         }
     }
@@ -208,8 +216,6 @@ class CustomAnalogClock : View {
             } else {
                 iconSize * MINUTE_TICK_LENGTH_FRACTION
             }
-            val start = pointOnClock(cX, cY, innerRadius, angle)
-            val end = pointOnClock(cX, cY, outerRadius, angle)
             tickPaint.style = Paint.Style.STROKE
             tickPaint.strokeCap = Paint.Cap.ROUND
             tickPaint.strokeWidth = if (isHourTick) {
@@ -218,14 +224,14 @@ class CustomAnalogClock : View {
                 (iconSize * MINUTE_TICK_WIDTH_FRACTION).coerceAtLeast(1f)
             }
             tickPaint.color = if (isHourTick) HOUR_TICK_COLOR else MINUTE_TICK_COLOR
-            canvas.drawLine(start.x, start.y, end.x, end.y, tickPaint)
+            drawRadialLine(canvas, cX, cY, innerRadius, outerRadius, angle, tickPaint)
         }
     }
 
     private fun drawNumbers(canvas: Canvas, cX: Float, cY: Float, iconSize: Float) {
         numberPaint.style = Paint.Style.FILL
         numberPaint.color = NUMBER_COLOR
-        numberPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        numberPaint.typeface = numberTypeface
         numberPaint.textAlign = Paint.Align.CENTER
         numberPaint.textSize = iconSize * NUMBER_TEXT_SIZE_FRACTION
 
@@ -287,13 +293,11 @@ class CustomAnalogClock : View {
         strokeWidth: Float,
         color: Int
     ) {
-        val end = pointOnClock(cX, cY, length, angle)
-        val tail = pointOnClock(cX, cY, -tailLength, angle)
         handPaint.style = Paint.Style.STROKE
         handPaint.strokeCap = Paint.Cap.ROUND
         handPaint.strokeWidth = strokeWidth.coerceAtLeast(1f)
         handPaint.color = color
-        canvas.drawLine(tail.x, tail.y, end.x, end.y, handPaint)
+        drawRadialLine(canvas, cX, cY, -tailLength, length, angle, handPaint)
     }
 
     private fun anglesForCurrentTime(): ClockHandAngles {
@@ -311,16 +315,34 @@ class CustomAnalogClock : View {
         )
     }
 
-    private fun pointOnClock(cX: Float, cY: Float, radius: Float, angle: Float): ClockPoint {
+    private fun drawRadialLine(
+        canvas: Canvas,
+        cX: Float,
+        cY: Float,
+        startRadius: Float,
+        endRadius: Float,
+        angle: Float,
+        paint: Paint
+    ) {
         val radians = Math.toRadians((angle - CLOCK_TOP_DEGREES).toDouble())
-        return ClockPoint(
-            x = cX + cos(radians).toFloat() * radius,
-            y = cY + sin(radians).toFloat() * radius
+        val unitX = cos(radians).toFloat()
+        val unitY = sin(radians).toFloat()
+        canvas.drawLine(
+            cX + unitX * startRadius,
+            cY + unitY * startRadius,
+            cX + unitX * endRadius,
+            cY + unitY * endRadius,
+            paint
         )
     }
 
     private fun shouldAnimate(): Boolean =
-        autoUpdate && isAttachedToWindow && visibility == VISIBLE && windowVisibility == VISIBLE
+        ClockTickerPolicy.shouldAnimate(
+            autoUpdate = autoUpdate,
+            attachedToWindow = isAttachedToWindow,
+            aggregatedVisible = isShown,
+            windowVisible = windowVisibility == VISIBLE
+        )
 
     private fun startTicker() {
         if (!shouldAnimate() || tickerPosted) return
@@ -332,11 +354,6 @@ class CustomAnalogClock : View {
         removeCallbacks(tickRunnable)
         tickerPosted = false
     }
-
-    private data class ClockPoint(
-        val x: Float,
-        val y: Float
-    )
 
     companion object {
         @JvmField
