@@ -44,10 +44,18 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
     }
 
     fun isRealtimeLiquidGlassActive(): Boolean =
-        visibility == VISIBLE &&
-            glassView?.parent === this &&
-            realtimeEnabled &&
-            glassView?.visibility == VISIBLE
+        LauncherRealtimeLiquidGlassPolicy.isRealtimeGlassActive(
+            hostVisible = visibility == VISIBLE,
+            hostShown = isShown,
+            hostWidth = width,
+            hostHeight = height,
+            glassAttached = glassView?.parent === this,
+            glassVisible = glassView?.visibility == VISIBLE,
+            glassShown = glassView?.isShown == true,
+            glassWidth = glassView?.width ?: 0,
+            glassHeight = glassView?.height ?: 0,
+            realtimeEnabled = realtimeEnabled
+        )
 
     override fun shouldDrawBlurBackground(): Boolean =
         LauncherRealtimeLiquidGlassPolicy.shouldDrawFallbackBlur(
@@ -74,6 +82,20 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
             LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
                 realtimeEnabled = realtimeEnabled,
                 visible = visibility == VISIBLE
+            )
+        ) {
+            updateGlass()
+        }
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (!isVisible) {
+            sourceBoundWhileVisible = false
+        } else if (
+            LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnVisibilityChanged(
+                realtimeEnabled = realtimeEnabled,
+                visible = true
             )
         ) {
             updateGlass()
@@ -249,7 +271,10 @@ class LauncherRealtimeLiquidGlassLayout @JvmOverloads constructor(
             !LauncherRealtimeLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
                 hostWidth = width,
                 hostHeight = height,
-                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+                realtimeLiquidGlassActive = realtimeEnabled &&
+                    visibility == VISIBLE &&
+                    isShown &&
+                    view.visibility == VISIBLE
             )
         ) {
             return

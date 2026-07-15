@@ -29,6 +29,15 @@ class LauncherMenuManifestTest {
         )
     }
 
+    @Test
+    fun menuLauncherEntry_usesRegularTaskLaunchBehavior() {
+        val menuActivity = manifestActivities()
+            .single { it.androidName() == ".ui.launcher.LauncherMenuActivity" }
+
+        assertFalse(menuActivity.hasAndroidAttribute("launchMode", "singleTask"))
+        assertFalse(menuActivity.hasAndroidAttribute("clearTaskOnLaunch", "true"))
+    }
+
     private fun manifestActivities(): List<Element> {
         val document = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
@@ -45,6 +54,10 @@ class LauncherMenuManifestTest {
 
     private fun Element.androidName(): String {
         return getAttributeNS(ANDROID_NS, "name")
+    }
+
+    private fun Element.hasAndroidAttribute(attributeName: String, expectedValue: String): Boolean {
+        return getAttributeNS(ANDROID_NS, attributeName) == expectedValue
     }
 
     private fun Element.hasAction(actionName: String): Boolean {

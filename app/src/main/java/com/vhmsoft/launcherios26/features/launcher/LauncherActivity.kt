@@ -175,10 +175,10 @@ import com.vhmsoft.launcherios26.databinding.AppsPageBinding
 import com.vhmsoft.launcherios26.databinding.AppViewBinding
 import com.vhmsoft.launcherios26.databinding.LayoutSearchSuggestionBinding
 import com.vhmsoft.launcherios26.databinding.LayoutUsedAppsBinding
-import com.vhmsoft.launcherios26.databinding.PopupLauncherAppOptionsBinding
 import com.vhmsoft.launcherios26.databinding.WidgetsPageBinding
 import com.vhmsoft.launcherios26.di.RepositoryProvider
 import com.vhmsoft.launcherios26.features.shortcuts.DeepShortcutManager
+import com.vhmsoft.launcherios26.features.shortcuts.ShortcutInfoCompat
 import com.vhmsoft.launcherios26.features.shortcuts.ShortcutKey
 import com.vhmsoft.launcherios26.features.suggestions.AutoCompleteAdapter
 import com.vhmsoft.launcherios26.features.suggestions.SearchSuggestionUtil
@@ -507,6 +507,7 @@ open class LauncherActivity : AppCompatActivity(),
     private var activeFolder: FolderItem? = null
     private var activeFolderView: BlissFrameLayout? = null
     private var folderOpenGeneration = 0
+    private var folderPanelLiquidGlassRefreshPosted = false
 
     private enum class FolderDragOrigin {
         FROM_HOME_TO_FOLDER,
@@ -8465,6 +8466,7 @@ open class LauncherActivity : AppCompatActivity(),
                             iconLayoutParams.width = mDeviceProfile.cellWidthPx
                             gridLayout.removeViewAt(j)
                             gridLayout.addView(blissFrameLayout, j, iconLayoutParams)
+                            refreshOpenFolderLiquidGlassIfNeeded()
                             return
                         }
                     }
@@ -8790,6 +8792,7 @@ open class LauncherActivity : AppCompatActivity(),
                             iconLayoutParams.width = mDeviceProfile.cellWidthPx
                             gridLayout.removeViewAt(j)
                             gridLayout.addView(blissFrameLayout, j, iconLayoutParams)
+                            refreshOpenFolderLiquidGlassIfNeeded()
                             return
                         }
                     }
@@ -11334,10 +11337,46 @@ open class LauncherActivity : AppCompatActivity(),
     private fun showLauncherOptionsPopup(launcherItem: LauncherItem, iconView: BlissFrameLayout, anchor: View) {
         dismissLauncherOptionsPopup()
 
-        val menuBinding = PopupLauncherAppOptionsBinding.inflate(layoutInflater)
-        val menu = menuBinding.root
-        applyLauncherOptionsPopupPalette(menu)
-        val popup = PopupWindow(menu, dp(262), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
+        val appShortcuts = queryLauncherAppShortcuts(launcherItem)
+        val canHideApp = launcherItem is ApplicationItem
+        val menu = createLauncherOptionsMenu(
+            launcherItem = launcherItem,
+            iconView = iconView,
+            anchor = anchor,
+            appShortcuts = appShortcuts,
+            canHideApp = canHideApp
+        )
+        val popupWidth = dp(LauncherAppOptionsMenuPolicy.POPUP_WIDTH_DP)
+        val selectedIconBounds = launcherOptionsSelectedIconBounds(anchor)
+        val availableHeight = launcherOptionsAvailableHeight(selectedIconBounds)
+        val popupHeight = LauncherAppOptionsMenuPolicy.popupHeightPx(
+            rowCount = appShortcuts.size + LauncherAppOptionsMenuPolicy.systemOptions(canHideApp).size,
+            rowHeightPx = dp(LauncherAppOptionsMenuPolicy.ROW_HEIGHT_DP),
+            verticalPaddingPx = dp(LauncherAppOptionsMenuPolicy.VERTICAL_PADDING_DP),
+            dividerHeightPx = LauncherAppOptionsMenuPolicy.DIVIDER_HEIGHT_PX,
+            availableHeightPx = availableHeight
+        )
+        val popupContent = ScrollView(this).apply {
+            isFillViewport = false
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            isVerticalScrollBarEnabled = LauncherAppOptionsMenuPolicy.shouldScroll(
+                rowCount = appShortcuts.size + LauncherAppOptionsMenuPolicy.systemOptions(canHideApp).size,
+                rowHeightPx = dp(LauncherAppOptionsMenuPolicy.ROW_HEIGHT_DP),
+                verticalPaddingPx = dp(LauncherAppOptionsMenuPolicy.VERTICAL_PADDING_DP),
+                dividerHeightPx = LauncherAppOptionsMenuPolicy.DIVIDER_HEIGHT_PX,
+                availableHeightPx = availableHeight
+            )
+            background = launcherOptionsPopupBackground()
+            clipToOutline = true
+            addView(
+                menu,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        val popup = PopupWindow(popupContent, popupWidth, popupHeight, true).apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             isOutsideTouchable = true
             elevation = dp(12).toFloat()
@@ -11350,53 +11389,321 @@ open class LauncherActivity : AppCompatActivity(),
         }
         launcherOptionsPopup = popup
 
-        menuBinding.appInfoButton.setOnClickListener {
-            popup.dismiss()
-            openLauncherItemInfo(launcherItem)
-        }
-        menuBinding.renameButton.setOnClickListener {
-            popup.dismiss()
-            showRenameAppPicker()
-        }
-        val hideButton = menuBinding.hideButton
-        if (launcherItem is ApplicationItem) {
-            hideButton.setOnClickListener {
-                popup.dismiss()
-                hideLauncherAppFromHome(launcherItem)
-            }
-        } else {
-            hideButton.visibility = GONE
-        }
-        menuBinding.editHomeButton.setOnClickListener {
-            popup.dismiss()
-            if (LauncherEditModeEntryPolicy.shouldEnterEditMode(editHomeClicked = true)) {
-                handleWobbling(true)
-            }
-        }
-        menuBinding.blurEffectButton.setOnClickListener {
-            popup.dismiss()
-            showBlurEffectSettingsPanel()
-        }
-        menuBinding.deleteButton.setOnClickListener {
-            popup.dismiss()
-            if (canShowUninstallOption(launcherItem)) {
-                uninstallLauncherItem(launcherItem, iconView)
-            } else {
-                handleWobbling(true)
-            }
-        }
-
-        menu.measure(
+        popupContent.measure(
             View.MeasureSpec.makeMeasureSpec(resources.displayMetrics.widthPixels, View.MeasureSpec.AT_MOST),
-            View.MeasureSpec.makeMeasureSpec(resources.displayMetrics.heightPixels, View.MeasureSpec.AT_MOST)
+            View.MeasureSpec.makeMeasureSpec(popupHeight, View.MeasureSpec.EXACTLY)
         )
         showLauncherOptionsOverlay(launcherItem, anchor)
         popup.showAtLocation(
             mLauncherView,
             Gravity.NO_GRAVITY,
-            popupX(anchor, dp(262)),
-            popupY(anchor, menu.measuredHeight)
+            popupX(anchor, popupWidth),
+            launcherOptionsPopupY(anchor, selectedIconBounds, popupHeight)
         )
+    }
+
+    private fun queryLauncherAppShortcuts(launcherItem: LauncherItem): List<ShortcutInfoCompat> {
+        val applicationItem = launcherItem as? ApplicationItem ?: return emptyList()
+        val component = applicationItem.componentName ?: applicationItem.getTargetComponent() ?: return emptyList()
+        val user = applicationItem.user?.getRealHandle() ?: Process.myUserHandle()
+        val shortcutManager = DeepShortcutManager.getInstance(this)
+        if (!shortcutManager.hasHostPermission()) {
+            return emptyList()
+        }
+        return shortcutManager.queryForShortcutsContainer(component, null, user)
+            .asSequence()
+            .filter { it.isEnabled }
+            .sortedWith(
+                compareBy<ShortcutInfoCompat> { it.rank }
+                    .thenBy { launcherShortcutLabel(it).lowercase(Locale.getDefault()) }
+            )
+            .toList()
+    }
+
+    private fun createLauncherOptionsMenu(
+        launcherItem: LauncherItem,
+        iconView: BlissFrameLayout,
+        anchor: View,
+        appShortcuts: List<ShortcutInfoCompat>,
+        canHideApp: Boolean
+    ): LinearLayout {
+        val rows = ArrayList<View>()
+        appShortcuts.forEach { shortcut ->
+            rows.add(
+                createLauncherShortcutRow(shortcut) {
+                    launcherOptionsPopup?.dismiss()
+                    startLauncherAppShortcut(shortcut, anchor)
+                }
+            )
+        }
+        LauncherAppOptionsMenuPolicy.systemOptions(canHideApp).forEach { option ->
+            rows.add(
+                createLauncherSystemOptionRow(option) {
+                    handleLauncherSystemOption(option, launcherItem, iconView)
+                }
+            )
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(2), 0, dp(2))
+            rows.forEachIndexed { index, row ->
+                addView(row)
+                if (index < rows.lastIndex) {
+                    addView(createLauncherOptionDivider())
+                }
+            }
+        }
+    }
+
+    private fun createLauncherShortcutRow(shortcut: ShortcutInfoCompat, onClick: () -> Unit): View {
+        val icon = DeepShortcutManager.getInstance(this)
+            .getShortcutIconDrawable(shortcut, resources.displayMetrics.densityDpi)
+        return createLauncherOptionRow(
+            title = launcherShortcutLabel(shortcut),
+            trailingView = if (icon != null) {
+                createLauncherOptionIcon(drawable = icon, tintColor = null)
+            } else {
+                createLauncherShortcutFallbackBadge(launcherShortcutLabel(shortcut))
+            },
+            destructive = false,
+            onClick = onClick
+        )
+    }
+
+    private fun createLauncherSystemOptionRow(
+        option: LauncherAppOptionsMenuPolicy.SystemOption,
+        onClick: () -> Unit
+    ): View {
+        val destructive = option == LauncherAppOptionsMenuPolicy.SystemOption.DELETE
+        val iconRes = when (option) {
+            LauncherAppOptionsMenuPolicy.SystemOption.APP_INFO -> R.drawable.ic_info_20
+            LauncherAppOptionsMenuPolicy.SystemOption.HIDE_APP -> R.drawable.ic_eye_off_20
+            LauncherAppOptionsMenuPolicy.SystemOption.EDIT_HOME -> R.drawable.ic_phone_home_20
+            LauncherAppOptionsMenuPolicy.SystemOption.DELETE -> R.drawable.ic_delete_20
+        }
+        val text = when (option) {
+            LauncherAppOptionsMenuPolicy.SystemOption.APP_INFO -> getString(R.string.app_option_info)
+            LauncherAppOptionsMenuPolicy.SystemOption.HIDE_APP -> getString(R.string.app_option_hide)
+            LauncherAppOptionsMenuPolicy.SystemOption.EDIT_HOME -> getString(R.string.app_option_edit_home)
+            LauncherAppOptionsMenuPolicy.SystemOption.DELETE -> getString(R.string.app_option_delete)
+        }
+        return createLauncherOptionRow(
+            title = text,
+            trailingView = createLauncherOptionIcon(
+                drawable = ContextCompat.getDrawable(this, iconRes),
+                tintColor = if (destructive) 0xFFFF3B30.toInt() else launcherOptionsTextColor(false)
+            ),
+            destructive = destructive,
+            onClick = onClick
+        )
+    }
+
+    private fun createLauncherOptionRow(
+        title: CharSequence,
+        trailingView: View,
+        destructive: Boolean,
+        onClick: () -> Unit
+    ): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                dp(LauncherAppOptionsMenuPolicy.ROW_HORIZONTAL_PADDING_DP),
+                0,
+                dp(LauncherAppOptionsMenuPolicy.ROW_HORIZONTAL_PADDING_DP),
+                0
+            )
+            isClickable = true
+            isFocusable = true
+            background = selectableItemBackground()
+            setOnClickListener { onClick() }
+            addView(
+                TextView(context).apply {
+                    text = title
+                    setTextColor(launcherOptionsTextColor(destructive))
+                    textSize = LauncherAppOptionsMenuPolicy.TITLE_TEXT_SIZE_SP
+                    includeFontPadding = false
+                    gravity = Gravity.CENTER_VERTICAL
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    typeface = Typeface.DEFAULT
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            )
+            addView(
+                trailingView,
+                LinearLayout.LayoutParams(
+                    dp(LauncherAppOptionsMenuPolicy.TRAILING_ICON_SIZE_DP),
+                    dp(LauncherAppOptionsMenuPolicy.TRAILING_ICON_SIZE_DP)
+                ).apply {
+                    marginStart = dp(10)
+                }
+            )
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(LauncherAppOptionsMenuPolicy.ROW_HEIGHT_DP)
+            )
+        }
+    }
+
+    private fun createLauncherOptionIcon(drawable: Drawable?, tintColor: Int?): ImageView =
+        ImageView(this).apply {
+            setImageDrawable(drawable?.mutate())
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            contentDescription = null
+            tintColor?.let { setColorFilter(it) }
+        }
+
+    private fun createLauncherShortcutFallbackBadge(label: CharSequence): TextView {
+        val colors = intArrayOf(
+            0xFF7CB342.toInt(),
+            0xFF0097A7.toInt(),
+            0xFFFF7043.toInt(),
+            0xFF1E88E5.toInt(),
+            0xFF00897B.toInt(),
+            0xFFF57C00.toInt()
+        )
+        val color = colors[(label.toString().hashCode() ushr 1) % colors.size]
+        return TextView(this).apply {
+            text = label.firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+            setTextColor(Color.WHITE)
+            textSize = 11f
+            includeFontPadding = false
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(color)
+            }
+        }
+    }
+
+    private fun createLauncherOptionDivider(): View =
+        View(this).apply {
+            setBackgroundColor(launcherOptionsDividerColor())
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                LauncherAppOptionsMenuPolicy.DIVIDER_HEIGHT_PX
+            )
+        }
+
+    private fun handleLauncherSystemOption(
+        option: LauncherAppOptionsMenuPolicy.SystemOption,
+        launcherItem: LauncherItem,
+        iconView: BlissFrameLayout
+    ) {
+        launcherOptionsPopup?.dismiss()
+        when (option) {
+            LauncherAppOptionsMenuPolicy.SystemOption.APP_INFO -> openLauncherItemInfo(launcherItem)
+            LauncherAppOptionsMenuPolicy.SystemOption.HIDE_APP -> {
+                if (launcherItem is ApplicationItem) {
+                    hideLauncherAppFromHome(launcherItem)
+                }
+            }
+            LauncherAppOptionsMenuPolicy.SystemOption.EDIT_HOME -> {
+                if (LauncherEditModeEntryPolicy.shouldEnterEditMode(editHomeClicked = true)) {
+                    handleWobbling(true)
+                }
+            }
+            LauncherAppOptionsMenuPolicy.SystemOption.DELETE -> {
+                if (canShowUninstallOption(launcherItem)) {
+                    uninstallLauncherItem(launcherItem, iconView)
+                } else {
+                    handleWobbling(true)
+                }
+            }
+        }
+    }
+
+    private fun startLauncherAppShortcut(shortcut: ShortcutInfoCompat, anchor: View) {
+        val manager = DeepShortcutManager.getInstance(this)
+        manager.startShortcut(shortcut.`package`, shortcut.id, getViewBounds(anchor), null, shortcut.userHandle)
+        if (!manager.wasLastCallSuccess()) {
+            Toast.makeText(this, getString(R.string.activity_not_found), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun launcherShortcutLabel(shortcut: ShortcutInfoCompat): String =
+        shortcut.shortLabel?.toString()
+            ?: shortcut.longLabel?.toString()
+            ?: shortcut.id
+
+    private fun launcherOptionsAvailableHeight(selectedIconBounds: Rect): Int {
+        val screenHeight = resources.displayMetrics.heightPixels
+        return LauncherAppOptionsMenuPolicy.availableHeightPx(
+            selectedIconTopPx = selectedIconBounds.top,
+            selectedIconBottomPx = selectedIconBounds.bottom,
+            screenHeightPx = screenHeight,
+            marginPx = dp(LauncherAppOptionsMenuPolicy.SCREEN_EDGE_MARGIN_DP),
+            gapPx = dp(LauncherAppOptionsMenuPolicy.ANCHOR_GAP_DP),
+            minimumHeightPx = dp(LauncherAppOptionsMenuPolicy.ROW_HEIGHT_DP * 3)
+        )
+    }
+
+    private fun launcherOptionsPopupY(
+        anchor: View,
+        selectedIconBounds: Rect,
+        popupHeight: Int
+    ): Int {
+        val anchorLocation = IntArray(2)
+        anchor.getLocationOnScreen(anchorLocation)
+        val screenHeight = resources.displayMetrics.heightPixels
+        return LauncherAppOptionsMenuPolicy.popupY(
+            anchorTopPx = anchorLocation[1],
+            anchorHeightPx = anchor.height,
+            selectedIconTopPx = selectedIconBounds.top,
+            selectedIconBottomPx = selectedIconBounds.bottom,
+            popupHeightPx = popupHeight,
+            screenHeightPx = screenHeight,
+            marginPx = dp(LauncherAppOptionsMenuPolicy.SCREEN_EDGE_MARGIN_DP),
+            gapPx = dp(LauncherAppOptionsMenuPolicy.ANCHOR_GAP_DP)
+        )
+    }
+
+    private fun launcherOptionsPreviewHeight(): Int =
+        if (::selectedIconPreview.isInitialized && selectedIconPreview.height > 0) {
+            selectedIconPreview.height
+        } else {
+            dp(94)
+        }
+
+    private fun launcherOptionsSelectedIconBounds(anchor: View): Rect {
+        val previewTop = launcherOptionsPreviewTop(anchor)
+        val previewHeight = launcherOptionsPreviewHeight()
+        val plate = binding.selectedIconPlate
+        val plateTop = if (plate.top > 0) {
+            plate.top
+        } else {
+            selectedIconPreview.paddingTop
+        }
+        val plateHeight = if (plate.height > 0) {
+            plate.height
+        } else {
+            plate.layoutParams?.height?.takeIf { it > 0 } ?: dp(68)
+        }
+        val pivotY = previewHeight / 2f
+        val scale = LauncherAppOptionsMenuPolicy.SELECTED_ICON_PREVIEW_OPEN_SCALE
+        val visualTop = previewTop + floor(pivotY + (plateTop - pivotY) * scale).toInt()
+        val visualBottom = previewTop + ceil(pivotY + (plateTop + plateHeight - pivotY) * scale).toInt()
+        return Rect(0, visualTop, 0, visualBottom)
+    }
+
+    private fun launcherOptionsPreviewTop(anchor: View): Int {
+        val anchorLocation = IntArray(2)
+        val rootLocation = IntArray(2)
+        anchor.getLocationOnScreen(anchorLocation)
+        mLauncherView.getLocationOnScreen(rootLocation)
+
+        val previewHeight = launcherOptionsPreviewHeight()
+        val rootHeight = if (mLauncherView.height > 0) {
+            mLauncherView.height
+        } else {
+            resources.displayMetrics.heightPixels
+        }
+        val topMargin = dp(12)
+        val top = anchorLocation[1] - rootLocation[1] - dp(2)
+        val maxTop = max(topMargin, rootHeight - previewHeight - topMargin)
+        return rootLocation[1] + max(topMargin, min(top, maxTop))
     }
 
     private fun dismissLauncherOptionsPopup() {
@@ -11409,32 +11716,21 @@ open class LauncherActivity : AppCompatActivity(),
         }
     }
 
-    private fun applyLauncherOptionsPopupPalette(menu: View) {
-        if (!darkModeEnabled) {
-            return
+    private fun launcherOptionsPopupBackground(): Drawable =
+        roundedRectangle(
+            if (darkModeEnabled) 0xF02C2C2E.toInt() else 0xDDF4F1E8.toInt(),
+            LauncherAppOptionsMenuPolicy.CORNER_RADIUS_DP
+        )
+
+    private fun launcherOptionsTextColor(destructive: Boolean): Int =
+        when {
+            destructive -> 0xFFFF3B30.toInt()
+            darkModeEnabled -> Color.WHITE
+            else -> Color.BLACK
         }
-        menu.background = roundedRectangle(0xF02C2C2E.toInt(), 12)
-        fun tint(view: View) {
-            when (view) {
-                is TextView -> {
-                    if (view.currentTextColor != 0xFFFF2D30.toInt()) {
-                        view.setTextColor(Color.WHITE)
-                    }
-                }
-                is ImageView -> view.setColorFilter(Color.WHITE)
-            }
-            if (view is ViewGroup) {
-                for (i in 0 until view.childCount) {
-                    val child = view.getChildAt(i)
-                    if (child.layoutParams?.height == 1) {
-                        child.setBackgroundColor(0xFF48484A.toInt())
-                    }
-                    tint(child)
-                }
-            }
-        }
-        tint(menu)
-    }
+
+    private fun launcherOptionsDividerColor(): Int =
+        if (darkModeEnabled) 0xFF48484A.toInt() else 0x22000000
 
     private fun layoutSettingsPalette(darkMode: Boolean): LayoutSettingsPalette {
         return if (darkMode) {
@@ -12607,6 +12903,7 @@ open class LauncherActivity : AppCompatActivity(),
 
     private fun showLauncherOptionsOverlay(launcherItem: LauncherItem, anchor: View) {
         contextOverlay.animate().cancel()
+        setLauncherOptionsBackgroundBlurEnabled(true)
         contextOverlay.alpha = 0f
         contextOverlay.visibility = VISIBLE
         contextOverlay.bringToFront()
@@ -12618,6 +12915,7 @@ open class LauncherActivity : AppCompatActivity(),
     private fun hideLauncherOptionsOverlay() {
         hideSelectedIconPreview()
         if (!::contextOverlay.isInitialized || contextOverlay.visibility != VISIBLE) {
+            setLauncherOptionsBackgroundBlurEnabled(false)
             return
         }
         contextOverlay.animate().cancel()
@@ -12627,8 +12925,33 @@ open class LauncherActivity : AppCompatActivity(),
             .withEndAction {
                 contextOverlay.visibility = GONE
                 contextOverlay.alpha = 1f
+                setLauncherOptionsBackgroundBlurEnabled(false)
             }
             .start()
+    }
+
+    private fun setLauncherOptionsBackgroundBlurEnabled(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return
+        }
+        val effect = if (enabled) {
+            val radius = dp(22).toFloat()
+            RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+        } else {
+            null
+        }
+        if (::mHorizontalPager.isInitialized) {
+            mHorizontalPager.setRenderEffect(effect)
+        }
+        if (::mDock.isInitialized) {
+            mDock.setRenderEffect(effect)
+        }
+        if (::mIndicator.isInitialized) {
+            mIndicator.setRenderEffect(effect)
+        }
+        if (!enabled) {
+            setFolderBackgroundContentBlurEnabled(isFolderWindowActive())
+        }
     }
 
     private fun showSelectedIconPreview(launcherItem: LauncherItem, anchor: View) {
@@ -12879,6 +13202,16 @@ open class LauncherActivity : AppCompatActivity(),
             if (applicationItem.isDisabled) {
                 Toast.makeText(this, getString(R.string.toast_package_unavailable), Toast.LENGTH_SHORT).show()
             } else {
+                if (
+                    LauncherSelfLaunchPolicy.shouldOpenLauncherMenu(
+                        itemPackageName = applicationItem.packageName,
+                        targetPackageName = intent.component?.packageName,
+                        launcherPackageName = packageName
+                    )
+                ) {
+                    openLauncherMenu(context)
+                    return
+                }
                 if (user == null || user == Process.myUserHandle()) {
                     context.startActivity(intent)
                 } else {
@@ -12890,6 +13223,17 @@ open class LauncherActivity : AppCompatActivity(),
                 }
             }
         }
+    }
+
+    private fun openLauncherMenu(context: Context) {
+        val menuIntent = Intent().setClassName(
+            packageName,
+            LauncherSelfLaunchPolicy.MENU_ACTIVITY_CLASS
+        )
+        if (context !is Activity) {
+            menuIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(menuIntent)
     }
 
     private fun startShortcutIntentSafely(context: Context, intent: Intent, appItem: LauncherItem) {
@@ -13013,6 +13357,7 @@ open class LauncherActivity : AppCompatActivity(),
             for (i in 0 until mFolderAppsViewPager.childCount) {
                 toggleWobbleAnimation(mFolderAppsViewPager.getChildAt(i) as GridLayout, shouldPlay)
             }
+            refreshOpenFolderLiquidGlassIfNeeded()
         }
 
         for (page in pages) {
@@ -13969,6 +14314,7 @@ open class LauncherActivity : AppCompatActivity(),
                 }
             }
         }
+        refreshOpenFolderLiquidGlassIfNeeded()
     }
 
     private fun mutableFolderItems(folder: FolderItem): MutableList<LauncherItem> {
@@ -15448,7 +15794,7 @@ open class LauncherActivity : AppCompatActivity(),
         activeFolderView = v
         val folderMetrics = folderOpenMetrics()
         applyFolderOpenMetrics(folderMetrics)
-        applyFolderLiquidGlassAppearance(bindRealtime = !deferRealtimeGlassBinding)
+        applyFolderLiquidGlassAppearance(bindRealtime = false)
         bindFolderTitleInput(app)
         mFolderTitleInput.isCursorVisible = false
         prepareFolderContentForOpen(deferContentBinding)
@@ -15513,7 +15859,9 @@ open class LauncherActivity : AppCompatActivity(),
                 setDockChromeVisibility(false)
                 hideHomeIndicatorForFolder()
                 setFolderBackgroundContentBlurEnabled(true)
-                refreshFolderPanelRealtimeLiquidGlassIfVisible()
+                if (!deferRealtimeGlassBinding) {
+                    refreshOpenFolderLiquidGlassIfNeeded()
+                }
             }
 
             override fun onAnimationEnd(animation: Animator) {
@@ -15536,7 +15884,7 @@ open class LauncherActivity : AppCompatActivity(),
                 if (deferRealtimeGlassBinding) {
                     scheduleDeferredFolderRealtimeGlass(app, openGeneration)
                 }
-                refreshFolderPanelRealtimeLiquidGlassIfVisible()
+                refreshOpenFolderLiquidGlassIfNeeded(immediate = true)
             }
 
             override fun onAnimationCancel(animation: Animator) {
@@ -15588,6 +15936,7 @@ open class LauncherActivity : AppCompatActivity(),
         folderIndicator.animate().cancel()
         mFolderAppsViewPager.adapter = FolderAppsPagerAdapter(this, app.items.orEmpty())
         folderIndicator.setViewPager(mFolderAppsViewPager)
+        refreshOpenFolderLiquidGlassIfNeeded()
         if (!fadeIn) {
             mFolderAppsViewPager.alpha = 1f
             folderIndicator.alpha = 1f
@@ -15613,7 +15962,7 @@ open class LauncherActivity : AppCompatActivity(),
                     activeFolder === app &&
                     mFolderWindowContainer.visibility == VISIBLE
                 ) {
-                    applyFolderLiquidGlassAppearance(bindRealtime = true)
+                    refreshOpenFolderLiquidGlassIfNeeded(immediate = true)
                 }
             },
             FolderOpenPerformancePolicy.REALTIME_GLASS_BIND_DELAY_MS
@@ -15768,6 +16117,44 @@ open class LauncherActivity : AppCompatActivity(),
             )
         ) {
             binding.folderBgBlur.refreshRealtimeLiquidGlass()
+        }
+    }
+
+    private fun refreshOpenFolderLiquidGlassIfNeeded(immediate: Boolean = false) {
+        if (
+            !LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeAfterContentChange(
+                realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                folderVisible = ::mFolderWindowContainer.isInitialized &&
+                    mFolderWindowContainer.visibility == VISIBLE
+            )
+        ) {
+            return
+        }
+
+        fun refreshNow() {
+            if (
+                !LauncherRealtimeLiquidGlassPolicy.shouldRefreshFolderPanelRealtimeAfterContentChange(
+                    realtimeEnabled = shouldUseRealtimeLiquidGlass(),
+                    folderVisible = mFolderWindowContainer.visibility == VISIBLE
+                )
+            ) {
+                return
+            }
+            applyFolderLiquidGlassAppearance(bindRealtime = true)
+            refreshFolderPanelRealtimeLiquidGlassIfVisible()
+        }
+
+        if (immediate) {
+            refreshNow()
+            return
+        }
+        if (folderPanelLiquidGlassRefreshPosted) {
+            return
+        }
+        folderPanelLiquidGlassRefreshPosted = true
+        binding.folderBgBlur.post {
+            folderPanelLiquidGlassRefreshPosted = false
+            refreshNow()
         }
     }
 
@@ -15976,6 +16363,10 @@ open class LauncherActivity : AppCompatActivity(),
                 val searchBinding = requireSwipeSearchContentBinding()
                 val searchEditText = searchBinding.searchInput
                 val clearSuggestions = searchBinding.clearSuggestionImageView
+                val suggestedAppsRoot = SuggestedAppsViewPolicy.suggestedAppsRootForSearchTextObserver(
+                    swipeSearchContainer = swipeSearchContainer,
+                    usedAppsLayoutRoot = searchBinding.usedAppsLayout.root
+                )
                 searchDisposableObserver = searchEditText.textChanges()
                     .debounce(300, TimeUnit.MILLISECONDS)
                     .map { it.toString() }
@@ -15995,11 +16386,11 @@ open class LauncherActivity : AppCompatActivity(),
                         SearchInputDisposableObserver(
                             this@LauncherActivity,
                             searchBinding.suggestionRecyclerView.adapter!!,
-                            swipeSearchContainer
+                            suggestedAppsRoot
                         )
                     )
                 focusSearchInput(searchEditText)
-                refreshSuggestedApps(swipeSearchContainer, true)
+                refreshSuggestedApps(suggestedAppsRoot, true)
             }
         })
         set.start()

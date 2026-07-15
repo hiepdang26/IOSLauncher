@@ -137,6 +137,11 @@ object LauncherRealtimeLiquidGlassPolicy {
         folderVisible: Boolean
     ): Boolean = realtimeEnabled && folderVisible
 
+    fun shouldRefreshFolderPanelRealtimeAfterContentChange(
+        realtimeEnabled: Boolean,
+        folderVisible: Boolean
+    ): Boolean = realtimeEnabled && folderVisible
+
     fun shouldRefreshRealtimeDescendant(
         realtimeEnabled: Boolean,
         descendantShown: Boolean
@@ -184,6 +189,29 @@ object LauncherRealtimeLiquidGlassPolicy {
         sourceBoundWhileVisible: Boolean = true
     ): Boolean =
         sourceChanged || !realtimeLiquidGlassActive || !sourceBoundWhileVisible
+
+    fun isRealtimeGlassActive(
+        hostVisible: Boolean,
+        hostShown: Boolean,
+        hostWidth: Int,
+        hostHeight: Int,
+        glassAttached: Boolean,
+        glassVisible: Boolean,
+        glassShown: Boolean,
+        glassWidth: Int,
+        glassHeight: Int,
+        realtimeEnabled: Boolean
+    ): Boolean =
+        realtimeEnabled &&
+            hostVisible &&
+            hostShown &&
+            hostWidth > 0 &&
+            hostHeight > 0 &&
+            glassAttached &&
+            glassVisible &&
+            glassShown &&
+            glassWidth > 0 &&
+            glassHeight > 0
 
     fun shouldLayoutRealtimeViewToHostBounds(
         hostWidth: Int,

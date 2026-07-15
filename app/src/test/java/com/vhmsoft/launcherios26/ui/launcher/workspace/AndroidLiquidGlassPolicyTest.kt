@@ -279,4 +279,50 @@ class AndroidLiquidGlassPolicyTest {
         assertFalse(AndroidLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(realtimeEnabled = true))
         assertFalse(AndroidLiquidGlassPolicy.shouldUseRealtimeRemoveBadge(realtimeEnabled = false))
     }
+
+    @Test
+    fun realtimeGlassIsActiveOnlyWhenHostAndGlassAreShownAndSized() {
+        assertTrue(
+            AndroidLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = true,
+                hostWidth = 120,
+                hostHeight = 80,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = true,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = false,
+                hostWidth = 120,
+                hostHeight = 80,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = true,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+        assertFalse(
+            AndroidLiquidGlassPolicy.isRealtimeGlassActive(
+                hostVisible = true,
+                hostShown = true,
+                hostWidth = 120,
+                hostHeight = 0,
+                glassAttached = true,
+                glassVisible = true,
+                glassShown = true,
+                glassWidth = 120,
+                glassHeight = 80,
+                realtimeEnabled = true
+            )
+        )
+    }
 }

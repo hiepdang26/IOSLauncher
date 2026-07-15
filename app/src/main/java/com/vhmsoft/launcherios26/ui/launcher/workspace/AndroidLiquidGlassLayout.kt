@@ -55,10 +55,18 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
     }
 
     fun isRealtimeLiquidGlassActive(): Boolean =
-        visibility == VISIBLE &&
-            realtimeEnabled &&
-            glassView?.parent === this &&
-            glassView?.visibility == VISIBLE
+        AndroidLiquidGlassPolicy.isRealtimeGlassActive(
+            hostVisible = visibility == VISIBLE,
+            hostShown = isShown,
+            hostWidth = width,
+            hostHeight = height,
+            glassAttached = glassView?.parent === this,
+            glassVisible = glassView?.visibility == VISIBLE,
+            glassShown = glassView?.isShown == true,
+            glassWidth = glassView?.width ?: 0,
+            glassHeight = glassView?.height ?: 0,
+            realtimeEnabled = realtimeEnabled
+        )
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -75,6 +83,16 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
         super.onVisibilityChanged(changedView, visibility)
         if (changedView === this && visibility != VISIBLE) {
             sourceBoundWhileVisible = false
+        }
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (!isVisible) {
+            sourceBoundWhileVisible = false
+            updateFallbackBackground()
+        } else if (realtimeEnabled) {
+            updateGlass()
         }
     }
 
@@ -245,7 +263,10 @@ class AndroidLiquidGlassLayout @JvmOverloads constructor(
             !AndroidLiquidGlassPolicy.shouldLayoutRealtimeViewToHostBounds(
                 hostWidth = width,
                 hostHeight = height,
-                realtimeLiquidGlassActive = isRealtimeLiquidGlassActive()
+                realtimeLiquidGlassActive = realtimeEnabled &&
+                    visibility == VISIBLE &&
+                    isShown &&
+                    view.visibility == VISIBLE
             )
         ) {
             return

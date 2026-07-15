@@ -1,6 +1,7 @@
 package com.vhmsoft.launcherios26.features.launcher
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,5 +19,32 @@ class SuggestedAppsViewPolicyTest {
     @Test
     fun hasRequiredViews_returnsTrueWhenBothViewsExist() {
         assertTrue(SuggestedAppsViewPolicy.hasRequiredViews(Any(), Any()))
+    }
+
+    @Test
+    fun searchTextObserver_usesIncludedSuggestedAppsRootInsteadOfSwipeContainer() {
+        val swipeSearchContainer = Any()
+        val usedAppsLayoutRoot = Any()
+
+        assertSame(
+            usedAppsLayoutRoot,
+            SuggestedAppsViewPolicy.suggestedAppsRootForSearchTextObserver(
+                swipeSearchContainer = swipeSearchContainer,
+                usedAppsLayoutRoot = usedAppsLayoutRoot
+            )
+        )
+    }
+
+    @Test
+    fun searchTextObserver_fallsBackToSwipeContainerWhenIncludedRootIsMissing() {
+        val swipeSearchContainer = Any()
+
+        assertSame(
+            swipeSearchContainer,
+            SuggestedAppsViewPolicy.suggestedAppsRootForSearchTextObserver(
+                swipeSearchContainer = swipeSearchContainer,
+                usedAppsLayoutRoot = null
+            )
+        )
     }
 }
