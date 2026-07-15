@@ -174,6 +174,7 @@ import com.vhmsoft.launcherios26.databinding.ActivityMainBinding
 import com.vhmsoft.launcherios26.databinding.AppsPageBinding
 import com.vhmsoft.launcherios26.databinding.AppViewBinding
 import com.vhmsoft.launcherios26.databinding.LayoutSearchSuggestionBinding
+import com.vhmsoft.launcherios26.databinding.LayoutUsedAppsBinding
 import com.vhmsoft.launcherios26.databinding.PopupLauncherAppOptionsBinding
 import com.vhmsoft.launcherios26.databinding.WidgetsPageBinding
 import com.vhmsoft.launcherios26.di.RepositoryProvider
@@ -494,6 +495,10 @@ open class LauncherActivity : AppCompatActivity(),
     private var mSuggestedApps: List<ApplicationItem> = ArrayList()
     private lateinit var swipeSearchContainer: FrameLayout
     private var swipeSearchContentBinding: LayoutSearchSuggestionBinding? = null
+    private lateinit var launcherSearchController: LauncherSearchController
+    private lateinit var homeNavigationController: LauncherHomeNavigationController
+    private lateinit var dockChromeController: LauncherDockChromeController
+    private lateinit var workspaceChromeController: LauncherWorkspaceChromeController
     private lateinit var searchBackgroundBlocker: View
     private lateinit var workspace: InsettableRelativeLayout
     private lateinit var blurLayer: View
@@ -733,7 +738,9 @@ open class LauncherActivity : AppCompatActivity(),
         darkBlurLayer.alpha = 0f
 
         mDock = binding.dock
+        dockChromeController = createDockChromeController()
         mIndicator = binding.pageIndicator
+        workspaceChromeController = createWorkspaceChromeController()
         editTopBar = binding.editTopBar
         binding.editOptionsButton.setOnClickListener {
             showHomeWidgetEntryCard()
@@ -757,6 +764,10 @@ open class LauncherActivity : AppCompatActivity(),
         mProgressBar = binding.progressbar
         swipeSearchContainer = binding.swipeSearchContainer
         swipeSearchContentBinding = LayoutSearchSuggestionBinding.bind(swipeSearchContainer.getChildAt(0))
+        launcherSearchController = LauncherSearchController(
+            BlissSearchInputAdapter { requireSwipeSearchContentBinding().searchInput }
+        )
+        homeNavigationController = createHomeNavigationController()
         searchBackgroundBlocker = binding.searchBackgroundBlocker
         searchBackgroundBlocker.setOnClickListener { }
         maxDistanceForFolderCreation = (0.45f * mDeviceProfile.iconSizePx).toInt().toFloat()
@@ -1368,6 +1379,100 @@ open class LauncherActivity : AppCompatActivity(),
             null
         }
 
+    private fun createDockChromeController(): LauncherDockChromeController {
+        return LauncherDockChromeController(
+            dock = object : LauncherDockChromeController.DockSurface {
+                override var visible: Boolean
+                    get() = mDock.visibility == VISIBLE
+                    set(value) {
+                        mDock.visibility = if (value) VISIBLE else GONE
+                    }
+
+                override var alpha: Float
+                    get() = mDock.alpha
+                    set(value) {
+                        mDock.alpha = value
+                    }
+
+                override var translationY: Float
+                    get() = mDock.translationY
+                    set(value) {
+                        mDock.translationY = value
+                    }
+
+                override fun setExternalRealtimeLiquidGlassEnabled(enabled: Boolean) {
+                    mDock.setExternalRealtimeLiquidGlassEnabled(enabled)
+                }
+            },
+            glassProvider = { dockGlassSurface() },
+            realtimeDockEnabled = { shouldUseRealtimeDockGlass() }
+        )
+    }
+
+    private fun dockGlassSurface(): LauncherDockChromeController.DockGlassSurface? {
+        val dockGlass = dockGlassBackground() ?: return null
+        return object : LauncherDockChromeController.DockGlassSurface {
+            override var visible: Boolean
+                get() = dockGlass.visibility == VISIBLE
+                set(value) {
+                    dockGlass.visibility = if (value) VISIBLE else GONE
+                }
+
+            override var alpha: Float
+                get() = dockGlass.alpha
+                set(value) {
+                    dockGlass.alpha = value
+                }
+
+            override var translationY: Float
+                get() = dockGlass.translationY
+                set(value) {
+                    dockGlass.translationY = value
+                }
+
+            override fun isRealtimeLiquidGlassActive(): Boolean =
+                dockGlass.isRealtimeLiquidGlassActive()
+
+            override fun refreshRealtimeLiquidGlass() {
+                dockGlass.refreshRealtimeLiquidGlass()
+            }
+        }
+    }
+
+    private fun createWorkspaceChromeController(): LauncherWorkspaceChromeController {
+        return LauncherWorkspaceChromeController(
+            object : LauncherWorkspaceChromeController.Actions {
+                override fun hideHomeIndicatorForFolder() {
+                    this@LauncherActivity.hideHomeIndicatorForFolder()
+                }
+
+                override fun removeIndicatorHideCallbacks() {
+                    indicatorHandler.removeCallbacks(hideIndicatorRunnable)
+                }
+
+                override fun resetHomeIndicatorPosition() {
+                    this@LauncherActivity.resetHomeIndicatorPosition()
+                }
+
+                override fun setDockChromeVisible(visible: Boolean) {
+                    setDockChromeVisibility(visible)
+                }
+
+                override fun setIndicatorChromeVisible(visible: Boolean) {
+                    setIndicatorChromeVisibility(visible)
+                }
+
+                override fun showDotsInIndicator(position: Int, animate: Boolean) {
+                    this@LauncherActivity.showDotsInIndicator(position, animate)
+                }
+
+                override fun showSearchControlInIndicator(animated: Boolean) {
+                    this@LauncherActivity.showSearchControlInIndicator(animated)
+                }
+            }
+        )
+    }
+
     private fun shouldShowDockForPage(
         page: Int,
         folderVisible: Boolean = isFolderWindowActive()
@@ -1380,42 +1485,13 @@ open class LauncherActivity : AppCompatActivity(),
         )
 
     private fun setDockChromeVisibility(visible: Boolean) {
-        if (!::mDock.isInitialized) return
-        mDock.visibility = if (visible) VISIBLE else GONE
-        dockGlassBackground()?.let { dockGlass ->
-            val desiredRealtimeDock = shouldUseRealtimeDockGlass()
-            val keepRealtimeDockAttached =
-                LauncherRealtimeLiquidGlassPolicy.shouldKeepRealtimeGlassAttachedWhenChromeHidden(
-                    surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
-                    realtimeEnabled = desiredRealtimeDock
-                )
-            dockGlass.visibility =
-                if (desiredRealtimeDock && (visible || keepRealtimeDockAttached)) VISIBLE else GONE
-            dockGlass.alpha = if (visible) mDock.alpha else 0f
-            if (
-                LauncherRealtimeLiquidGlassPolicy.shouldRefreshRealtimeOnPersistentChromeRestore(
-                    realtimeEnabled = desiredRealtimeDock,
-                    nextVisible = visible,
-                    realtimeLiquidGlassActive = dockGlass.isRealtimeLiquidGlassActive()
-                )
-            ) {
-                dockGlass.refreshRealtimeLiquidGlass()
-            }
-            mDock.setExternalRealtimeLiquidGlassEnabled(
-                LauncherRealtimeLiquidGlassPolicy.shouldDisableFallbackDrawingForExternalGlass(
-                    surface = LauncherRealtimeLiquidGlassPolicy.Surface.DOCK,
-                    realtimeLiquidGlassActive = dockGlass.isRealtimeLiquidGlassActive()
-                )
-            )
-        }
+        if (!::mDock.isInitialized || !::dockChromeController.isInitialized) return
+        dockChromeController.setVisibility(visible)
     }
 
     private fun syncDockChromeTransform() {
-        if (!::mDock.isInitialized) return
-        dockGlassBackground()?.let { dockGlass ->
-            dockGlass.translationY = mDock.translationY
-            dockGlass.alpha = if (mDock.visibility == VISIBLE) mDock.alpha else 0f
-        }
+        if (!::mDock.isInitialized || !::dockChromeController.isInitialized) return
+        dockChromeController.syncTransform()
     }
 
     private fun indicatorGlassBackground(): LauncherRealtimeLiquidGlassLayout? =
@@ -8281,7 +8357,7 @@ open class LauncherActivity : AppCompatActivity(),
         if (::binding.isInitialized) {
             binding.liquidGlassWallpaper
         } else {
-            realtimeLiquidGlassSource()?.findViewById(R.id.liquid_glass_wallpaper)
+            null
         }
 
     private fun defaultWallpaperDrawable(): Drawable? =
@@ -9192,13 +9268,16 @@ open class LauncherActivity : AppCompatActivity(),
     }
 
     fun refreshSuggestedApps(viewGroup: ViewGroup, forceRefresh: Boolean) {
-        val openUsageAccessSettingsTv = viewGroup.findViewById<TextView?>(R.id.openUsageAccessSettings)
-        val suggestedAppsGridLayout = viewGroup.findViewById<GridLayout?>(R.id.suggestedAppGrid)
-        if (!SuggestedAppsViewPolicy.hasRequiredViews(openUsageAccessSettingsTv, suggestedAppsGridLayout)) {
+        val suggestedAppsBinding = bindSuggestedAppsView(viewGroup) ?: return
+        if (!SuggestedAppsViewPolicy.hasRequiredViews(
+                suggestedAppsBinding.openUsageAccessSettings,
+                suggestedAppsBinding.suggestedAppGrid
+            )
+        ) {
             return
         }
-        val openUsageAccessSettings = openUsageAccessSettingsTv ?: return
-        val suggestedAppsGrid = suggestedAppsGridLayout ?: return
+        val openUsageAccessSettings = suggestedAppsBinding.openUsageAccessSettings
+        val suggestedAppsGrid = suggestedAppsBinding.suggestedAppGrid
 
         val suggestedApps = fallbackSuggestedApps(LauncherSearchResultPolicy.EMPTY_QUERY_SUGGESTION_LIMIT)
 
@@ -9223,6 +9302,9 @@ open class LauncherActivity : AppCompatActivity(),
         mSuggestedApps = suggestedApps
         forceRefreshSuggestedApps = false
     }
+
+    private fun bindSuggestedAppsView(viewGroup: ViewGroup): LayoutUsedAppsBinding? =
+        runCatching { LayoutUsedAppsBinding.bind(viewGroup) }.getOrNull()
 
     private fun fallbackSuggestedApps(limit: Int): List<ApplicationItem> {
         val apps = LinkedHashMap<String, ApplicationItem>()
@@ -10928,10 +11010,9 @@ open class LauncherActivity : AppCompatActivity(),
     }
 
     override fun onClick(suggestion: String) {
-        mSearchInput?.setText(suggestion)
-        runSearch(suggestion)
-        mSearchInput?.clearFocus()
-        mSearchInput?.setText("")
+        launcherSearchController.selectSuggestion(suggestion) { query ->
+            runSearch(query)
+        }
     }
 
     private fun runSearch(query: String) {
@@ -15273,28 +15354,26 @@ open class LauncherActivity : AppCompatActivity(),
     private fun homeIndicatorPageCount(): Int = pages.size
 
     private fun updateWorkspaceChromeForPage(page: Int) {
-        if (isFolderWindowActive()) {
-            hideHomeIndicatorForFolder()
-            return
-        }
-        if (isAppLibraryPage(page)) {
-            indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-            resetHomeIndicatorPosition()
-            setDockChromeVisibility(false)
-            setIndicatorChromeVisibility(false)
-        } else {
-            setDockChromeVisibility(shouldShowDockForPage(page))
-        }
+        workspaceChromeController.updateForPage(workspaceChromeState(page))
+    }
 
-        if (!isHomePage(page)) {
-            indicatorHandler.removeCallbacks(hideIndicatorRunnable)
-            resetHomeIndicatorPosition()
-            setIndicatorChromeVisibility(false)
-        } else if (isWobbling || shouldKeepPageDotsVisibleForDockStyle()) {
-            showDotsInIndicator(homePagePositionForPagerPage(page), false)
-            setIndicatorChromeVisibility(true)
-        } else if (indicatorMode == IndicatorMode.SEARCH) {
-            showSearchControlInIndicator(false)
+    private fun workspaceChromeState(page: Int): LauncherWorkspaceChromeController.WorkspaceChromeState {
+        return LauncherWorkspaceChromeController.WorkspaceChromeState(
+            folderActive = isFolderWindowActive(),
+            appLibraryPage = isAppLibraryPage(page),
+            homePage = isHomePage(page),
+            showDockForPage = shouldShowDockForPage(page),
+            editing = isWobbling,
+            keepDotsVisible = shouldKeepPageDotsVisibleForDockStyle(),
+            indicatorMode = workspaceChromeIndicatorMode(),
+            homePagePosition = homePagePositionForPagerPage(page)
+        )
+    }
+
+    private fun workspaceChromeIndicatorMode(): LauncherWorkspaceChromeController.IndicatorMode {
+        return when (indicatorMode) {
+            IndicatorMode.DOTS -> LauncherWorkspaceChromeController.IndicatorMode.DOTS
+            IndicatorMode.SEARCH -> LauncherWorkspaceChromeController.IndicatorMode.SEARCH
         }
     }
 
@@ -15597,13 +15676,8 @@ open class LauncherActivity : AppCompatActivity(),
         searchBackgroundBlocker.animate().cancel()
         searchBackgroundBlocker.visibility = GONE
         searchBackgroundBlocker.alpha = 0f
-        requireSwipeSearchContentBinding().searchInput.apply {
-            setText("")
-            clearFocus()
-        }
-        if (searchDisposableObserver?.isDisposed == false) {
-            searchDisposableObserver?.dispose()
-        }
+        launcherSearchController.resetQuery()
+        launcherSearchController.disposeSearchObserver(SearchObserverAdapter { searchDisposableObserver })
         showSwipeSearch = false
     }
 
@@ -15726,79 +15800,119 @@ open class LauncherActivity : AppCompatActivity(),
     }
 
     private fun returnToHomeScreen() {
-        if (hiddenAppsPanel != null) {
-            hideHiddenAppsPanel()
-            return
-        }
+        homeNavigationController.returnToHome(homeNavigationState())
+    }
 
-        if (layoutSettingsPanel != null) {
-            hideLayoutSettingsPanel()
-            return
-        }
-
-        if (blurSettingsPanel != null) {
-            hideBlurEffectSettingsPanel()
-            return
-        }
-
-        if (renameAppPanel != null) {
-            hideRenameAppPicker()
-            return
-        }
-
-        if (widgetPreviewOverlay != null) {
-            dismissTodayWidgetPreview()
-            return
-        }
-
-        if (widgetPickerDialog?.isShowing == true) {
-            dismissTodayWidgetPicker()
-            return
-        }
-
-        if (appLibrarySearchOverlay != null) {
-            hideAppLibrarySearchOverlay(animated = true)
-            return
-        }
-
-        if (appLibraryDetailOverlay != null) {
-            hideAppLibraryDetailOverlay(animated = true)
-            return
-        }
-
-        if (homeWidgetOptionsPopup != null) {
-            dismissHomeWidgetOptionsPopup()
-            return
-        }
-
-        if (launcherOptionsPopup != null || (::contextOverlay.isInitialized && contextOverlay.visibility == VISIBLE)) {
-            dismissLauncherOptionsPopup()
-            return
-        }
-
-        if (activeRoundedWidgetView != null && activeRoundedWidgetView?.isWidgetActivated() == true) {
-            hideWidgetResizeContainer()
-        }
-
-        mSearchInput?.setText("")
-
-        if (swipeSearchContainer.visibility == VISIBLE) {
-            hideSwipeSearchContainer()
-        }
-
+    private fun homeNavigationState(): LauncherHomeNavigationController.ReturnHomeState {
         val folderVisible = mFolderWindowContainer.visibility == VISIBLE
-        when (
+        return LauncherHomeNavigationController.ReturnHomeState(
+            hiddenAppsPanelVisible = hiddenAppsPanel != null,
+            layoutSettingsPanelVisible = layoutSettingsPanel != null,
+            blurSettingsPanelVisible = blurSettingsPanel != null,
+            renameAppPanelVisible = renameAppPanel != null,
+            widgetPreviewVisible = widgetPreviewOverlay != null,
+            widgetPickerShowing = widgetPickerDialog?.isShowing == true,
+            appLibrarySearchOverlayVisible = appLibrarySearchOverlay != null,
+            appLibraryDetailOverlayVisible = appLibraryDetailOverlay != null,
+            homeWidgetOptionsVisible = homeWidgetOptionsPopup != null,
+            launcherOptionsVisible = launcherOptionsPopup != null ||
+                (::contextOverlay.isInitialized && contextOverlay.visibility == VISIBLE),
+            activeWidgetResizing = activeRoundedWidgetView != null &&
+                activeRoundedWidgetView?.isWidgetActivated() == true,
+            swipeSearchVisible = swipeSearchContainer.visibility == VISIBLE,
+            returnHomeAction = homeNavigationReturnAction(folderVisible)
+        )
+    }
+
+    private fun homeNavigationReturnAction(
+        folderVisible: Boolean
+    ): LauncherHomeNavigationController.ReturnHomeAction {
+        return when (
             LauncherEditModeEntryPolicy.returnHomeAction(
                 isEditing = isWobbling,
                 todayWidgetEditing = isTodayWidgetEditing,
                 folderVisible = folderVisible
             )
         ) {
-            LauncherEditModeEntryPolicy.ReturnHomeAction.CLOSE_FOLDER -> hideFolderWindowContainer()
-            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_EDIT_MODE -> handleWobbling(false)
-            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_TODAY_WIDGET_EDIT -> setTodayWidgetEditing(false)
-            LauncherEditModeEntryPolicy.ReturnHomeAction.NONE -> Unit
+            LauncherEditModeEntryPolicy.ReturnHomeAction.CLOSE_FOLDER ->
+                LauncherHomeNavigationController.ReturnHomeAction.CLOSE_FOLDER
+            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_EDIT_MODE ->
+                LauncherHomeNavigationController.ReturnHomeAction.EXIT_EDIT_MODE
+            LauncherEditModeEntryPolicy.ReturnHomeAction.EXIT_TODAY_WIDGET_EDIT ->
+                LauncherHomeNavigationController.ReturnHomeAction.EXIT_TODAY_WIDGET_EDIT
+            LauncherEditModeEntryPolicy.ReturnHomeAction.NONE ->
+                LauncherHomeNavigationController.ReturnHomeAction.NONE
         }
+    }
+
+    private fun createHomeNavigationController(): LauncherHomeNavigationController {
+        return LauncherHomeNavigationController(
+            object : LauncherHomeNavigationController.Actions {
+                override fun hideHiddenAppsPanel() {
+                    this@LauncherActivity.hideHiddenAppsPanel()
+                }
+
+                override fun hideLayoutSettingsPanel() {
+                    this@LauncherActivity.hideLayoutSettingsPanel()
+                }
+
+                override fun hideBlurEffectSettingsPanel() {
+                    this@LauncherActivity.hideBlurEffectSettingsPanel()
+                }
+
+                override fun hideRenameAppPicker() {
+                    this@LauncherActivity.hideRenameAppPicker()
+                }
+
+                override fun dismissTodayWidgetPreview() {
+                    this@LauncherActivity.dismissTodayWidgetPreview()
+                }
+
+                override fun dismissTodayWidgetPicker() {
+                    this@LauncherActivity.dismissTodayWidgetPicker()
+                }
+
+                override fun hideAppLibrarySearchOverlay() {
+                    this@LauncherActivity.hideAppLibrarySearchOverlay(animated = true)
+                }
+
+                override fun hideAppLibraryDetailOverlay() {
+                    this@LauncherActivity.hideAppLibraryDetailOverlay(animated = true)
+                }
+
+                override fun dismissHomeWidgetOptionsPopup() {
+                    this@LauncherActivity.dismissHomeWidgetOptionsPopup()
+                }
+
+                override fun dismissLauncherOptionsPopup() {
+                    this@LauncherActivity.dismissLauncherOptionsPopup()
+                }
+
+                override fun hideWidgetResizeContainer() {
+                    this@LauncherActivity.hideWidgetResizeContainer()
+                }
+
+                override fun clearSearchQuery() {
+                    launcherSearchController.clearQuery()
+                }
+
+                override fun hideSwipeSearchContainer() {
+                    this@LauncherActivity.hideSwipeSearchContainer()
+                }
+
+                override fun hideFolderWindowContainer() {
+                    this@LauncherActivity.hideFolderWindowContainer()
+                }
+
+                override fun exitEditMode() {
+                    handleWobbling(false)
+                }
+
+                override fun exitTodayWidgetEdit() {
+                    setTodayWidgetEditing(false)
+                }
+            }
+        )
     }
 
     private fun showSwipeSearchContainer() {
@@ -15914,8 +16028,9 @@ open class LauncherActivity : AppCompatActivity(),
             hideSwipeSearchContainer()
         }
         clearSuggestions.setOnClickListener {
-            searchEditText.setText("")
-            focusSearchInput(searchEditText)
+            launcherSearchController.clearQueryAndFocus {
+                focusSearchInput(searchEditText)
+            }
         }
 
         val suggestionRecyclerView = searchBinding.suggestionRecyclerView
@@ -15934,11 +16049,10 @@ open class LauncherActivity : AppCompatActivity(),
 
         searchEditText.setOnEditorActionListener { _, action, _ ->
             if (action == EditorInfo.IME_ACTION_SEARCH) {
-                hideKeyboard(searchEditText)
-                runSearch(searchEditText.text.toString())
-                searchEditText.setText("")
-                searchEditText.clearFocus()
-                true
+                launcherSearchController.submitCurrentQuery(
+                    hideKeyboard = { hideKeyboard(searchEditText) },
+                    runSearch = { query -> runSearch(query) }
+                )
             } else {
                 false
             }
@@ -16005,13 +16119,8 @@ open class LauncherActivity : AppCompatActivity(),
                 searchBackgroundBlocker.visibility = GONE
                 searchBackgroundBlocker.alpha = 0f
                 setBlurLayersAlpha(0f)
-                if (searchDisposableObserver != null && searchDisposableObserver?.isDisposed == false) {
-                    searchDisposableObserver?.dispose()
-                }
-                requireSwipeSearchContentBinding().searchInput.apply {
-                    setText("")
-                    clearFocus()
-                }
+                launcherSearchController.disposeSearchObserver(SearchObserverAdapter { searchDisposableObserver })
+                launcherSearchController.resetQuery()
                 setDockChromeVisibility(shouldShowDockForPage(currentPageNumber))
                 syncDockChromeTransform()
             }
