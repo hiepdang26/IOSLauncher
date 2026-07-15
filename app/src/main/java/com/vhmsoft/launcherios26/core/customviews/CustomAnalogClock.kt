@@ -207,24 +207,31 @@ class CustomAnalogClock : View {
     }
 
     private fun drawTicks(canvas: Canvas, cX: Float, cY: Float, iconSize: Float) {
-        val outerRadius = iconSize * TICK_OUTER_RADIUS_FRACTION
+        val halfExtent = iconSize * TICK_OUTER_HALF_FRACTION
         for (tick in 0 until TICK_COUNT) {
             val isHourTick = tick % HOUR_TICK_INTERVAL == 0
             val angle = tick * FULL_CIRCLE_DEGREES / TICK_COUNT
-            val innerRadius = outerRadius - if (isHourTick) {
+            val tickLength = if (isHourTick) {
                 iconSize * HOUR_TICK_LENGTH_FRACTION
             } else {
                 iconSize * MINUTE_TICK_LENGTH_FRACTION
             }
             tickPaint.style = Paint.Style.STROKE
-            tickPaint.strokeCap = Paint.Cap.ROUND
+            tickPaint.strokeCap = Paint.Cap.BUTT
             tickPaint.strokeWidth = if (isHourTick) {
                 (iconSize * HOUR_TICK_WIDTH_FRACTION).coerceAtLeast(1.25f)
             } else {
                 (iconSize * MINUTE_TICK_WIDTH_FRACTION).coerceAtLeast(1f)
             }
             tickPaint.color = if (isHourTick) HOUR_TICK_COLOR else MINUTE_TICK_COLOR
-            drawRadialLine(canvas, cX, cY, innerRadius, outerRadius, angle, tickPaint)
+            val line = ClockFaceGeometryPolicy.squareRadialLine(
+                centerX = cX,
+                centerY = cY,
+                halfExtent = halfExtent,
+                lineLength = tickLength,
+                angle = angle
+            )
+            canvas.drawLine(line.startX, line.startY, line.endX, line.endY, tickPaint)
         }
     }
 
@@ -369,7 +376,7 @@ class CustomAnalogClock : View {
         private const val HOUR_TICK_INTERVAL = 5
         private const val ICON_CORNER_FRACTION = 0.24f
         private const val BORDER_WIDTH_FRACTION = 0.006f
-        private const val TICK_OUTER_RADIUS_FRACTION = 0.455f
+        private const val TICK_OUTER_HALF_FRACTION = 0.405f
         private const val HOUR_TICK_LENGTH_FRACTION = 0.098f
         private const val MINUTE_TICK_LENGTH_FRACTION = 0.066f
         private const val HOUR_TICK_WIDTH_FRACTION = 0.018f
